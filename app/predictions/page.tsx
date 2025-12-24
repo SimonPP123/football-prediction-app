@@ -103,21 +103,24 @@ export default function PredictionsPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Helper to get prediction from either array or object format
+  const getPrediction = (f: any) => Array.isArray(f.prediction) ? f.prediction[0] : f.prediction
+
   const handleGenerateAll = async () => {
-    const fixturesWithoutPredictions = fixtures.filter(f => !f.prediction?.[0])
-    if (fixturesWithoutPredictions.length === 0) return
+    const unpredicted = fixtures.filter(f => !getPrediction(f))
+    if (unpredicted.length === 0) return
 
     setGeneratingAll(true)
 
-    for (const fixture of fixturesWithoutPredictions) {
+    for (const fixture of unpredicted) {
       await handleGeneratePrediction(fixture.id)
     }
 
     setGeneratingAll(false)
   }
 
-  const fixturesWithPredictions = fixtures.filter(f => f.prediction?.[0])
-  const fixturesWithoutPredictions = fixtures.filter(f => !f.prediction?.[0])
+  const fixturesWithPredictions = fixtures.filter(f => getPrediction(f))
+  const fixturesWithoutPredictions = fixtures.filter(f => !getPrediction(f))
 
   return (
     <div className="min-h-screen">

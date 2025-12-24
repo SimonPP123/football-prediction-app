@@ -13,7 +13,10 @@ interface PredictionCardProps {
 export function PredictionCard({ fixture, onGeneratePrediction, isGenerating }: PredictionCardProps) {
   const [expanded, setExpanded] = useState(false)
 
-  const prediction = fixture.prediction?.[0]
+  // Handle both array and object formats from Supabase
+  const prediction = Array.isArray(fixture.prediction)
+    ? fixture.prediction[0]
+    : fixture.prediction
   const hasPrediction = !!prediction
 
   const getPredictionBadgeColor = (result: string) => {

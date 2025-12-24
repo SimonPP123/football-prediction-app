@@ -63,7 +63,10 @@ export async function POST(request: Request) {
       })
 
       if (webhookResponse.ok) {
-        const prediction = await webhookResponse.json()
+        const rawResponse = await webhookResponse.json()
+
+        // n8n returns an array, extract the first item
+        const prediction = Array.isArray(rawResponse) ? rawResponse[0] : rawResponse
 
         // Save prediction to database
         // The new workflow returns: prediction, confidence_pct, probabilities, etc.

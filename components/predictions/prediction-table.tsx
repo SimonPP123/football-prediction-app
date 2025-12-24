@@ -47,7 +47,10 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
           </thead>
           <tbody>
             {fixtures.map((fixture) => {
-              const prediction = fixture.prediction?.[0]
+              // Handle both array and object formats from Supabase
+              const prediction = Array.isArray(fixture.prediction)
+                ? fixture.prediction[0]
+                : fixture.prediction
               const isExpanded = expandedId === fixture.id
               const isGenerating = generatingIds.includes(fixture.id)
 
