@@ -63,13 +63,6 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="absolute bottom-4 left-4 right-4">
-        <div className="px-3 py-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
-          <p>Data from API-Football</p>
-          <p>AI by OpenAI GPT-4o</p>
-        </div>
-      </div>
     </aside>
   )
 }
