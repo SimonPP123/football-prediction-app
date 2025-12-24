@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { savePrediction } from '@/lib/supabase/queries'
 
-const N8N_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.analyserinsights.com/webhook/football-prediction'
+const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.analyserinsights.com/webhook/football-prediction'
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id } = await request.json()
+    const { fixture_id, webhook_url } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json(
@@ -14,6 +14,9 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Use custom webhook URL if provided, otherwise use default
+    const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
 
     // Get fixture details
     const { data: fixture, error: fixtureError } = await supabase
@@ -50,7 +53,8 @@ export async function POST(request: Request) {
     }
 
     try {
-      const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
+      console.log(`Calling webhook: ${webhookUrl}`)
+      const webhookResponse = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
