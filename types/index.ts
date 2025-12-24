@@ -1,0 +1,182 @@
+// Database types
+export interface Team {
+  id: string
+  api_id: number
+  name: string
+  code: string | null
+  country: string | null
+  logo: string | null
+  venue_id: string | null
+  created_at: string
+}
+
+export interface Fixture {
+  id: string
+  api_id: number
+  league_id: string
+  season: number
+  round: string | null
+  home_team_id: string
+  away_team_id: string
+  match_date: string
+  venue_id: string | null
+  referee: string | null
+  status: string
+  goals_home: number | null
+  goals_away: number | null
+  score_halftime: { home: number; away: number } | null
+  score_fulltime: { home: number; away: number } | null
+  created_at: string
+  updated_at: string
+}
+
+export interface FixtureWithTeams extends Fixture {
+  home_team: Team
+  away_team: Team
+  venue?: Venue
+  prediction?: Prediction
+}
+
+export interface Venue {
+  id: string
+  api_id: number | null
+  name: string
+  city: string | null
+  capacity: number | null
+  surface: string | null
+}
+
+export interface Standing {
+  id: string
+  league_id: string
+  season: number
+  team_id: string
+  rank: number
+  points: number
+  goal_diff: number
+  form: string | null
+  description: string | null
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goals_for: number
+  goals_against: number
+  home_record: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } } | null
+  away_record: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } } | null
+  updated_at: string
+  team?: Team
+}
+
+export interface Prediction {
+  id: string
+  fixture_id: string
+  overall_index: number | null
+  prediction_result: '1' | 'X' | '2' | '1X' | 'X2' | '12' | null
+  confidence_level: 'high' | 'medium' | 'low' | null
+  factors: Record<string, any>
+  analysis_text: string | null
+  key_factors: string[] | null
+  risk_factors: string[] | null
+  model_version: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AIPrediction {
+  prediction_1x2: '1' | 'X' | '2'
+  confidence: number
+  home_win_pct: number
+  draw_pct: number
+  away_win_pct: number
+  over_under: string
+  btts: 'Yes' | 'No'
+  value_bet: string | null
+  key_factors: string[]
+  risk_factors: string[]
+  summary: string
+  detailed_analysis: string
+}
+
+export interface Player {
+  id: string
+  api_id: number
+  name: string
+  firstname: string | null
+  lastname: string | null
+  age: number | null
+  birth_date: string | null
+  nationality: string | null
+  height: string | null
+  weight: string | null
+  photo: string | null
+  injured: boolean
+}
+
+export interface Coach {
+  id: string
+  api_id: number
+  name: string
+  firstname: string | null
+  lastname: string | null
+  nationality: string | null
+  photo: string | null
+  team_id: string | null
+}
+
+export interface TopPerformer {
+  id: string
+  league_id: string
+  season: number
+  category: 'goals' | 'assists' | 'yellow_cards' | 'red_cards'
+  rank: number
+  player_api_id: number | null
+  player_id: string | null
+  player_name: string
+  player_photo: string | null
+  team_api_id: number | null
+  team_id: string | null
+  team_name: string | null
+  team_logo: string | null
+  value: number
+  appearances: number | null
+}
+
+export interface TeamSeasonStats {
+  id: string
+  team_id: string
+  league_id: string
+  season: number
+  fixtures_played: number
+  wins: number
+  draws: number
+  losses: number
+  goals_for: number
+  goals_against: number
+  goals_for_avg: number | null
+  goals_against_avg: number | null
+  clean_sheets: number
+  failed_to_score: number
+  form: string | null
+  home_stats: Record<string, any> | null
+  away_stats: Record<string, any> | null
+}
+
+export interface HeadToHead {
+  id: string
+  team1_id: string
+  team2_id: string
+  matches_played: number
+  team1_wins: number
+  team2_wins: number
+  draws: number
+  team1_goals: number
+  team2_goals: number
+  last_fixtures: Array<{
+    date: string
+    home_team: string
+    away_team: string
+    home_goals: number
+    away_goals: number
+  }> | null
+}
