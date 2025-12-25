@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { savePrediction, savePredictionToHistory, getPrediction } from '@/lib/supabase/queries'
 
 const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.analyserinsights.com/webhook/football-prediction'
 
@@ -20,17 +19,6 @@ export async function POST(request: Request) {
 
     // Use custom webhook URL if provided, otherwise use default
     const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
-
-    // Check if there's an existing prediction - save to history before regenerating
-    try {
-      const existingPrediction = await getPrediction(fixture_id)
-      if (existingPrediction) {
-        await savePredictionToHistory(fixture_id)
-        console.log(`Saved existing prediction to history for fixture ${fixture_id}`)
-      }
-    } catch (historyError) {
-      console.warn('Could not save to history (table may not exist yet):', historyError)
-    }
 
     // Get fixture details
     const { data: fixture, error: fixtureError } = await supabase
@@ -109,56 +97,14 @@ export async function POST(request: Request) {
         }, { status: 502 })
       }
 
-      // Map n8n response to our database schema
-      // Handle both old format (probabilities object) and new format (flat fields)
-      const homeWinPct = prediction.probabilities?.home_win_pct || prediction.home_win_pct
-      const drawPct = prediction.probabilities?.draw_pct || prediction.draw_pct
-      const awayWinPct = prediction.probabilities?.away_win_pct || prediction.away_win_pct
-
-      // Build factors object - includes A-I breakdown if available, plus quick-access fields
-      const factorsData = {
-        // A-I Factor breakdown (if provided by AI)
-        ...(prediction.factors || {}),
-        // Quick-access fields for UI
-        home_win_pct: homeWinPct,
-        draw_pct: drawPct,
-        away_win_pct: awayWinPct,
-        over_under: prediction.over_under_2_5,
-        btts: prediction.btts,
-        value_bet: prediction.value_bet,
-      }
-
-      const predictionData = {
-        prediction_1x2: prediction.prediction,
-        confidence: prediction.confidence_pct,
-        overall_index: prediction.overall_index || prediction.confidence_pct, // Use overall_index if available
-        home_win_pct: homeWinPct,
-        draw_pct: drawPct,
-        away_win_pct: awayWinPct,
-        over_under: prediction.over_under_2_5,
-        btts: prediction.btts,
-        value_bet: prediction.value_bet,
-        key_factors: prediction.key_factors,
-        risk_factors: prediction.risk_factors,
-        detailed_analysis: prediction.analysis,
-        score_predictions: prediction.score_predictions || null,
-        most_likely_score: prediction.most_likely_score || null,
-        factors: factorsData, // Full factor breakdown for display
-      }
-
-      const saved = await savePrediction(fixture_id, predictionData, selectedModel)
-
-      // Save to history for every prediction
-      try {
-        await savePredictionToHistory(fixture_id)
-      } catch (histErr) {
-        console.error('Failed to save prediction to history:', histErr)
-        // Non-fatal - prediction was saved, history is a bonus
-      }
+      // n8n workflow will handle saving to database
+      // Return success to frontend so it can refresh the data
+      console.log(`Prediction generated successfully for fixture ${fixture_id} using model ${selectedModel}`)
 
       return NextResponse.json({
         success: true,
-        prediction: saved,
+        message: 'Prediction request sent to n8n workflow. Refresh to see results.',
+        fixture_id: fixture_id,
         model_used: selectedModel,
       })
     } catch (webhookError: any) {

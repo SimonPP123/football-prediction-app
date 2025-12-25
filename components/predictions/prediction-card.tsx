@@ -279,7 +279,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             </div>
             <div className="bg-muted/50 rounded p-2">
               <p className="text-muted-foreground">Value</p>
-              <p className="font-medium truncate">{prediction.factors.value_bet || 'N/A'}</p>
+              <p className="font-medium text-sm break-words">{prediction.factors.value_bet || 'N/A'}</p>
             </div>
           </div>
         )}
@@ -425,7 +425,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                         const awayOdds = findOutcome(o.values, 'away')
                         return (
                           <div key={o.id} className="grid grid-cols-4 gap-1 text-xs bg-card rounded p-1">
-                            <span className="text-muted-foreground truncate">{o.bookmaker}</span>
+                            <span className="text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
                             <span className={cn(
                               "text-center font-medium",
                               homeOdds?.price === bestHome.price && bestHome.price > 0 && "text-green-500"
@@ -461,7 +461,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                         const underOutcome = o.values?.find((v: OddsOutcome) => v.name?.toLowerCase().includes('under'))
                         return (
                           <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
-                            <span className="w-20 text-muted-foreground truncate">{o.bookmaker}</span>
+                            <span className="w-20 text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
                             <span className="flex-1 text-center">
                               O{(overOutcome as OddsOutcome)?.point || '2.5'}: <strong>{(overOutcome as OddsOutcome)?.price?.toFixed(2) || '-'}</strong>
                             </span>
@@ -482,7 +482,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                     <div className="space-y-1">
                       {spreadOdds.map(o => (
                         <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
-                          <span className="w-20 text-muted-foreground truncate">{o.bookmaker}</span>
+                          <span className="w-20 text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
                           {o.values?.slice(0, 2).map((v: OddsOutcome, idx: number) => (
                             <span key={idx} className="flex-1 text-center">
                               {v.name?.split(' ').pop() || 'Home'} ({v.point?.toFixed(1)}): <strong>{v.price?.toFixed(2)}</strong>
@@ -540,10 +540,10 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
       {/* Generate / Expand Button */}
       <div className={cn("border-t border-border", error && "border-t-0")}>
         {hasPrediction ? (
-          <div className="flex divide-x divide-border">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px border-border">
             <button
               onClick={() => setExpanded(!expanded)}
-              className="flex-1 p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
+              className="p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors border-r md:border-r border-border"
             >
               {expanded ? (
                 <>
@@ -560,7 +560,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             <button
               onClick={() => onGeneratePrediction?.(fixture.id, true)}
               disabled={isGenerating}
-              className="flex-1 p-3 flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              className="p-3 flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 md:border-r border-border"
               title="Regenerate prediction with current model"
             >
               <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
@@ -569,7 +569,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             <button
               onClick={fetchHistory}
               disabled={loadingHistory}
-              className="flex-1 p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-50"
+              className="p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-50 border-r md:border-r border-border"
               title="View prediction history"
             >
               <History className={cn("w-4 h-4", loadingHistory && "animate-spin")} />
@@ -578,7 +578,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             <button
               onClick={handleDeletePrediction}
               disabled={deleting}
-              className="flex-1 p-3 flex items-center justify-center gap-2 text-sm text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              className="p-3 flex items-center justify-center gap-2 text-sm text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
               title="Delete this prediction"
             >
               <Trash2 className="w-4 h-4" />
@@ -753,8 +753,9 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                       handleDeleteHistoryRecord(h.id)
                     }}
                     disabled={deletingHistoryId === h.id}
-                    className="px-3 flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                    className="px-4 py-3 flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
                     title="Delete this history record"
+                    aria-label="Delete this prediction"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -818,7 +819,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                             {h.key_factors.slice(0, 3).map((f: string, i: number) => (
                               <li key={i} className="flex items-start gap-1">
                                 <span className="text-green-500 shrink-0">•</span>
-                                <span className="line-clamp-2">{f}</span>
+                                <span className="break-words">{f}</span>
                               </li>
                             ))}
                           </ul>
@@ -836,7 +837,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                             {h.risk_factors.slice(0, 3).map((f: string, i: number) => (
                               <li key={i} className="flex items-start gap-1">
                                 <span className="text-yellow-500 shrink-0">•</span>
-                                <span className="line-clamp-2">{f}</span>
+                                <span className="break-words">{f}</span>
                               </li>
                             ))}
                           </ul>
@@ -847,7 +848,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                       {h.analysis_text && (
                         <div>
                           <h5 className="text-xs font-medium mb-1">Analysis</h5>
-                          <p className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-wrap">
+                          <p className="text-xs text-muted-foreground break-words whitespace-pre-wrap">
                             {h.analysis_text}
                           </p>
                         </div>
