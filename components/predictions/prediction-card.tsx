@@ -25,6 +25,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [showScores, setShowScores] = useState(false) // Collapsed by default
   const [showOdds, setShowOdds] = useState(false) // Collapsed by default
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
 
   // Handle both array and object formats from Supabase
   const prediction = Array.isArray(fixture.prediction)
@@ -555,42 +556,172 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               Close
             </button>
           </div>
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {history.map((h, idx) => (
-              <div key={h.id || idx} className="bg-card border rounded-lg p-3 text-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold',
-                      h.prediction_result === '1' && 'bg-home text-white',
-                      h.prediction_result === 'X' && 'bg-draw text-white',
-                      h.prediction_result === '2' && 'bg-away text-white'
-                    )}>
-                      {h.prediction_result || '?'}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {h.confidence_pct || h.overall_index}% confidence
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(h.created_at).toLocaleDateString('en-GB', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="bg-muted px-2 py-0.5 rounded">{h.model_used || 'Unknown model'}</span>
-                  {h.most_likely_score && (
-                    <span className="bg-primary/20 text-primary px-2 py-0.5 rounded">
-                      Score: {h.most_likely_score}
-                    </span>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {history.map((h, idx) => {
+              const isHistoryExpanded = expandedHistoryId === h.id
+
+              return (
+                <div key={h.id || idx} className="bg-card border rounded-lg overflow-hidden">
+                  {/* Header - Always Visible */}
+                  <button
+                    onClick={() => setExpandedHistoryId(isHistoryExpanded ? null : h.id)}
+                    className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    {/* Row 1: Prediction + Confidence + Date */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={cn(
+                          'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold',
+                          h.prediction_result === '1' && 'bg-home text-white',
+                          h.prediction_result === 'X' && 'bg-draw text-white',
+                          h.prediction_result === '2' && 'bg-away text-white'
+                        )}>
+                          {h.prediction_result || '?'}
+                        </span>
+                        <span className="font-medium text-sm">
+                          {h.confidence_pct || h.overall_index}%
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(h.created_at).toLocaleDateString('en-GB', {
+                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      <ChevronDown className={cn("w-4 h-4 transition-transform", isHistoryExpanded && "rotate-180")} />
+                    </div>
+
+                    {/* Row 2: Quick Stats */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="bg-muted px-2 py-0.5 rounded">{h.model_used || 'AI'}</span>
+                      {h.most_likely_score && (
+                        <span className="bg-primary/20 text-primary px-2 py-0.5 rounded">
+                          {h.most_likely_score}
+                        </span>
+                      )}
+                      {(h.over_under_2_5 || h.factors?.over_under) && (
+                        <span className="bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded">
+                          {h.over_under_2_5 || h.factors?.over_under}
+                        </span>
+                      )}
+                      {(h.btts || h.factors?.btts) && (
+                        <span className="bg-purple-500/20 text-purple-500 px-2 py-0.5 rounded">
+                          BTTS: {h.btts || h.factors?.btts}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Row 3: Probability Bar */}
+                    <div className="flex items-center gap-1 mt-2 text-xs">
+                      <span className="w-6">1</span>
+                      <div className="flex-1 flex h-1.5 rounded-full overflow-hidden bg-muted">
+                        <div className="bg-home" style={{ width: `${h.home_win_pct || h.factors?.home_win_pct || 0}%` }} />
+                        <div className="bg-draw" style={{ width: `${h.draw_pct || h.factors?.draw_pct || 0}%` }} />
+                        <div className="bg-away" style={{ width: `${h.away_win_pct || h.factors?.away_win_pct || 0}%` }} />
+                      </div>
+                      <span className="w-6 text-right">2</span>
+                    </div>
+                  </button>
+
+                  {/* Expanded Details */}
+                  {isHistoryExpanded && (
+                    <div className="border-t border-border p-3 space-y-3 bg-muted/10 text-sm">
+                      {/* Probability Breakdown */}
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-home/10 rounded p-2">
+                          <div className="text-xs text-muted-foreground">Home</div>
+                          <div className="font-bold text-home">
+                            {h.home_win_pct || h.factors?.home_win_pct || 0}%
+                          </div>
+                        </div>
+                        <div className="bg-draw/10 rounded p-2">
+                          <div className="text-xs text-muted-foreground">Draw</div>
+                          <div className="font-bold text-draw">
+                            {h.draw_pct || h.factors?.draw_pct || 0}%
+                          </div>
+                        </div>
+                        <div className="bg-away/10 rounded p-2">
+                          <div className="text-xs text-muted-foreground">Away</div>
+                          <div className="font-bold text-away">
+                            {h.away_win_pct || h.factors?.away_win_pct || 0}%
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Score Predictions */}
+                      {h.score_predictions && h.score_predictions.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-1 text-muted-foreground">Score Predictions</h5>
+                          <div className="flex flex-wrap gap-1">
+                            {h.score_predictions.slice(0, 5).map((sp: any, i: number) => (
+                              <span key={i} className={cn(
+                                "text-xs px-2 py-0.5 rounded",
+                                i === 0 ? "bg-primary text-primary-foreground" : "bg-muted"
+                              )}>
+                                {sp.score} ({sp.probability}%)
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Key Factors */}
+                      {h.key_factors && h.key_factors.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3 text-green-500" />
+                            Key Factors
+                          </h5>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {h.key_factors.slice(0, 3).map((f: string, i: number) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-green-500 shrink-0">•</span>
+                                <span className="line-clamp-2">{f}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Risk Factors */}
+                      {h.risk_factors && h.risk_factors.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                            Risk Factors
+                          </h5>
+                          <ul className="text-xs text-muted-foreground space-y-0.5">
+                            {h.risk_factors.slice(0, 3).map((f: string, i: number) => (
+                              <li key={i} className="flex items-start gap-1">
+                                <span className="text-yellow-500 shrink-0">•</span>
+                                <span className="line-clamp-2">{f}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Analysis */}
+                      {h.analysis_text && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-1">Analysis</h5>
+                          <p className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-wrap">
+                            {h.analysis_text}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Value Bet */}
+                      {(h.value_bet || h.factors?.value_bet) && (
+                        <div className="p-2 bg-primary/10 rounded text-xs">
+                          <span className="font-medium text-primary">Value Bet: </span>
+                          {h.value_bet || h.factors?.value_bet}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
