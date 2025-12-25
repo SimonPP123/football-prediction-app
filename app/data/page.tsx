@@ -200,9 +200,9 @@ export default function DataManagementPage() {
   const [refreshing, setRefreshing] = useState<Record<string, boolean>>({})
   const [refreshStatus, setRefreshStatus] = useState<Record<string, 'idle' | 'success' | 'error'>>({})
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    core: true,
-    match: true,
-    team: true,
+    core: false,
+    match: false,
+    team: false,
     player: false,
     external: false,
     prediction: false,
