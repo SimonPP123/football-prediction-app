@@ -33,9 +33,15 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     : fixture.prediction
   const hasPrediction = !!prediction
 
-  // Get score predictions from prediction data
-  const scorePredictons: ScorePrediction[] = prediction?.score_predictions || []
-  const mostLikelyScore = prediction?.most_likely_score || null
+  // Get score predictions from prediction data - sort by probability descending
+  const scorePredictons: ScorePrediction[] = (prediction?.score_predictions || [])
+    .slice() // Create a copy to avoid mutating original
+    .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
+
+  // Most likely score is the one with highest probability
+  const mostLikelyScore = scorePredictons.length > 0
+    ? scorePredictons[0].score
+    : (prediction?.most_likely_score || null)
 
   // Get odds from fixture
   const odds: OddsMarket[] = fixture.odds || []
@@ -44,11 +50,38 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const spreadOdds = odds.filter(o => o.bet_type === 'spreads')
   const hasOdds = odds.length > 0
 
-  // Calculate best odds for a specific outcome position
-  const getBestOdds = (oddsArr: OddsMarket[], outcomeIndex: number) => {
+  // Get team names for odds matching
+  const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
+  const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
+
+  // Find outcome by type (home team, draw, or away team)
+  const findOutcome = (values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away'): OddsOutcome | undefined => {
+    if (!values) return undefined
+    if (type === 'draw') {
+      return values.find(v => v.name?.toLowerCase() === 'draw')
+    }
+    if (type === 'home') {
+      // Home team outcome - match by name or exclude draw and away
+      return values.find(v => {
+        const name = v.name?.toLowerCase() || ''
+        if (name === 'draw') return false
+        // Check if it matches home team name (partial match)
+        return name.includes(homeTeamName.split(' ')[0]) || homeTeamName.includes(name.split(' ')[0])
+      }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(awayTeamName.split(' ')[0]))
+    }
+    // Away team
+    return values.find(v => {
+      const name = v.name?.toLowerCase() || ''
+      if (name === 'draw') return false
+      return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
+    }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
+  }
+
+  // Calculate best odds by outcome type
+  const getBestOdds = (oddsArr: OddsMarket[], type: 'home' | 'draw' | 'away') => {
     let best = { price: 0, bookmaker: '' }
     oddsArr.forEach(o => {
-      const val = o.values?.[outcomeIndex] as OddsOutcome | undefined
+      const val = findOutcome(o.values, type)
       if (val && val.price > best.price) {
         best = { price: val.price, bookmaker: o.bookmaker }
       }
@@ -57,9 +90,9 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   }
 
   // Get best h2h odds
-  const bestHome = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 0) : { price: 0, bookmaker: '' }
-  const bestDraw = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 1) : { price: 0, bookmaker: '' }
-  const bestAway = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 2) : { price: 0, bookmaker: '' }
+  const bestHome = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'home') : { price: 0, bookmaker: '' }
+  const bestDraw = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'draw') : { price: 0, bookmaker: '' }
+  const bestAway = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'away') : { price: 0, bookmaker: '' }
 
   // Format relative time for odds update
   const formatRelativeTime = (dateStr: string) => {
@@ -320,29 +353,34 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                       <span className="text-center text-muted-foreground">2</span>
                     </div>
                     <div className="space-y-1">
-                      {h2hOdds.map(o => (
-                        <div key={o.id} className="grid grid-cols-4 gap-1 text-xs bg-card rounded p-1">
-                          <span className="text-muted-foreground truncate">{o.bookmaker}</span>
-                          <span className={cn(
-                            "text-center font-medium",
-                            o.values?.[0]?.price === bestHome.price && bestHome.price > 0 && "text-green-500"
-                          )}>
-                            {(o.values?.[0] as OddsOutcome)?.price?.toFixed(2) || '-'}
-                          </span>
-                          <span className={cn(
-                            "text-center font-medium",
-                            o.values?.[1]?.price === bestDraw.price && bestDraw.price > 0 && "text-green-500"
-                          )}>
-                            {(o.values?.[1] as OddsOutcome)?.price?.toFixed(2) || '-'}
-                          </span>
-                          <span className={cn(
-                            "text-center font-medium",
-                            o.values?.[2]?.price === bestAway.price && bestAway.price > 0 && "text-green-500"
-                          )}>
-                            {(o.values?.[2] as OddsOutcome)?.price?.toFixed(2) || '-'}
-                          </span>
-                        </div>
-                      ))}
+                      {h2hOdds.map(o => {
+                        const homeOdds = findOutcome(o.values, 'home')
+                        const drawOdds = findOutcome(o.values, 'draw')
+                        const awayOdds = findOutcome(o.values, 'away')
+                        return (
+                          <div key={o.id} className="grid grid-cols-4 gap-1 text-xs bg-card rounded p-1">
+                            <span className="text-muted-foreground truncate">{o.bookmaker}</span>
+                            <span className={cn(
+                              "text-center font-medium",
+                              homeOdds?.price === bestHome.price && bestHome.price > 0 && "text-green-500"
+                            )}>
+                              {homeOdds?.price?.toFixed(2) || '-'}
+                            </span>
+                            <span className={cn(
+                              "text-center font-medium",
+                              drawOdds?.price === bestDraw.price && bestDraw.price > 0 && "text-green-500"
+                            )}>
+                              {drawOdds?.price?.toFixed(2) || '-'}
+                            </span>
+                            <span className={cn(
+                              "text-center font-medium",
+                              awayOdds?.price === bestAway.price && bestAway.price > 0 && "text-green-500"
+                            )}>
+                              {awayOdds?.price?.toFixed(2) || '-'}
+                            </span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -593,11 +631,20 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                     {/* Row 2: Quick Stats */}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="bg-muted px-2 py-0.5 rounded">{h.model_used || 'AI'}</span>
-                      {h.most_likely_score && (
-                        <span className="bg-primary/20 text-primary px-2 py-0.5 rounded">
-                          {h.most_likely_score}
-                        </span>
-                      )}
+                      {(() => {
+                        // Sort history score predictions by probability to get true most likely
+                        const sortedScores = (h.score_predictions || [])
+                          .slice()
+                          .sort((a: any, b: any) => (b.probability || 0) - (a.probability || 0))
+                        const historyMostLikely = sortedScores.length > 0
+                          ? sortedScores[0].score
+                          : h.most_likely_score
+                        return historyMostLikely ? (
+                          <span className="bg-primary/20 text-primary px-2 py-0.5 rounded">
+                            {historyMostLikely}
+                          </span>
+                        ) : null
+                      })()}
                       {(h.over_under_2_5 || h.factors?.over_under) && (
                         <span className="bg-blue-500/20 text-blue-500 px-2 py-0.5 rounded">
                           {h.over_under_2_5 || h.factors?.over_under}
@@ -652,7 +699,11 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                         <div>
                           <h5 className="text-xs font-medium mb-1 text-muted-foreground">Score Predictions</h5>
                           <div className="flex flex-wrap gap-1">
-                            {h.score_predictions.slice(0, 5).map((sp: any, i: number) => (
+                            {h.score_predictions
+                              .slice()
+                              .sort((a: any, b: any) => (b.probability || 0) - (a.probability || 0))
+                              .slice(0, 5)
+                              .map((sp: any, i: number) => (
                               <span key={i} className={cn(
                                 "text-xs px-2 py-0.5 rounded",
                                 i === 0 ? "bg-primary text-primary-foreground" : "bg-muted"
