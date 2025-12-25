@@ -41,7 +41,7 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'newcastle united': ['newcastle'],
   'west ham united': ['west ham'],
   'nottingham forest': ["nott'm forest", 'nottm forest'],
-  'brighton & hove albion': ['brighton'],
+  'brighton & hove albion': ['brighton', 'brighton and hove albion'],
   'crystal palace': ['palace'],
   'leicester city': ['leicester'],
   'afc bournemouth': ['bournemouth'],
@@ -154,6 +154,12 @@ async function handleStreamingRefresh(fixtureIds?: string[]) {
       const oddsData = await response.json()
       sendLog({ type: 'info', message: `Received ${oddsData.length} matches from The Odds API` })
 
+      // Log available matches for debugging (only when fetching selected fixtures)
+      if (isSelectedMode && oddsData.length > 0) {
+        const availableMatches = oddsData.slice(0, 10).map((e: any) => `${e.home_team} vs ${e.away_team}`).join(', ')
+        sendLog({ type: 'info', message: `Available odds matches: ${availableMatches}${oddsData.length > 10 ? '...' : ''}` })
+      }
+
       let inserted = 0
       let updated = 0
       let errors = 0
@@ -172,7 +178,22 @@ async function handleStreamingRefresh(fixtureIds?: string[]) {
           return teamsMatch(homeName, eventHome) && teamsMatch(awayName, eventAway)
         })
 
-        if (!matchingOdds || !matchingOdds.bookmakers?.length) {
+        if (!matchingOdds) {
+          // Log unmatched fixture with details for debugging
+          sendLog({
+            type: 'warning',
+            message: `No odds found for: ${homeName} vs ${awayName}`,
+            details: { error: `DB teams: "${homeName}" vs "${awayName}" - No matching event in odds data` }
+          })
+          continue
+        }
+
+        if (!matchingOdds.bookmakers?.length) {
+          sendLog({
+            type: 'warning',
+            message: `No bookmakers for: ${homeName} vs ${awayName}`,
+            details: { error: `Matched event but no bookmaker data available` }
+          })
           continue
         }
 
@@ -314,7 +335,17 @@ async function handleBatchRefresh(fixtureIds?: string[]) {
         return teamsMatch(homeName, eventHome) && teamsMatch(awayName, eventAway)
       })
 
-      if (!matchingOdds || !matchingOdds.bookmakers?.length) {
+      if (!matchingOdds) {
+        addLog('warning', `No odds found for: ${homeName} vs ${awayName}`, {
+          error: `DB teams: "${homeName}" vs "${awayName}" - No matching event in odds data`
+        })
+        continue
+      }
+
+      if (!matchingOdds.bookmakers?.length) {
+        addLog('warning', `No bookmakers for: ${homeName} vs ${awayName}`, {
+          error: `Matched event but no bookmaker data available`
+        })
         continue
       }
 
