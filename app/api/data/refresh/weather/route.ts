@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +37,119 @@ const weatherCodes: Record<number, string> = {
   95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Severe thunderstorm',
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting weather refresh from Open-Meteo...' })
+
+      const nextWeek = new Date()
+      nextWeek.setDate(nextWeek.getDate() + 7)
+
+      const { data: fixtures } = await supabase
+        .from('fixtures')
+        .select(`
+          id, api_id, match_date,
+          home_team:teams!fixtures_home_team_id_fkey(name),
+          venue:venues!fixtures_venue_id_fkey(name, latitude, longitude)
+        `)
+        .gte('match_date', new Date().toISOString())
+        .lte('match_date', nextWeek.toISOString())
+        .eq('status', 'NS')
+
+      if (!fixtures || fixtures.length === 0) {
+        sendLog({ type: 'info', message: 'No upcoming fixtures found' })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
+        return
+      }
+
+      const fixturesWithVenue = fixtures.filter(f => {
+        const venue = f.venue as any
+        return venue?.latitude && venue?.longitude
+      })
+
+      sendLog({ type: 'info', message: `Found ${fixturesWithVenue.length} fixtures with venue coordinates (${fixtures.length} total)` })
+
+      let imported = 0
+      let errors = 0
+
+      for (let i = 0; i < fixturesWithVenue.length; i++) {
+        const fixture = fixturesWithVenue[i]
+        const venue = fixture.venue as any
+        const matchDate = new Date(fixture.match_date)
+        const matchName = `${(fixture.home_team as any)?.name || 'Home'} at ${venue?.name || 'Venue'}`
+
+        await delay(200)
+
+        sendLog({
+          type: 'progress',
+          message: `Fetching weather for ${matchName}...`,
+          details: { recordName: matchName, progress: { current: i + 1, total: fixturesWithVenue.length } }
+        })
+
+        try {
+          const dateStr = matchDate.toISOString().split('T')[0]
+          const hour = matchDate.getUTCHours()
+          const endpoint = `${WEATHER_API_BASE}?latitude=${venue.latitude}&longitude=${venue.longitude}&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}`
+
+          const response = await fetch(endpoint)
+          if (!response.ok) throw new Error(`Weather API error: ${response.status}`)
+
+          const data = await response.json()
+          const hourlyIndex = data.hourly?.time?.findIndex((t: string) => new Date(t).getUTCHours() === hour) ?? 0
+          const weatherCode = data.hourly?.weather_code?.[hourlyIndex] ?? null
+
+          const { error } = await supabase
+            .from('weather')
+            .upsert({
+              fixture_id: fixture.id,
+              temperature: data.hourly?.temperature_2m?.[hourlyIndex] ?? null,
+              feels_like: data.hourly?.apparent_temperature?.[hourlyIndex] ?? null,
+              wind_speed: data.hourly?.wind_speed_10m?.[hourlyIndex] ?? null,
+              wind_direction: data.hourly?.wind_direction_10m?.[hourlyIndex] ?? null,
+              precipitation: data.hourly?.precipitation?.[hourlyIndex] ?? null,
+              humidity: data.hourly?.relative_humidity_2m?.[hourlyIndex] ?? null,
+              weather_code: weatherCode,
+              description: weatherCode !== null ? weatherCodes[weatherCode] || 'Unknown' : null,
+              fetched_at: new Date().toISOString(),
+            }, { onConflict: 'fixture_id' })
+
+          if (error) {
+            sendLog({ type: 'error', message: `Error for ${matchName}: ${error.message}` })
+            errors++
+          } else {
+            sendLog({ type: 'success', message: `${matchName}: ${data.hourly?.temperature_2m?.[hourlyIndex]}°C, ${weatherCodes[weatherCode] || 'Unknown'}` })
+            imported++
+          }
+        } catch (err) {
+          sendLog({ type: 'error', message: `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}` })
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: fixturesWithVenue.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 

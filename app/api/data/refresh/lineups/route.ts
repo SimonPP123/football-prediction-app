@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchLineups, ENDPOINTS } from '@/lib/api-football'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,126 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting lineups refresh...' })
+
+      const { data: fixtures } = await supabase
+        .from('fixtures')
+        .select(`
+          id, api_id,
+          home_team:teams!fixtures_home_team_id_fkey(name),
+          away_team:teams!fixtures_away_team_id_fkey(name)
+        `)
+        .in('status', ['FT', 'AET', 'PEN'])
+
+      if (!fixtures || fixtures.length === 0) {
+        sendLog({ type: 'info', message: 'No completed fixtures found' })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
+        return
+      }
+
+      const { data: existingLineups } = await supabase
+        .from('lineups')
+        .select('fixture_id')
+
+      const existingSet = new Set(existingLineups?.map(l => l.fixture_id) || [])
+      const fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
+
+      sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing lineups (${fixtures.length} total completed)` })
+
+      const { data: teams } = await supabase.from('teams').select('id, api_id')
+      const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
+
+      let imported = 0
+      let errors = 0
+
+      for (let i = 0; i < fixturesToProcess.length; i++) {
+        const fixture = fixturesToProcess[i]
+        await delay(300)
+
+        const matchName = `${(fixture.home_team as any)?.name || 'Home'} vs ${(fixture.away_team as any)?.name || 'Away'}`
+
+        sendLog({
+          type: 'progress',
+          message: `Fetching lineups for ${matchName}...`,
+          details: { progress: { current: i + 1, total: fixturesToProcess.length } }
+        })
+
+        try {
+          const data = await fetchLineups(fixture.api_id)
+
+          if (!data.response || data.response.length === 0) {
+            sendLog({ type: 'info', message: `No lineups for ${matchName}` })
+            continue
+          }
+
+          for (const lineup of data.response) {
+            const teamId = teamMap.get(lineup.team?.id)
+            if (!teamId) continue
+
+            const { error } = await supabase
+              .from('lineups')
+              .upsert({
+                fixture_id: fixture.id,
+                team_id: teamId,
+                formation: lineup.formation,
+                starting_xi: lineup.startXI?.map((p: any) => ({
+                  id: p.player?.id,
+                  name: p.player?.name,
+                  number: p.player?.number,
+                  pos: p.player?.pos,
+                  grid: p.player?.grid,
+                })) || [],
+                substitutes: lineup.substitutes?.map((p: any) => ({
+                  id: p.player?.id,
+                  name: p.player?.name,
+                  number: p.player?.number,
+                  pos: p.player?.pos,
+                })) || [],
+                coach_name: lineup.coach?.name || null,
+                coach_id: lineup.coach?.id || null,
+              }, { onConflict: 'fixture_id,team_id' })
+
+            if (error) {
+              errors++
+            } else {
+              imported++
+            }
+          }
+
+          sendLog({ type: 'success', message: `Imported lineups for ${matchName}` })
+        } catch (err) {
+          sendLog({ type: 'error', message: `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}` })
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: fixturesToProcess.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 

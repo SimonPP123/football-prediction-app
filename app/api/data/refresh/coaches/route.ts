@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchCoach, ENDPOINTS } from '@/lib/api-football'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,97 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting coaches refresh...' })
+
+      const { data: teams } = await supabase.from('teams').select('id, api_id, name')
+
+      if (!teams || teams.length === 0) {
+        sendLog({ type: 'error', message: 'No teams found in database' })
+        closeWithError('No teams found', Date.now() - startTime)
+        return
+      }
+
+      sendLog({ type: 'info', message: `Found ${teams.length} teams to process` })
+
+      let imported = 0
+      let errors = 0
+
+      for (let i = 0; i < teams.length; i++) {
+        const team = teams[i]
+        await delay(300)
+
+        sendLog({
+          type: 'progress',
+          message: `Fetching coach for ${team.name}...`,
+          details: { progress: { current: i + 1, total: teams.length } }
+        })
+
+        try {
+          const data = await fetchCoach(team.api_id)
+
+          if (!data.response || data.response.length === 0) {
+            sendLog({ type: 'warning', message: `No coach data for ${team.name}` })
+            continue
+          }
+
+          const coach = data.response[0]
+
+          const { error } = await supabase
+            .from('coaches')
+            .upsert({
+              api_id: coach.id,
+              name: coach.name,
+              firstname: coach.firstname,
+              lastname: coach.lastname,
+              age: coach.age,
+              birth_date: coach.birth?.date || null,
+              birth_place: coach.birth?.place || null,
+              birth_country: coach.birth?.country || null,
+              nationality: coach.nationality,
+              photo: coach.photo,
+              team_id: team.id,
+              career: coach.career || null,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'api_id' })
+
+          if (error) {
+            errors++
+          } else {
+            sendLog({ type: 'success', message: `Updated: ${coach.name} (${team.name})` })
+            imported++
+          }
+        } catch (err) {
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: teams.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 

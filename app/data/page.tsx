@@ -35,6 +35,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
+import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
+import { DataSourceDetails } from '@/components/data/data-source-details'
 
 // Types
 interface LogEntry {
@@ -206,7 +208,12 @@ export default function DataManagementPage() {
     prediction: false,
   })
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null)
+  const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({})
   const logContainerRef = useRef<HTMLDivElement>(null)
+
+  const toggleDetails = (sourceId: string) => {
+    setExpandedDetails(prev => ({ ...prev, [sourceId]: !prev[sourceId] }))
+  }
 
   useEffect(() => {
     fetchStats()
@@ -268,24 +275,71 @@ export default function DataManagementPage() {
     })
 
     try {
-      const res = await fetch(source.refreshEndpoint, { method: 'POST' })
-      const data = await res.json()
+      // Use streaming endpoint for real-time logs
+      const res = await fetch(`${source.refreshEndpoint}?stream=true`, { method: 'POST' })
 
-      if (data.success) {
-        // Add all logs from response
-        if (data.logs && Array.isArray(data.logs)) {
-          data.logs.forEach((log: any) => {
-            addLog(log.type || 'info', source.id, log.message, log.details)
-          })
+      // Check if streaming is supported (text/event-stream)
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        // Stream mode - read logs in real-time
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.done) {
+                  // Final message with summary
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
+                    addLog('success', source.id, `${source.name}: ${data.imported} imported, ${data.errors} errors${duration}`)
+                    setRefreshStatus(prev => ({ ...prev, [source.id]: 'success' }))
+                    await fetchStats()
+                  } else {
+                    addLog('error', source.id, `${source.name} failed: ${data.error || 'Unknown error'}`)
+                    setRefreshStatus(prev => ({ ...prev, [source.id]: 'error' }))
+                  }
+                } else {
+                  // Real-time log entry
+                  addLog(data.type || 'info', source.id, data.message, data.details)
+                }
+              } catch (parseError) {
+                console.error('Failed to parse SSE data:', line)
+              }
+            }
+          }
         }
-
-        const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-        addLog('success', source.id, `${source.name}: ${data.imported} imported, ${data.errors} errors${duration}`)
-        setRefreshStatus(prev => ({ ...prev, [source.id]: 'success' }))
-        await fetchStats()
       } else {
-        addLog('error', source.id, `${source.name} failed: ${data.error || 'Unknown error'}`)
-        setRefreshStatus(prev => ({ ...prev, [source.id]: 'error' }))
+        // Fallback to batch mode (non-streaming response)
+        const data = await res.json()
+
+        if (data.success) {
+          if (data.logs && Array.isArray(data.logs)) {
+            data.logs.forEach((log: any) => {
+              addLog(log.type || 'info', source.id, log.message, log.details)
+            })
+          }
+
+          const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
+          addLog('success', source.id, `${source.name}: ${data.imported} imported, ${data.errors} errors${duration}`)
+          setRefreshStatus(prev => ({ ...prev, [source.id]: 'success' }))
+          await fetchStats()
+        } else {
+          addLog('error', source.id, `${source.name} failed: ${data.error || 'Unknown error'}`)
+          setRefreshStatus(prev => ({ ...prev, [source.id]: 'error' }))
+        }
       }
     } catch (error) {
       addLog('error', source.id, `${source.name} failed: ${error instanceof Error ? error.message : 'Network error'}`)
@@ -542,6 +596,15 @@ export default function DataManagementPage() {
                                   <><RefreshCw className="w-3 h-3" /> Refresh</>
                                 )}
                               </button>
+                            )}
+
+                            {/* Technical Details Panel */}
+                            {DATA_SOURCE_DOCS[source.id] && (
+                              <DataSourceDetails
+                                doc={DATA_SOURCE_DOCS[source.id]}
+                                isExpanded={expandedDetails[source.id] || false}
+                                onToggle={() => toggleDetails(source.id)}
+                              />
                             )}
                           </div>
                         )

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchPlayerSquads, SEASON, ENDPOINTS } from '@/lib/api-football'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,114 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting player squads refresh...' })
+
+      const { data: teams } = await supabase.from('teams').select('id, api_id, name')
+
+      if (!teams || teams.length === 0) {
+        sendLog({ type: 'error', message: 'No teams found in database' })
+        closeWithError('No teams found', Date.now() - startTime)
+        return
+      }
+
+      sendLog({ type: 'info', message: `Found ${teams.length} teams to process` })
+
+      let playersImported = 0
+      let squadsImported = 0
+      let errors = 0
+
+      for (let i = 0; i < teams.length; i++) {
+        const team = teams[i]
+        await delay(300)
+
+        sendLog({
+          type: 'progress',
+          message: `Fetching squad for ${team.name}...`,
+          details: { progress: { current: i + 1, total: teams.length } }
+        })
+
+        try {
+          const data = await fetchPlayerSquads(team.api_id)
+
+          if (!data.response || data.response.length === 0) {
+            sendLog({ type: 'warning', message: `No squad data for ${team.name}` })
+            continue
+          }
+
+          const squadData = data.response[0]
+          const players = squadData.players || []
+
+          for (const player of players) {
+            const { data: playerData, error: playerError } = await supabase
+              .from('players')
+              .upsert({
+                api_id: player.id,
+                name: player.name,
+                age: player.age,
+                photo: player.photo,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'api_id' })
+              .select('id')
+              .single()
+
+            if (playerError) {
+              errors++
+              continue
+            }
+
+            playersImported++
+
+            const { error: squadError } = await supabase
+              .from('player_squads')
+              .upsert({
+                player_id: playerData.id,
+                team_id: team.id,
+                season: SEASON,
+                number: player.number,
+                position: player.position,
+              }, { onConflict: 'player_id,team_id,season' })
+
+            if (squadError) {
+              errors++
+            } else {
+              squadsImported++
+            }
+          }
+
+          sendLog({ type: 'success', message: `${team.name}: ${players.length} players processed` })
+        } catch (err) {
+          sendLog({ type: 'error', message: `Failed for ${team.name}: ${err instanceof Error ? err.message : 'Unknown'}` })
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${playersImported} players, ${squadsImported} squads, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported: squadsImported, errors, total: teams.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 

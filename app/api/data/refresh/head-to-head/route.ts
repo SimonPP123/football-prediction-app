@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchHeadToHead, ENDPOINTS } from '@/lib/api-football'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,131 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting head-to-head refresh...' })
+
+      const { data: teams } = await supabase.from('teams').select('id, api_id, name')
+
+      if (!teams || teams.length === 0) {
+        sendLog({ type: 'error', message: 'No teams found in database' })
+        closeWithError('No teams found', Date.now() - startTime)
+        return
+      }
+
+      const pairs: Array<{ team1: typeof teams[0], team2: typeof teams[0] }> = []
+      for (let i = 0; i < teams.length; i++) {
+        for (let j = i + 1; j < teams.length; j++) {
+          pairs.push({ team1: teams[i], team2: teams[j] })
+        }
+      }
+
+      sendLog({ type: 'info', message: `Found ${pairs.length} unique team pairs to process` })
+
+      let imported = 0
+      let errors = 0
+
+      for (let i = 0; i < pairs.length; i++) {
+        const { team1, team2 } = pairs[i]
+        await delay(300)
+
+        const pairName = `${team1.name} vs ${team2.name}`
+
+        sendLog({
+          type: 'progress',
+          message: `Fetching H2H for ${pairName}...`,
+          details: { progress: { current: i + 1, total: pairs.length } }
+        })
+
+        try {
+          const data = await fetchHeadToHead(team1.api_id, team2.api_id)
+
+          if (!data.response || data.response.length === 0) {
+            continue
+          }
+
+          let team1Wins = 0, team2Wins = 0, draws = 0, team1Goals = 0, team2Goals = 0
+
+          const lastFixtures = data.response.slice(0, 10).map((f: any) => ({
+            date: f.fixture?.date,
+            homeTeam: f.teams?.home?.name,
+            awayTeam: f.teams?.away?.name,
+            homeGoals: f.goals?.home,
+            awayGoals: f.goals?.away,
+            winner: f.teams?.home?.winner ? 'home' : f.teams?.away?.winner ? 'away' : 'draw',
+          }))
+
+          for (const fixture of data.response) {
+            const homeId = fixture.teams?.home?.id
+            const goalsHome = fixture.goals?.home || 0
+            const goalsAway = fixture.goals?.away || 0
+
+            if (homeId === team1.api_id) {
+              team1Goals += goalsHome
+              team2Goals += goalsAway
+              if (goalsHome > goalsAway) team1Wins++
+              else if (goalsAway > goalsHome) team2Wins++
+              else draws++
+            } else {
+              team2Goals += goalsHome
+              team1Goals += goalsAway
+              if (goalsHome > goalsAway) team2Wins++
+              else if (goalsAway > goalsHome) team1Wins++
+              else draws++
+            }
+          }
+
+          const { error } = await supabase
+            .from('head_to_head')
+            .upsert({
+              team1_id: team1.id,
+              team2_id: team2.id,
+              fixture_data: lastFixtures,
+              matches_played: data.response.length,
+              team1_wins: team1Wins,
+              team2_wins: team2Wins,
+              draws,
+              team1_goals: team1Goals,
+              team2_goals: team2Goals,
+              last_fixtures: lastFixtures,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'team1_id,team2_id' })
+
+          if (error) {
+            errors++
+          } else {
+            imported++
+          }
+        } catch (err) {
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: pairs.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 

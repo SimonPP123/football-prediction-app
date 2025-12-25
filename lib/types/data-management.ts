@@ -178,6 +178,54 @@ export interface ActivityLogProps {
   onFilterChange?: (filter: ActivityLogProps['filter']) => void
 }
 
+// Odds market information for documentation
+export const ODDS_MARKET_INFO: Record<string, {
+  name: string
+  description: string
+  outcomes: string[]
+}> = {
+  h2h: {
+    name: 'Match Result (1X2)',
+    description: 'Bet on the final result: Home win, Draw, or Away win',
+    outcomes: ['Home', 'Draw', 'Away'],
+  },
+  spreads: {
+    name: 'Asian Handicap',
+    description: 'Point spread betting - one team receives a handicap advantage',
+    outcomes: ['Home +/-X', 'Away +/-X'],
+  },
+  totals: {
+    name: 'Over/Under Goals',
+    description: 'Bet on whether total goals will be over or under a specified number',
+    outcomes: ['Over X.5', 'Under X.5'],
+  },
+  btts: {
+    name: 'Both Teams To Score',
+    description: 'Will both teams score at least one goal in the match?',
+    outcomes: ['Yes', 'No'],
+  },
+  double_chance: {
+    name: 'Double Chance',
+    description: 'Cover two of three possible outcomes in a single bet',
+    outcomes: ['1X (Home or Draw)', 'X2 (Draw or Away)', '12 (Home or Away)'],
+  },
+  draw_no_bet: {
+    name: 'Draw No Bet',
+    description: 'Bet on home or away win - stake returned if match ends in draw',
+    outcomes: ['Home', 'Away'],
+  },
+  h2h_h1: {
+    name: 'First Half Result',
+    description: 'Result at half-time only',
+    outcomes: ['Home', 'Draw', 'Away'],
+  },
+  h2h_h2: {
+    name: 'Second Half Result',
+    description: 'Goals scored in second half only (not cumulative)',
+    outcomes: ['Home', 'Draw', 'Away'],
+  },
+}
+
 // Helper to create log entry
 export function createLogEntry(
   type: EnhancedLogEntry['type'],

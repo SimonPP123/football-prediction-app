@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createSSEStream, wantsStreaming, StreamLogEntry } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +11,22 @@ const supabase = createClient(
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4'
+
+// All betting markets to fetch
+const ODDS_MARKETS = [
+  // Featured markets (original)
+  'h2h',           // Match Result (1X2)
+  'spreads',       // Asian Handicap / Point Spread
+  'totals',        // Over/Under goals
+  // Core soccer markets (new)
+  'btts',          // Both Teams To Score (Yes/No)
+  'double_chance', // 1X, X2, 12
+  'draw_no_bet',   // Home/Away with stake returned on draw
+  'h2h_h1',        // First half result
+  'h2h_h2',        // Second half result
+] as const
+
+const MARKETS_PARAM = ODDS_MARKETS.join(',')
 
 interface LogEntry {
   type: 'info' | 'success' | 'error' | 'warning' | 'progress'
@@ -68,7 +85,124 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   return false
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const isStreaming = wantsStreaming(request)
+
+  if (isStreaming) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  // Start async processing
+  ;(async () => {
+    try {
+      if (!ODDS_API_KEY) {
+        sendLog({ type: 'error', message: 'ODDS_API_KEY not configured' })
+        closeWithError('ODDS_API_KEY not configured in environment', Date.now() - startTime)
+        return
+      }
+
+      sendLog({ type: 'info', message: 'Starting odds refresh from The Odds API...' })
+
+      // Get ALL upcoming fixtures for the season
+      const endOfSeason = new Date('2026-06-01')
+
+      const { data: fixtures } = await supabase
+        .from('fixtures')
+        .select('id, api_id, home_team:teams!fixtures_home_team_id_fkey(name), away_team:teams!fixtures_away_team_id_fkey(name), match_date')
+        .gte('match_date', new Date().toISOString())
+        .lte('match_date', endOfSeason.toISOString())
+        .eq('status', 'NS')
+
+      if (!fixtures || fixtures.length === 0) {
+        sendLog({ type: 'info', message: 'No upcoming fixtures found' })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
+        return
+      }
+
+      sendLog({ type: 'info', message: `Found ${fixtures.length} upcoming fixtures` })
+
+      // Fetch odds from The Odds API
+      const endpoint = `${ODDS_API_BASE}/sports/soccer_epl/odds?apiKey=${ODDS_API_KEY}&regions=uk&markets=${MARKETS_PARAM}`
+      sendLog({ type: 'info', message: `Fetching EPL odds (${ODDS_MARKETS.length} markets)...`, details: { endpoint: endpoint.replace(ODDS_API_KEY!, '***') } })
+
+      const response = await fetch(endpoint)
+      if (!response.ok) {
+        throw new Error(`The Odds API error: ${response.status}`)
+      }
+
+      const oddsData = await response.json()
+      sendLog({ type: 'info', message: `Received ${oddsData.length} matches from The Odds API` })
+
+      let imported = 0
+      let errors = 0
+      let matchedFixtures = 0
+
+      // Match odds to fixtures by team names
+      for (let i = 0; i < fixtures.length; i++) {
+        const fixture = fixtures[i]
+        const homeName = (fixture.home_team as any)?.name || ''
+        const awayName = (fixture.away_team as any)?.name || ''
+
+        // Find matching odds event
+        const matchingOdds = oddsData.find((event: any) => {
+          const eventHome = event.home_team || ''
+          const eventAway = event.away_team || ''
+          return teamsMatch(homeName, eventHome) && teamsMatch(awayName, eventAway)
+        })
+
+        if (!matchingOdds || !matchingOdds.bookmakers?.length) {
+          continue
+        }
+
+        matchedFixtures++
+        sendLog({
+          type: 'progress',
+          message: `Processing: ${homeName} vs ${awayName}`,
+          details: { progress: { current: matchedFixtures, total: oddsData.length } }
+        })
+
+        // Insert odds for each bookmaker
+        for (const bookmaker of matchingOdds.bookmakers) {
+          for (const market of bookmaker.markets || []) {
+            const { error } = await supabase
+              .from('odds')
+              .upsert({
+                fixture_id: fixture.id,
+                bookmaker: bookmaker.title,
+                bet_type: market.key,
+                values: market.outcomes,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'fixture_id,bookmaker,bet_type' })
+
+            if (error) {
+              errors++
+            } else {
+              imported++
+            }
+          }
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: fixtures.length, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -113,8 +247,8 @@ export async function POST() {
     addLog('info', `Found ${fixtures.length} upcoming fixtures`)
 
     // Fetch odds from The Odds API
-    const endpoint = `${ODDS_API_BASE}/sports/soccer_epl/odds?apiKey=${ODDS_API_KEY}&regions=uk&markets=h2h,spreads,totals`
-    addLog('info', 'Fetching EPL odds...', { endpoint: endpoint.replace(ODDS_API_KEY, '***') })
+    const endpoint = `${ODDS_API_BASE}/sports/soccer_epl/odds?apiKey=${ODDS_API_KEY}&regions=uk&markets=${MARKETS_PARAM}`
+    addLog('info', `Fetching EPL odds (${ODDS_MARKETS.length} markets)...`, { endpoint: endpoint.replace(ODDS_API_KEY, '***') })
 
     const response = await fetch(endpoint)
     if (!response.ok) {

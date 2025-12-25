@@ -9,6 +9,7 @@ import {
   SEASON,
   ENDPOINTS,
 } from '@/lib/api-football'
+import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,130 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh()
+  }
+  return handleBatchRefresh()
+}
+
+async function handleStreamingRefresh() {
+  const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
+  const startTime = Date.now()
+
+  ;(async () => {
+    try {
+      sendLog({ type: 'info', message: 'Starting top performers refresh...' })
+
+      const { data: leagueData } = await supabase
+        .from('leagues')
+        .select('id')
+        .eq('api_id', LEAGUE_ID)
+        .single()
+
+      if (!leagueData) {
+        sendLog({ type: 'error', message: 'League not found in database' })
+        closeWithError('League not found in database', Date.now() - startTime)
+        return
+      }
+
+      const { data: teams } = await supabase.from('teams').select('id, api_id')
+      const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
+
+      const { data: players } = await supabase.from('players').select('id, api_id')
+      const playerMap = new Map(players?.map(p => [p.api_id, p.id]) || [])
+
+      let imported = 0
+      let errors = 0
+
+      const categories = [
+        { name: 'goals', fetch: fetchTopScorers },
+        { name: 'assists', fetch: fetchTopAssists },
+        { name: 'yellow_cards', fetch: fetchTopYellowCards },
+        { name: 'red_cards', fetch: fetchTopRedCards },
+      ]
+
+      for (let c = 0; c < categories.length; c++) {
+        const category = categories[c]
+        sendLog({
+          type: 'progress',
+          message: `Fetching ${category.name}...`,
+          details: { progress: { current: c + 1, total: categories.length } }
+        })
+        await delay(300)
+
+        try {
+          const data = await category.fetch()
+
+          if (!data.response || data.response.length === 0) {
+            sendLog({ type: 'warning', message: `No data for ${category.name}` })
+            continue
+          }
+
+          for (let i = 0; i < data.response.length; i++) {
+            const item = data.response[i]
+            const player = item.player
+            const stats = item.statistics?.[0]
+
+            if (!stats) continue
+
+            const teamId = teamMap.get(stats.team?.id)
+            const playerId = playerMap.get(player.id)
+
+            let value = 0
+            if (category.name === 'goals') value = stats.goals?.total || 0
+            else if (category.name === 'assists') value = stats.goals?.assists || 0
+            else if (category.name === 'yellow_cards') value = stats.cards?.yellow || 0
+            else if (category.name === 'red_cards') value = stats.cards?.red || 0
+
+            const { error } = await supabase
+              .from('top_performers')
+              .upsert({
+                league_id: leagueData.id,
+                season: SEASON,
+                category: category.name,
+                rank: i + 1,
+                player_api_id: player.id,
+                player_id: playerId || null,
+                player_name: player.name,
+                player_photo: player.photo,
+                team_api_id: stats.team?.id || null,
+                team_id: teamId || null,
+                team_name: stats.team?.name || null,
+                team_logo: stats.team?.logo || null,
+                value,
+                appearances: stats.games?.appearences || 0,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: 'league_id,season,category,player_api_id' })
+
+            if (error) {
+              errors++
+            } else {
+              imported++
+            }
+          }
+
+          sendLog({ type: 'success', message: `${category.name}: ${data.response.length} processed` })
+        } catch (err) {
+          sendLog({ type: 'error', message: `Failed to fetch ${category.name}` })
+          errors++
+        }
+      }
+
+      const duration = Date.now() - startTime
+      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, imported, errors, total: imported + errors, duration })
+    } catch (error) {
+      const duration = Date.now() - startTime
+      sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
+      closeWithError(error instanceof Error ? error.message : 'Unknown error', duration)
+    }
+  })()
+
+  return new Response(stream, { headers })
+}
+
+async function handleBatchRefresh() {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
