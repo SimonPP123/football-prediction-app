@@ -145,6 +145,50 @@ npm run build
 
 ---
 
+## VM Deployment
+
+### Hetzner VM
+- **IP**: `91.99.217.15`
+- **User**: `simeon_penew`
+- **SSH Key**: `~/.ssh/hetzner_dify_key`
+- **Domain**: `https://football.analyserinsights.com`
+
+### Project Location
+- **Path**: `/var/www/football-prediction`
+- **PM2 Process**: `football-prediction`
+- **Port**: `3004`
+
+### Deployment Commands
+
+```bash
+# SSH into VM
+ssh -i ~/.ssh/hetzner_dify_key simeon_penew@91.99.217.15
+
+# Full deployment (from local machine)
+ssh -i ~/.ssh/hetzner_dify_key simeon_penew@91.99.217.15 \
+  "cd /var/www/football-prediction && git pull && rm -rf .next && npm run build && pm2 restart football-prediction"
+
+# Check PM2 status
+ssh -i ~/.ssh/hetzner_dify_key simeon_penew@91.99.217.15 "pm2 status football-prediction"
+
+# View logs
+ssh -i ~/.ssh/hetzner_dify_key simeon_penew@91.99.217.15 "pm2 logs football-prediction --lines 50"
+```
+
+### Caddy Configuration
+The app is served via Caddy reverse proxy:
+```
+football.analyserinsights.com {
+    reverse_proxy localhost:3004
+}
+```
+
+### Other Services on this VM
+- **agento** (port varies) - Agent platform
+- **n8n** - `nn.analyserinsights.com`
+
+---
+
 ## Important Notes
 
 1. **API Rate Limits**: API-Football has daily limits. Use bulk endpoints.
