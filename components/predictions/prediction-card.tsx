@@ -33,19 +33,16 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     : fixture.prediction
   const hasPrediction = !!prediction
 
-  // Get score predictions from prediction data - sort by probability descending
+  // Get score predictions from prediction data - sort by probability descending and exclude "other"
   const scorePredictons: ScorePrediction[] = (prediction?.score_predictions || [])
     .slice() // Create a copy to avoid mutating original
+    .filter((sp: ScorePrediction) => sp.score?.toLowerCase() !== 'other')
     .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
 
-  // Most likely score is the one with highest probability (excluding "other")
-  const mostLikelyScore = (() => {
-    const validScores = scorePredictons.filter(sp =>
-      sp.score?.toLowerCase() !== 'other'
-    )
-    if (validScores.length > 0) return validScores[0].score
-    return prediction?.most_likely_score || null
-  })()
+  // Most likely score is the one with highest probability
+  const mostLikelyScore = scorePredictons.length > 0
+    ? scorePredictons[0].score
+    : (prediction?.most_likely_score || null)
 
   // Get odds from fixture
   const odds: OddsMarket[] = fixture.odds || []
@@ -706,6 +703,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                           <div className="flex flex-wrap gap-1">
                             {h.score_predictions
                               .slice()
+                              .filter((sp: any) => sp.score?.toLowerCase() !== 'other')
                               .sort((a: any, b: any) => (b.probability || 0) - (a.probability || 0))
                               .slice(0, 5)
                               .map((sp: any, i: number) => (
