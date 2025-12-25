@@ -190,7 +190,7 @@ export default function StandingsPage() {
                               {standing.team?.logo && (
                                 <img src={standing.team.logo} alt="" className="w-4 h-4" />
                               )}
-                              <span className="truncate max-w-[100px]">{standing.team?.name}</span>
+                              <span className="text-sm">{standing.team?.name}</span>
                             </div>
                           </td>
                           <td className="p-2 text-center">{home.played || 0}</td>
@@ -246,7 +246,7 @@ export default function StandingsPage() {
                               {standing.team?.logo && (
                                 <img src={standing.team.logo} alt="" className="w-4 h-4" />
                               )}
-                              <span className="truncate max-w-[100px]">{standing.team?.name}</span>
+                              <span className="text-sm">{standing.team?.name}</span>
                             </div>
                           </td>
                           <td className="p-2 text-center">{away.played || 0}</td>

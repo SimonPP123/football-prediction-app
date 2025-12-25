@@ -147,7 +147,7 @@ export default async function DashboardPage() {
                                 className="w-5 h-5 object-contain"
                               />
                             )}
-                            <span className="truncate max-w-[100px]">
+                            <span className="text-sm">
                               {standing.team?.name || 'Unknown'}
                             </span>
                           </div>
@@ -201,7 +201,7 @@ export default async function DashboardPage() {
                       <img src={match.away_team.logo} alt="" className="w-6 h-6" />
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground truncate">
+                  <div className="text-xs text-muted-foreground break-words">
                     {match.home_team?.code || match.home_team?.name?.slice(0, 3)} vs {match.away_team?.code || match.away_team?.name?.slice(0, 3)}
                   </div>
                 </div>

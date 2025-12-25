@@ -129,7 +129,7 @@ export function FactorBreakdown({ factors, overallIndex, compact = false }: Fact
 
         {/* Notes (if available and not compact) */}
         {!compact && factorData.notes && (
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             {factorData.notes}
           </p>
         )}

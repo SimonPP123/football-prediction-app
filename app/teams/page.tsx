@@ -36,7 +36,7 @@ export default async function TeamsPage() {
                     />
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold truncate">{team.name}</h3>
+                    <h3 className="font-semibold break-words">{team.name}</h3>
                     {team.code && (
                       <p className="text-sm text-muted-foreground">{team.code}</p>
                     )}
