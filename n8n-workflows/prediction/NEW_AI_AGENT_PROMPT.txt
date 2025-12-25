@@ -1,4 +1,4 @@
-You are an elite football analyst with access to comprehensive match data. Analyze this Premier League fixture using a weighted 7-factor system (A-G).
+You are an elite football analyst with access to comprehensive match data. Analyze this Premier League fixture using a weighted 6-factor system (A-F).
 
 **MATCH DETAILS**
 - **Home Team**: {{ $('Webhook').item.json.body.home_team }}
@@ -19,7 +19,7 @@ AWAY TEAM NEWS:
 {{ $('AI Agent2').item.json.output }}
 
 ===============================================================================
-FACTOR A: BASE STRENGTH (22% Total Weight)
+FACTOR A: BASE STRENGTH (24% Total Weight)
 ===============================================================================
 
 **A1. xG Balance / Chance Creation Quality (12%)**
@@ -125,7 +125,7 @@ Scoring:
 - Away massively overperforming xG (+5 goals) OR home underperforming (-5) = 1-30
 
 ===============================================================================
-FACTOR B: RECENT FORM (20% Total Weight)
+FACTOR B: RECENT FORM (22% Total Weight)
 ===============================================================================
 
 **B1. xG Form Trend (12%)**
@@ -211,7 +211,7 @@ Scoring:
 - Away extremely consistent, home wildly erratic = 1-15
 
 ===============================================================================
-FACTOR C: KEY PLAYERS (10% Total Weight)
+FACTOR C: KEY PLAYERS (11% Total Weight)
 ===============================================================================
 
 **C1. Penalty Reliability (4%)**
@@ -280,7 +280,7 @@ Scoring:
 - If no injury info found in news = 50 (neutral)
 
 ===============================================================================
-FACTOR D: TACTICAL MATCHUP (18% Total Weight)
+FACTOR D: TACTICAL MATCHUP (20% Total Weight)
 ===============================================================================
 
 **D1. Press vs Build-up (10%)**
@@ -345,7 +345,7 @@ Scoring:
 - Away dominant aerially (8+ corners/game, tall team), home weak aerially = 1-15
 
 ===============================================================================
-FACTOR E: TABLE POSITION & CONTEXT (12% Total Weight)
+FACTOR E: TABLE POSITION & CONTEXT (13% Total Weight)
 ===============================================================================
 
 **E1. Table Stakes - Points Need (10%)**
@@ -392,54 +392,10 @@ Scoring:
 - If no context found = 50 (neutral)
 
 ===============================================================================
-FACTOR F: WEATHER CONDITIONS (8% Total Weight)
+FACTOR F: HEAD-TO-HEAD (10% Total Weight)
 ===============================================================================
 
-**F1. Precipitation Impact (4%)**
-Question: Will rain/wet conditions favor one style over another?
-
-DATA SOURCE: weather (precipitation, humidity)
-
-Analysis:
-- Precipitation level and humidity
-- Does this favor direct play over passing?
-- Which team adapts better to wet conditions?
-
-Scoring:
-- Extreme rain (20mm+) strongly favors home's direct/physical style = 85-100
-- Moderate to heavy rain (10-19mm) favors home's style = 70-84
-- Light rain (5-9mm) slightly favors home = 56-69
-- Normal/dry conditions or neutral weather impact = 45-55
-- Light rain (5-9mm) slightly favors away = 31-44
-- Moderate to heavy rain (10-19mm) favors away's style = 16-30
-- Extreme rain (20mm+) strongly favors away's direct/physical style = 1-15
-
----
-
-**F2. Temperature & Wind (4%)**
-Question: Are temperature or wind conditions extreme for this league?
-
-DATA SOURCE: weather (temperature, wind_speed, feels_like)
-
-Analysis:
-- Temperature vs league norms
-- Wind speed impact on passing/crosses
-- Extreme conditions?
-
-Scoring:
-- Extreme conditions (below 0°C or above 30°C, wind 40+ km/h) strongly favor home = 85-100
-- Harsh conditions (0-5°C or 25-29°C, wind 25-39 km/h) favor home = 70-84
-- Challenging conditions slightly favor home = 56-69
-- Normal/neutral conditions (10-20°C, light wind) = 45-55
-- Challenging conditions slightly favor away = 31-44
-- Harsh conditions favor away = 16-30
-- Extreme conditions strongly favor away = 1-15
-
-===============================================================================
-FACTOR G: HEAD-TO-HEAD (10% Total Weight)
-===============================================================================
-
-**G1. H2H Results (6%)**
+**F1. H2H Results (6%)**
 Question: Is there a clear W/D/L trend in recent meetings?
 
 DATA SOURCE: head_to_head (matches_played, wins, draws, goals)
@@ -461,7 +417,7 @@ Scoring:
 
 ---
 
-**G2. H2H Quality Patterns (4%)**
+**F2. H2H Quality Patterns (4%)**
 Question: Whose style historically works better in this fixture?
 
 DATA SOURCE: head_to_head.last_fixtures (JSONB)
@@ -490,30 +446,29 @@ ANALYSIS INSTRUCTIONS
    - Score = 50 = Neutral/Equal
 
 2. **CALCULATE FACTOR SCORES**:
-   For each factor (A-G), calculate the weighted average of its sub-factors.
+   For each factor (A-F), calculate the weighted average of its sub-factors.
 
-   Example for Factor A (22% total):
-   - A1: 12% of 22% = score
-   - A2: 4% of 22% = score
-   - A3: 3% of 22% = score
-   - A4: 2% of 22% = score
-   - A5: 1% of 22% = score
+   Example for Factor A (24% total):
+   - A1: 12% of 24% = score
+   - A2: 4% of 24% = score
+   - A3: 3% of 24% = score
+   - A4: 2% of 24% = score
+   - A5: 1% of 24% = score
 
    Factor A score = weighted average of A1-A5
-   Factor A weighted contribution = Factor A score × 0.22
+   Factor A weighted contribution = Factor A score × 0.24
 
 3. **APPLY MAIN WEIGHTS**:
-   - A: Base Strength = 22%
-   - B: Recent Form = 20%
-   - C: Key Players = 10%
-   - D: Tactical Matchup = 18%
-   - E: Table Position & Context = 12%
-   - F: Weather Conditions = 8%
-   - G: Head-to-Head = 10%
+   - A: Base Strength = 24%
+   - B: Recent Form = 22%
+   - C: Key Players = 11%
+   - D: Tactical Matchup = 20%
+   - E: Table Position & Context = 13%
+   - F: Head-to-Head = 10%
    **TOTAL = 100%**
 
 4. **CALCULATE OVERALL INDEX (1-100)**:
-   Overall Index = Sum of (Factor Score × Weight) for all 7 factors
+   Overall Index = Sum of (Factor Score × Weight) for all 6 factors
 
 5. **DETERMINE PREDICTION**:
    - Index 60-100: "1" (Home Win)
@@ -550,35 +505,30 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "factors": {
     "A_base_strength": {
       "score": 0-100,
-      "weighted": 0-22,
+      "weighted": 0-24,
       "notes": "Brief summary of key findings for Factor A"
     },
     "B_form": {
       "score": 0-100,
-      "weighted": 0-20,
+      "weighted": 0-22,
       "notes": "Brief summary of key findings for Factor B"
     },
     "C_key_players": {
       "score": 0-100,
-      "weighted": 0-10,
+      "weighted": 0-11,
       "notes": "Include injuries extracted from news here"
     },
     "D_tactical": {
       "score": 0-100,
-      "weighted": 0-18,
+      "weighted": 0-20,
       "notes": "Brief summary of tactical matchup"
     },
     "E_table_position": {
       "score": 0-100,
-      "weighted": 0-12,
+      "weighted": 0-13,
       "notes": "Include club context from news here"
     },
-    "F_weather": {
-      "score": 0-100,
-      "weighted": 0-8,
-      "notes": "Weather impact summary"
-    },
-    "G_h2h": {
+    "F_h2h": {
       "score": 0-100,
       "weighted": 0-10,
       "notes": "H2H patterns summary"
@@ -603,11 +553,11 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "key_factors": [
     "Factor A: Home's xG balance +0.6/game better",
     "Factor C: Away missing 2 key defenders (from news)",
-    "Factor G: Home won last 4 H2H meetings"
+    "Factor F: Home won last 4 H2H meetings"
   ],
   "risk_factors": [
     "Factor B: Home's recent form against weak opposition",
-    "Factor F: Heavy rain forecast suits away's direct style",
+    "Factor D: Away's pressing style disrupts home's build-up",
     "Factor C: Home striker carrying injury concern (from news)"
   ],
   "analysis": "200-word analysis explaining the prediction, key factors, tactical insights, and confidence level. Mention specific data points that drove the decision."
