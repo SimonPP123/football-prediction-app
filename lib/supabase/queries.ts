@@ -112,7 +112,26 @@ export async function getCompletedFixtures(limit = 20) {
 }
 
 // Get recently completed fixtures with their predictions (for results comparison)
-export async function getRecentCompletedWithPredictions(limitRounds = 2) {
+export async function getRecentCompletedWithPredictions(limitRounds: number | 'all' = 2) {
+  // If 'all' is requested, fetch all completed fixtures
+  if (limitRounds === 'all') {
+    const { data, error } = await supabase
+      .from('fixtures')
+      .select(`
+        *,
+        home_team:teams!fixtures_home_team_id_fkey(*),
+        away_team:teams!fixtures_away_team_id_fkey(*),
+        venue:venues(*),
+        prediction:predictions(*)
+      `)
+      .in('status', ['FT', 'AET', 'PEN'])
+      .order('match_date', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  }
+
+  // Original logic: get specific number of rounds
   // First, get the rounds of recent completed matches
   const { data: recentFixtures, error: roundError } = await supabase
     .from('fixtures')
@@ -125,7 +144,7 @@ export async function getRecentCompletedWithPredictions(limitRounds = 2) {
 
   // Extract unique rounds
   const uniqueRounds = Array.from(new Set(recentFixtures?.map(f => f.round).filter(Boolean)))
-  const recentRounds = uniqueRounds.slice(0, limitRounds)
+  const recentRounds = uniqueRounds.slice(0, limitRounds as number)
 
   if (recentRounds.length === 0) return []
 

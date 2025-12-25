@@ -4,7 +4,10 @@ import { getRecentCompletedWithPredictions } from '@/lib/supabase/queries'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const rounds = parseInt(searchParams.get('rounds') || '2')
+    const roundsParam = searchParams.get('rounds') || '2'
+
+    // Support 'all' parameter to fetch all historical results
+    const rounds = roundsParam === 'all' ? 'all' : parseInt(roundsParam)
 
     const results = await getRecentCompletedWithPredictions(rounds)
 

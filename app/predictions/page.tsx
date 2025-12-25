@@ -156,10 +156,10 @@ export default function PredictionsPage() {
       setRefreshing(true)
     }
     try {
-      // Fetch both upcoming and recent results in parallel
+      // Fetch both upcoming and all historical results in parallel
       const [upcomingRes, recentRes] = await Promise.all([
         fetch('/api/fixtures/upcoming'),
-        fetch('/api/fixtures/recent-results?rounds=2')
+        fetch('/api/fixtures/recent-results?rounds=all')
       ])
 
       const upcomingData = await upcomingRes.json()
