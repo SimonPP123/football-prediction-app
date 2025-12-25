@@ -90,23 +90,31 @@ This file provides guidance to Claude Code when working with this Football Predi
 
 ---
 
-## Factor System (A-I)
+## Factor System (A-G)
 
-The prediction model uses 9 factor groups:
+**Updated: December 2024** - Simplified from 9 to 7 factors based on available data.
+
+The prediction model uses 7 factor groups:
 
 | Group | Weight | Description |
 |-------|--------|-------------|
-| A | 18% | Base Strength (xG, home advantage, defense, offense) |
-| B | 16% | Form (recent results, opponent quality) |
-| C | 14% | Squad (injuries, returns, cohesion) |
-| D | 10% | Load (rest days, congestion, travel) |
-| E | 12% | Tactical (pressing, transitions) |
-| F | 10% | Motivation (table stakes, derby) |
-| G | 5% | Referee (card/penalty tendencies) |
-| H | 8% | Stadium (pitch, weather, attendance) |
-| I | 7% | H2H (historical results) |
+| A | 22% | Base Strength (xG balance, home advantage, defense & offense) |
+| B | 20% | Recent Form (xG trends, results, opponent quality, consistency) |
+| C | 10% | Key Players (penalty takers, top performers, injury impact from news) |
+| D | 18% | Tactical Matchup (press vs build-up, high line, aerial duels) |
+| E | 12% | Table Position & Context (league standing, club context from news) |
+| F | 8% | Weather Conditions (precipitation, temperature, wind) |
+| G | 10% | Head-to-Head (historical results & quality patterns) |
 
 Each factor is scored 1-100, producing an overall_index that favors home (>50) or away (<50).
+
+**Key Changes from Old 9-Factor System:**
+- Removed Factor D (Load & Calendar) - no fixture congestion data
+- Removed Factor G (Referee) - referee_stats not fetched in workflow
+- Injuries now extracted from AI Agent live news search (Factor C)
+- Club context extracted from AI Agent live news search (Factor E)
+
+See `/n8n-workflows/prediction/NEW_AI_AGENT_PROMPT.txt` for full prompt.
 
 ---
 

@@ -6,11 +6,16 @@ import { cn } from '@/lib/utils'
 
 // Factor definitions with weights and labels
 const FACTOR_DEFINITIONS = {
-  A_base_strength: { label: 'Base Strength', weight: 18, description: 'xG balance, home advantage, defense & offense' },
-  B_form: { label: 'Form', weight: 16, description: 'Recent results, xG trends, opponent quality' },
+  A_base_strength: { label: 'Base Strength', weight: 22, description: 'xG balance, home advantage, defense & offense' },
+  B_form: { label: 'Recent Form', weight: 20, description: 'xG trends, results, opponent quality, consistency' },
+  C_key_players: { label: 'Key Players', weight: 10, description: 'Penalty takers, top performers, injury impact' },
+  D_tactical: { label: 'Tactical Matchup', weight: 18, description: 'Press vs build-up, high line, aerial duels' },
+  E_table_position: { label: 'Table Position & Context', weight: 12, description: 'League standing, club context' },
+  F_weather: { label: 'Weather Conditions', weight: 8, description: 'Precipitation, temperature, wind' },
+  G_h2h: { label: 'Head-to-Head', weight: 10, description: 'Historical results & quality patterns' },
+  // Legacy factors (for backward compatibility with old predictions)
   C_squad: { label: 'Squad', weight: 14, description: 'Injuries, returns, XI cohesion, rotation' },
   D_load: { label: 'Load & Calendar', weight: 10, description: 'Rest days, congestion, travel' },
-  E_tactical: { label: 'Tactical', weight: 12, description: 'Press vs build-up, high line, transitions' },
   F_motivation: { label: 'Motivation', weight: 10, description: 'Table stakes, derby, context' },
   G_referee: { label: 'Referee', weight: 5, description: 'Card & penalty tendencies' },
   H_stadium_weather: { label: 'Stadium & Weather', weight: 8, description: 'Pitch, attendance, conditions' },
@@ -26,16 +31,22 @@ interface FactorData {
 }
 
 interface FactorsObject {
+  // New 7-factor system
   A_base_strength?: FactorData
   B_form?: FactorData
+  C_key_players?: FactorData
+  D_tactical?: FactorData
+  E_table_position?: FactorData
+  F_weather?: FactorData
+  G_h2h?: FactorData
+  // Legacy 9-factor system (for backward compatibility with old predictions)
   C_squad?: FactorData
   D_load?: FactorData
-  E_tactical?: FactorData
   F_motivation?: FactorData
   G_referee?: FactorData
   H_stadium_weather?: FactorData
   I_h2h?: FactorData
-  // Legacy fields
+  // Other legacy fields
   home_win_pct?: number
   draw_pct?: number
   away_win_pct?: number
