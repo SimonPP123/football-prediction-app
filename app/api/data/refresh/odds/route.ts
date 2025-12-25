@@ -82,13 +82,22 @@ const teamsMatch = (name1: string, name2: string): boolean => {
 export async function POST(request: Request) {
   const isStreaming = wantsStreaming(request)
 
-  if (isStreaming) {
-    return handleStreamingRefresh()
+  // Parse body for fixture_ids (optional - if not provided, fetch all)
+  let fixtureIds: string[] | undefined
+  try {
+    const body = await request.clone().json()
+    fixtureIds = body.fixture_ids
+  } catch {
+    // No body or invalid JSON - will fetch all fixtures
   }
-  return handleBatchRefresh()
+
+  if (isStreaming) {
+    return handleStreamingRefresh(fixtureIds)
+  }
+  return handleBatchRefresh(fixtureIds)
 }
 
-async function handleStreamingRefresh() {
+async function handleStreamingRefresh(fixtureIds?: string[]) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
@@ -101,17 +110,29 @@ async function handleStreamingRefresh() {
         return
       }
 
-      sendLog({ type: 'info', message: 'Starting odds refresh from The Odds API...' })
+      const isSelectedMode = fixtureIds && fixtureIds.length > 0
+      sendLog({ type: 'info', message: isSelectedMode
+        ? `Starting odds refresh for ${fixtureIds.length} selected matches...`
+        : 'Starting odds refresh from The Odds API...' })
 
-      // Get ALL upcoming fixtures for the season
-      const endOfSeason = new Date('2026-06-01')
-
-      const { data: fixtures } = await supabase
+      // Build fixtures query
+      let query = supabase
         .from('fixtures')
         .select('id, api_id, home_team:teams!fixtures_home_team_id_fkey(name), away_team:teams!fixtures_away_team_id_fkey(name), match_date')
-        .gte('match_date', new Date().toISOString())
-        .lte('match_date', endOfSeason.toISOString())
-        .eq('status', 'NS')
+
+      if (isSelectedMode) {
+        // Fetch only selected fixtures
+        query = query.in('id', fixtureIds)
+      } else {
+        // Fetch all upcoming fixtures for the season
+        const endOfSeason = new Date('2026-06-01')
+        query = query
+          .gte('match_date', new Date().toISOString())
+          .lte('match_date', endOfSeason.toISOString())
+          .eq('status', 'NS')
+      }
+
+      const { data: fixtures } = await query
 
       if (!fixtures || fixtures.length === 0) {
         sendLog({ type: 'info', message: 'No upcoming fixtures found' })
@@ -196,7 +217,7 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(fixtureIds?: string[]) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -215,17 +236,29 @@ async function handleBatchRefresh() {
       }, { status: 400 })
     }
 
-    addLog('info', 'Starting odds refresh from The Odds API...')
+    const isSelectedMode = fixtureIds && fixtureIds.length > 0
+    addLog('info', isSelectedMode
+      ? `Starting odds refresh for ${fixtureIds.length} selected matches...`
+      : 'Starting odds refresh from The Odds API...')
 
-    // Get ALL upcoming fixtures for the season (until end of 2025-26 season)
-    const endOfSeason = new Date('2026-06-01')
-
-    const { data: fixtures } = await supabase
+    // Build fixtures query
+    let query = supabase
       .from('fixtures')
       .select('id, api_id, home_team:teams!fixtures_home_team_id_fkey(name), away_team:teams!fixtures_away_team_id_fkey(name), match_date')
-      .gte('match_date', new Date().toISOString())
-      .lte('match_date', endOfSeason.toISOString())
-      .eq('status', 'NS')
+
+    if (isSelectedMode) {
+      // Fetch only selected fixtures
+      query = query.in('id', fixtureIds)
+    } else {
+      // Fetch all upcoming fixtures for the season
+      const endOfSeason = new Date('2026-06-01')
+      query = query
+        .gte('match_date', new Date().toISOString())
+        .lte('match_date', endOfSeason.toISOString())
+        .eq('status', 'NS')
+    }
+
+    const { data: fixtures } = await query
 
     if (!fixtures || fixtures.length === 0) {
       addLog('info', 'No upcoming fixtures found')

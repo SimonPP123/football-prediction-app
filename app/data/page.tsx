@@ -38,6 +38,7 @@ import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
 import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
 import { DataSourceDetails } from '@/components/data/data-source-details'
+import { OddsMatchSelector } from '@/components/data-management/odds-match-selector'
 
 // Types
 interface LogEntry {
@@ -211,6 +212,8 @@ export default function DataManagementPage() {
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null)
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({})
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
+  const [oddsModalOpen, setOddsModalOpen] = useState(false)
+  const [oddsSelectedRefreshing, setOddsSelectedRefreshing] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
@@ -411,6 +414,78 @@ export default function DataManagementPage() {
       addLog('success', 'system', 'All data sources refreshed')
     }
     setIsRefreshingAll(false)
+  }
+
+  const handleOddsSelectedRefresh = async (fixtureIds: string[]) => {
+    setOddsSelectedRefreshing(true)
+    addLog('info', 'odds', `Starting odds refresh for ${fixtureIds.length} selected matches...`)
+
+    try {
+      const res = await fetch('/api/data/refresh/odds?stream=true', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixture_ids: fixtureIds }),
+      })
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
+                    addLog('success', 'odds', `Odds: ${data.imported} imported, ${data.errors} errors${duration}`)
+                    setRefreshStatus(prev => ({ ...prev, odds: 'success' }))
+                    await fetchStats()
+                  } else {
+                    addLog('error', 'odds', `Odds failed: ${data.error || 'Unknown error'}`)
+                    setRefreshStatus(prev => ({ ...prev, odds: 'error' }))
+                  }
+                } else {
+                  addLog(data.type || 'info', 'odds', data.message, data.details)
+                }
+              } catch (parseError) {
+                console.error('Failed to parse SSE data:', line)
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        if (data.success) {
+          const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
+          addLog('success', 'odds', `Odds: ${data.imported} imported, ${data.errors} errors${duration}`)
+          setRefreshStatus(prev => ({ ...prev, odds: 'success' }))
+          await fetchStats()
+        } else {
+          addLog('error', 'odds', `Odds failed: ${data.error || 'Unknown error'}`)
+          setRefreshStatus(prev => ({ ...prev, odds: 'error' }))
+        }
+      }
+    } catch (error) {
+      addLog('error', 'odds', `Odds failed: ${error instanceof Error ? error.message : 'Network error'}`)
+      setRefreshStatus(prev => ({ ...prev, odds: 'error' }))
+    } finally {
+      setOddsSelectedRefreshing(false)
+      setOddsModalOpen(false)
+      setTimeout(() => setRefreshStatus(prev => ({ ...prev, odds: 'idle' })), 3000)
+    }
   }
 
   const getLogColor = (type: LogEntry['type']) => {
@@ -630,8 +705,45 @@ export default function DataManagementPage() {
                               </div>
                             )}
 
-                            {/* Refresh Button */}
-                            {canRefresh && (
+                            {/* Refresh Button(s) */}
+                            {canRefresh && source.id === 'odds' ? (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleRefresh(source)}
+                                  disabled={isRefreshing || missingDeps.length > 0}
+                                  className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+                                    status === 'success' && "bg-green-500/20 text-green-500",
+                                    status === 'error' && "bg-red-500/20 text-red-500",
+                                    status === 'idle' && !missingDeps.length && "bg-primary/10 text-primary hover:bg-primary/20",
+                                    status === 'idle' && missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
+                                    isRefreshing && "opacity-70"
+                                  )}
+                                >
+                                  {isRefreshing ? (
+                                    <><Loader2 className="w-3 h-3 animate-spin" /> Refreshing...</>
+                                  ) : status === 'success' ? (
+                                    <><Check className="w-3 h-3" /> Updated!</>
+                                  ) : status === 'error' ? (
+                                    <><X className="w-3 h-3" /> Failed</>
+                                  ) : (
+                                    <><RefreshCw className="w-3 h-3" /> Refresh All</>
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => setOddsModalOpen(true)}
+                                  disabled={isRefreshing || missingDeps.length > 0}
+                                  className={cn(
+                                    "flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
+                                    !missingDeps.length && "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20",
+                                    missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
+                                    isRefreshing && "opacity-70"
+                                  )}
+                                >
+                                  <Calendar className="w-3 h-3" /> Select Matches
+                                </button>
+                              </div>
+                            ) : canRefresh && (
                               <button
                                 onClick={() => handleRefresh(source)}
                                 disabled={isRefreshing || missingDeps.length > 0}
@@ -734,6 +846,14 @@ export default function DataManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Odds Match Selector Modal */}
+      <OddsMatchSelector
+        isOpen={oddsModalOpen}
+        onClose={() => setOddsModalOpen(false)}
+        onRefresh={handleOddsSelectedRefresh}
+        isRefreshing={oddsSelectedRefreshing}
+      />
     </div>
   )
 }
