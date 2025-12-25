@@ -47,3 +47,12 @@ CREATE INDEX IF NOT EXISTS idx_prediction_history_model ON prediction_history(mo
 
 -- Add comment to table
 COMMENT ON TABLE prediction_history IS 'Stores previous versions of predictions for a fixture, enabling regeneration history tracking';
+
+-- Enable RLS on prediction_history table
+ALTER TABLE prediction_history ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access
+CREATE POLICY "Allow public read access" ON prediction_history FOR SELECT USING (true);
+
+-- Allow service role full access for inserts/updates/deletes
+CREATE POLICY "Allow service role full access" ON prediction_history FOR ALL USING (true);

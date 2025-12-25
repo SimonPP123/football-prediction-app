@@ -1,4 +1,4 @@
-import { supabase } from './client'
+import { supabase, createServerClient } from './client'
 import type { Team, Fixture, Standing, Prediction, TopPerformer, TeamSeasonStats, HeadToHead } from '@/types'
 
 // Get all teams
@@ -216,8 +216,11 @@ export async function savePredictionToHistory(fixtureId: string) {
   if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
   if (!current) return null // No existing prediction to save
 
+  // Use server client with service role key for INSERT operations
+  const serverSupabase = createServerClient()
+
   // Save to history
-  const { data, error } = await supabase
+  const { data, error } = await serverSupabase
     .from('prediction_history')
     .insert({
       fixture_id: current.fixture_id,
@@ -257,8 +260,11 @@ export async function getPredictionHistory(fixtureId: string) {
 }
 
 // Save prediction
-export async function savePrediction(fixtureId: string, prediction: any, modelUsed: string = 'gpt-4o') {
-  const { data, error } = await supabase
+export async function savePrediction(fixtureId: string, prediction: any, modelUsed: string = 'openai/gpt-5.2') {
+  // Use server client with service role key for UPSERT operations
+  const serverSupabase = createServerClient()
+
+  const { data, error } = await serverSupabase
     .from('predictions')
     .upsert({
       fixture_id: fixtureId,
