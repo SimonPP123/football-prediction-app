@@ -341,7 +341,11 @@ export default function DataManagementPage() {
                   // Final message with summary
                   if (data.success) {
                     const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', source.id, `${source.name}: ${data.imported} imported, ${data.errors} errors${duration}`)
+                    // Support both old (imported) and new (inserted/updated) format
+                    const stats = data.inserted !== undefined
+                      ? `${data.inserted} new, ${data.updated} updated`
+                      : `${data.imported} synced`
+                    addLog('success', source.id, `${source.name}: ${stats}, ${data.errors} errors${duration}`)
                     setRefreshStatus(prev => ({ ...prev, [source.id]: 'success' }))
                     await fetchStats()
                   } else {
@@ -370,7 +374,11 @@ export default function DataManagementPage() {
           }
 
           const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-          addLog('success', source.id, `${source.name}: ${data.imported} imported, ${data.errors} errors${duration}`)
+          // Support both old (imported) and new (inserted/updated) format
+          const stats = data.inserted !== undefined
+            ? `${data.inserted} new, ${data.updated} updated`
+            : `${data.imported} synced`
+          addLog('success', source.id, `${source.name}: ${stats}, ${data.errors} errors${duration}`)
           setRefreshStatus(prev => ({ ...prev, [source.id]: 'success' }))
           await fetchStats()
         } else {
@@ -450,7 +458,10 @@ export default function DataManagementPage() {
                 if (data.done) {
                   if (data.success) {
                     const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'odds', `Odds: ${data.imported} imported, ${data.errors} errors${duration}`)
+                    const stats = data.inserted !== undefined
+                      ? `${data.inserted} new, ${data.updated} updated`
+                      : `${data.imported} synced`
+                    addLog('success', 'odds', `Odds: ${stats}, ${data.errors} errors${duration}`)
                     setRefreshStatus(prev => ({ ...prev, odds: 'success' }))
                     await fetchStats()
                   } else {
@@ -470,7 +481,10 @@ export default function DataManagementPage() {
         const data = await res.json()
         if (data.success) {
           const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-          addLog('success', 'odds', `Odds: ${data.imported} imported, ${data.errors} errors${duration}`)
+          const stats = data.inserted !== undefined
+            ? `${data.inserted} new, ${data.updated} updated`
+            : `${data.imported} synced`
+          addLog('success', 'odds', `Odds: ${stats}, ${data.errors} errors${duration}`)
           setRefreshStatus(prev => ({ ...prev, odds: 'success' }))
           await fetchStats()
         } else {

@@ -85,8 +85,10 @@ async function handleStreamingRefresh() {
         return
       }
 
-      let teamsImported = 0
-      let venuesImported = 0
+      let teamsInserted = 0
+      let teamsUpdated = 0
+      let venuesInserted = 0
+      let venuesUpdated = 0
       let errors = 0
       const total = data.response.length
 
@@ -103,6 +105,13 @@ async function handleStreamingRefresh() {
 
         let venueId = null
         if (venue && venue.id) {
+          // Check if venue exists
+          const { data: existingVenue } = await supabase
+            .from('venues')
+            .select('id')
+            .eq('api_id', venue.id)
+            .single()
+
           const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
           const { data: venueData, error: venueError } = await supabase
             .from('venues')
@@ -123,9 +132,20 @@ async function handleStreamingRefresh() {
             sendLog({ type: 'warning', message: `Venue error for ${venue.name}: ${venueError.message}` })
           } else if (venueData) {
             venueId = venueData.id
-            venuesImported++
+            if (existingVenue) {
+              venuesUpdated++
+            } else {
+              venuesInserted++
+            }
           }
         }
+
+        // Check if team exists
+        const { data: existingTeam } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('api_id', team.id)
+          .single()
 
         const { error: teamError } = await supabase
           .from('teams')
@@ -141,14 +161,16 @@ async function handleStreamingRefresh() {
         if (teamError) {
           sendLog({ type: 'error', message: `Error updating ${team.name}: ${teamError.message}` })
           errors++
+        } else if (existingTeam) {
+          teamsUpdated++
         } else {
-          teamsImported++
+          teamsInserted++
         }
       }
 
       const duration = Date.now() - startTime
-      sendLog({ type: 'success', message: `Completed: ${teamsImported} teams, ${venuesImported} venues imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported: teamsImported, errors, total, duration })
+      sendLog({ type: 'success', message: `Completed: Teams (${teamsInserted} new, ${teamsUpdated} updated), Venues (${venuesInserted} new, ${venuesUpdated} updated), ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, inserted: teamsInserted, updated: teamsUpdated, venuesInserted, venuesUpdated, errors, total, duration })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -209,8 +231,10 @@ async function handleBatchRefresh() {
       }, { status: 400 })
     }
 
-    let teamsImported = 0
-    let venuesImported = 0
+    let teamsInserted = 0
+    let teamsUpdated = 0
+    let venuesInserted = 0
+    let venuesUpdated = 0
     let errors = 0
     const total = data.response.length
 
@@ -228,6 +252,13 @@ async function handleBatchRefresh() {
       // Upsert venue first
       let venueId = null
       if (venue && venue.id) {
+        // Check if venue exists
+        const { data: existingVenue } = await supabase
+          .from('venues')
+          .select('id')
+          .eq('api_id', venue.id)
+          .single()
+
         const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
         const { data: venueData, error: venueError } = await supabase
           .from('venues')
@@ -248,9 +279,20 @@ async function handleBatchRefresh() {
           addLog('warning', `Venue error for ${venue.name}: ${venueError.message}`)
         } else if (venueData) {
           venueId = venueData.id
-          venuesImported++
+          if (existingVenue) {
+            venuesUpdated++
+          } else {
+            venuesInserted++
+          }
         }
       }
+
+      // Check if team exists
+      const { data: existingTeam } = await supabase
+        .from('teams')
+        .select('id')
+        .eq('api_id', team.id)
+        .single()
 
       // Upsert team
       const { error: teamError } = await supabase
@@ -271,22 +313,30 @@ async function handleBatchRefresh() {
           error: teamError.message,
         })
         errors++
-      } else {
+      } else if (existingTeam) {
         addLog('success', `Updated: ${team.name}`, {
           recordId: String(team.id),
           recordName: team.name,
         })
-        teamsImported++
+        teamsUpdated++
+      } else {
+        addLog('success', `Added: ${team.name}`, {
+          recordId: String(team.id),
+          recordName: team.name,
+        })
+        teamsInserted++
       }
     }
 
     const duration = Date.now() - startTime
-    addLog('success', `Completed: ${teamsImported} teams, ${venuesImported} venues imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)`)
+    addLog('success', `Completed: Teams (${teamsInserted} new, ${teamsUpdated} updated), Venues (${venuesInserted} new, ${venuesUpdated} updated), ${errors} errors (${(duration / 1000).toFixed(1)}s)`)
 
     return NextResponse.json({
       success: true,
-      imported: teamsImported,
-      venuesImported,
+      inserted: teamsInserted,
+      updated: teamsUpdated,
+      venuesInserted,
+      venuesUpdated,
       errors,
       total,
       duration,

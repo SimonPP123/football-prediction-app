@@ -154,7 +154,8 @@ async function handleStreamingRefresh(fixtureIds?: string[]) {
       const oddsData = await response.json()
       sendLog({ type: 'info', message: `Received ${oddsData.length} matches from The Odds API` })
 
-      let imported = 0
+      let inserted = 0
+      let updated = 0
       let errors = 0
       let matchedFixtures = 0
 
@@ -185,6 +186,15 @@ async function handleStreamingRefresh(fixtureIds?: string[]) {
         // Insert odds for each bookmaker
         for (const bookmaker of matchingOdds.bookmakers) {
           for (const market of bookmaker.markets || []) {
+            // Check if record exists
+            const { data: existing } = await supabase
+              .from('odds')
+              .select('id')
+              .eq('fixture_id', fixture.id)
+              .eq('bookmaker', bookmaker.title)
+              .eq('bet_type', market.key)
+              .single()
+
             const { error } = await supabase
               .from('odds')
               .upsert({
@@ -197,16 +207,18 @@ async function handleStreamingRefresh(fixtureIds?: string[]) {
 
             if (error) {
               errors++
+            } else if (existing) {
+              updated++
             } else {
-              imported++
+              inserted++
             }
           }
         }
       }
 
       const duration = Date.now() - startTime
-      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: fixtures.length, duration })
+      sendLog({ type: 'success', message: `Completed: ${inserted} new, ${updated} updated, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, inserted, updated, errors, total: fixtures.length, duration })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -285,7 +297,8 @@ async function handleBatchRefresh(fixtureIds?: string[]) {
     const oddsData = await response.json()
     addLog('info', `Received ${oddsData.length} matches from The Odds API`)
 
-    let imported = 0
+    let inserted = 0
+    let updated = 0
     let errors = 0
 
     // Match odds to fixtures by team names
@@ -308,6 +321,15 @@ async function handleBatchRefresh(fixtureIds?: string[]) {
       // Insert odds for each bookmaker
       for (const bookmaker of matchingOdds.bookmakers) {
         for (const market of bookmaker.markets || []) {
+          // Check if record exists
+          const { data: existing } = await supabase
+            .from('odds')
+            .select('id')
+            .eq('fixture_id', fixture.id)
+            .eq('bookmaker', bookmaker.title)
+            .eq('bet_type', market.key)
+            .single()
+
           const { error } = await supabase
             .from('odds')
             .upsert({
@@ -320,19 +342,22 @@ async function handleBatchRefresh(fixtureIds?: string[]) {
 
           if (error) {
             errors++
+          } else if (existing) {
+            updated++
           } else {
-            imported++
+            inserted++
           }
         }
       }
     }
 
     const duration = Date.now() - startTime
-    addLog('success', `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)`)
+    addLog('success', `Completed: ${inserted} new, ${updated} updated, ${errors} errors (${(duration / 1000).toFixed(1)}s)`)
 
     return NextResponse.json({
       success: true,
-      imported,
+      inserted,
+      updated,
       errors,
       total: fixtures.length,
       duration,

@@ -59,7 +59,8 @@ async function handleStreamingRefresh() {
       const { data: venues } = await supabase.from('venues').select('id, api_id')
       const venueMap = new Map(venues?.map(v => [v.api_id, v.id]) || [])
 
-      let imported = 0
+      let inserted = 0
+      let updated = 0
       let errors = 0
       const total = data.response.length
 
@@ -90,6 +91,13 @@ async function handleStreamingRefresh() {
           continue
         }
 
+        // Check if record exists
+        const { data: existing } = await supabase
+          .from('fixtures')
+          .select('id')
+          .eq('api_id', fixture.id)
+          .single()
+
         const { error } = await supabase
           .from('fixtures')
           .upsert({
@@ -112,14 +120,16 @@ async function handleStreamingRefresh() {
 
         if (error) {
           errors++
+        } else if (existing) {
+          updated++
         } else {
-          imported++
+          inserted++
         }
       }
 
       const duration = Date.now() - startTime
-      sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total, duration })
+      sendLog({ type: 'success', message: `Completed: ${inserted} new, ${updated} updated, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
+      close({ success: true, inserted, updated, errors, total, duration })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -179,7 +189,8 @@ async function handleBatchRefresh() {
     const { data: venues } = await supabase.from('venues').select('id, api_id')
     const venueMap = new Map(venues?.map(v => [v.api_id, v.id]) || [])
 
-    let imported = 0
+    let inserted = 0
+    let updated = 0
     let errors = 0
 
     addLog('info', 'Processing fixtures...')
@@ -198,6 +209,13 @@ async function handleBatchRefresh() {
         errors++
         continue
       }
+
+      // Check if record exists
+      const { data: existing } = await supabase
+        .from('fixtures')
+        .select('id')
+        .eq('api_id', fixture.id)
+        .single()
 
       const { error } = await supabase
         .from('fixtures')
@@ -221,16 +239,19 @@ async function handleBatchRefresh() {
 
       if (error) {
         errors++
+      } else if (existing) {
+        updated++
       } else {
-        imported++
+        inserted++
       }
     }
 
-    addLog('success', `Completed: ${imported} imported, ${errors} errors`)
+    addLog('success', `Completed: ${inserted} new, ${updated} updated, ${errors} errors`)
 
     return NextResponse.json({
       success: true,
-      imported,
+      inserted,
+      updated,
       errors,
       total: data.response.length,
       logs,

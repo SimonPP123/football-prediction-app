@@ -20,11 +20,16 @@ export interface StreamLogEntry {
 
 export interface StreamSummary {
   success: boolean
-  imported: number
+  // Support both old (imported) and new (inserted/updated) format
+  imported?: number
+  inserted?: number
+  updated?: number
   errors: number
   total: number
   duration: number
   done: true
+  // Allow additional properties for specific endpoints
+  [key: string]: unknown
 }
 
 export function createSSEStream() {
