@@ -83,48 +83,64 @@ export async function POST(request: Request) {
       })
       clearTimeout(timeoutId)
 
-      if (webhookResponse.ok) {
-        const rawResponse = await webhookResponse.json()
-
-        // n8n returns an array, extract the first item
-        const prediction = Array.isArray(rawResponse) ? rawResponse[0] : rawResponse
-
-        // Save prediction to database
-        // The new workflow returns: prediction, confidence_pct, probabilities, etc.
-        if (prediction && prediction.prediction) {
-          // Map n8n response to our database schema
-          const predictionData = {
-            prediction_1x2: prediction.prediction,
-            confidence: prediction.confidence_pct,
-            home_win_pct: prediction.probabilities?.home_win_pct || prediction.home_win_pct,
-            draw_pct: prediction.probabilities?.draw_pct || prediction.draw_pct,
-            away_win_pct: prediction.probabilities?.away_win_pct || prediction.away_win_pct,
-            over_under: prediction.over_under_2_5,
-            btts: prediction.btts,
-            value_bet: prediction.value_bet,
-            key_factors: prediction.key_factors,
-            risk_factors: prediction.risk_factors,
-            detailed_analysis: prediction.analysis,
-            score_predictions: prediction.score_predictions || null,
-            most_likely_score: prediction.most_likely_score || null,
-          }
-
-          const saved = await savePrediction(fixture_id, predictionData, selectedModel)
-
-          // Also save to history for every prediction (not just regenerations)
-          try {
-            await savePredictionToHistory(fixture_id)
-          } catch (histErr) {
-            console.warn('Could not save to history:', histErr)
-          }
-
-          return NextResponse.json({
-            success: true,
-            prediction: saved,
-            model_used: selectedModel,
-          })
-        }
+      // Check if webhook returned an error
+      if (!webhookResponse.ok) {
+        const errorText = await webhookResponse.text().catch(() => 'Unknown error')
+        console.error(`n8n webhook error: ${webhookResponse.status}`, errorText)
+        return NextResponse.json({
+          success: false,
+          error: 'workflow_failed',
+          message: `Prediction workflow failed (${webhookResponse.status})`,
+        }, { status: 502 })
       }
+
+      const rawResponse = await webhookResponse.json()
+
+      // n8n returns an array, extract the first item
+      const prediction = Array.isArray(rawResponse) ? rawResponse[0] : rawResponse
+
+      // Validate that we got a proper prediction response
+      if (!prediction || !prediction.prediction) {
+        console.error('Invalid n8n response - missing prediction field:', rawResponse)
+        return NextResponse.json({
+          success: false,
+          error: 'invalid_response',
+          message: 'Prediction workflow returned incomplete data',
+        }, { status: 502 })
+      }
+
+      // Map n8n response to our database schema
+      const predictionData = {
+        prediction_1x2: prediction.prediction,
+        confidence: prediction.confidence_pct,
+        home_win_pct: prediction.probabilities?.home_win_pct || prediction.home_win_pct,
+        draw_pct: prediction.probabilities?.draw_pct || prediction.draw_pct,
+        away_win_pct: prediction.probabilities?.away_win_pct || prediction.away_win_pct,
+        over_under: prediction.over_under_2_5,
+        btts: prediction.btts,
+        value_bet: prediction.value_bet,
+        key_factors: prediction.key_factors,
+        risk_factors: prediction.risk_factors,
+        detailed_analysis: prediction.analysis,
+        score_predictions: prediction.score_predictions || null,
+        most_likely_score: prediction.most_likely_score || null,
+      }
+
+      const saved = await savePrediction(fixture_id, predictionData, selectedModel)
+
+      // Save to history for every prediction
+      try {
+        await savePredictionToHistory(fixture_id)
+      } catch (histErr) {
+        console.error('Failed to save prediction to history:', histErr)
+        // Non-fatal - prediction was saved, history is a bonus
+      }
+
+      return NextResponse.json({
+        success: true,
+        prediction: saved,
+        model_used: selectedModel,
+      })
     } catch (webhookError: any) {
       clearTimeout(timeoutId)
 
@@ -138,49 +154,14 @@ export async function POST(request: Request) {
         }, { status: 408 })
       }
 
-      console.error('Webhook error (n8n might not be configured yet):', webhookError)
-      // Fall through to placeholder prediction
+      // Network or other fetch error
+      console.error('Webhook error:', webhookError)
+      return NextResponse.json({
+        success: false,
+        error: 'network_error',
+        message: webhookError?.message || 'Failed to connect to prediction workflow',
+      }, { status: 502 })
     }
-
-    // If webhook fails or n8n not configured, create a placeholder prediction
-    // This allows testing the UI before n8n workflow is set up
-    const placeholderPrediction = {
-      prediction_1x2: '1',
-      confidence: 50,
-      home_win_pct: 40,
-      draw_pct: 30,
-      away_win_pct: 30,
-      over_under: 'Under 2.5',
-      btts: 'No',
-      value_bet: null,
-      key_factors: [
-        'Prediction pending AI analysis',
-        'n8n workflow not yet configured'
-      ],
-      risk_factors: [
-        'This is a placeholder prediction',
-        'Configure n8n workflow for real analysis'
-      ],
-      detailed_analysis: 'This is a placeholder prediction. The n8n AI workflow has not been configured yet. Once set up, this will contain detailed AI-generated analysis based on team form, head-to-head records, injuries, and other factors.',
-      score_predictions: null,
-      most_likely_score: null,
-    }
-
-    const saved = await savePrediction(fixture_id, placeholderPrediction, selectedModel)
-
-    // Also save placeholder to history
-    try {
-      await savePredictionToHistory(fixture_id)
-    } catch (histErr) {
-      console.warn('Could not save placeholder to history:', histErr)
-    }
-
-    return NextResponse.json({
-      success: true,
-      prediction: saved,
-      placeholder: true,
-      model_used: selectedModel,
-    })
   } catch (error) {
     console.error('Error generating prediction:', error)
     return NextResponse.json(

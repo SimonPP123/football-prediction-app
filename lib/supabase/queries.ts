@@ -30,10 +30,10 @@ export async function getTeam(id: string) {
 }
 
 // Get upcoming fixtures (not yet played)
-export async function getUpcomingFixtures(limit = 10) {
+export async function getUpcomingFixtures(limit?: number) {
   const now = new Date().toISOString()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('fixtures')
     .select(`
       *,
@@ -46,7 +46,12 @@ export async function getUpcomingFixtures(limit = 10) {
     .gte('match_date', now)
     .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
     .order('match_date', { ascending: true })
-    .limit(limit)
+
+  if (limit) {
+    query = query.limit(limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
@@ -101,6 +106,42 @@ export async function getCompletedFixtures(limit = 20) {
     .in('status', ['FT', 'AET', 'PEN'])
     .order('match_date', { ascending: false })
     .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+// Get recently completed fixtures with their predictions (for results comparison)
+export async function getRecentCompletedWithPredictions(limitRounds = 2) {
+  // First, get the rounds of recent completed matches
+  const { data: recentFixtures, error: roundError } = await supabase
+    .from('fixtures')
+    .select('round')
+    .in('status', ['FT', 'AET', 'PEN'])
+    .order('match_date', { ascending: false })
+    .limit(50) // Get enough to find recent rounds
+
+  if (roundError) throw roundError
+
+  // Extract unique rounds
+  const uniqueRounds = Array.from(new Set(recentFixtures?.map(f => f.round).filter(Boolean)))
+  const recentRounds = uniqueRounds.slice(0, limitRounds)
+
+  if (recentRounds.length === 0) return []
+
+  // Get all fixtures from those rounds with predictions
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      venue:venues(*),
+      prediction:predictions(*)
+    `)
+    .in('round', recentRounds)
+    .in('status', ['FT', 'AET', 'PEN'])
+    .order('match_date', { ascending: false })
 
   if (error) throw error
   return data || []

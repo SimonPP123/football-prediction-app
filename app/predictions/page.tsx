@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { PredictionCard } from '@/components/predictions/prediction-card'
 import { PredictionTable } from '@/components/predictions/prediction-table'
+import { RecentResultCard } from '@/components/predictions/recent-result-card'
+import { RecentResultsTable } from '@/components/predictions/recent-results-table'
 import { LayoutGrid, List, RefreshCw, Loader2, Settings, X, Copy, Check, Info, ChevronDown, Filter } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
@@ -53,6 +55,9 @@ export default function PredictionsPage() {
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [errorIds, setErrorIds] = useState<Record<string, string>>({}) // fixtureId -> error message
   const [generateAllStats, setGenerateAllStats] = useState<{ success: number; failed: number } | null>(null)
+  const [recentResults, setRecentResults] = useState<any[]>([])
+  const [refreshing, setRefreshing] = useState(false)
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -83,15 +88,19 @@ export default function PredictionsPage() {
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
 
-  // Get available rounds from fixtures
+  // Get available rounds from both upcoming fixtures and recent results
   const availableRounds = useMemo(() => {
     const rounds = new Set<number>()
     fixtures.forEach(f => {
       const roundNum = parseRoundNumber(f.round)
       if (roundNum) rounds.add(roundNum)
     })
+    recentResults.forEach(f => {
+      const roundNum = parseRoundNumber(f.round)
+      if (roundNum) rounds.add(roundNum)
+    })
     return Array.from(rounds).sort((a, b) => a - b)
-  }, [fixtures])
+  }, [fixtures, recentResults])
 
   // Filter fixtures by selected rounds
   const filteredFixtures = useMemo(() => {
@@ -101,6 +110,15 @@ export default function PredictionsPage() {
       return roundNum && selectedRounds.includes(roundNum)
     })
   }, [fixtures, selectedRounds])
+
+  // Filter recent results by selected rounds
+  const filteredRecentResults = useMemo(() => {
+    if (selectedRounds.length === 0) return recentResults
+    return recentResults.filter(f => {
+      const roundNum = parseRoundNumber(f.round)
+      return roundNum && selectedRounds.includes(roundNum)
+    })
+  }, [recentResults, selectedRounds])
 
   // Toggle round selection
   const toggleRound = (round: number) => {
@@ -123,15 +141,27 @@ export default function PredictionsPage() {
     setShowModelDropdown(false)
   }
 
-  const fetchFixtures = async () => {
+  const fetchFixtures = async (showRefreshIndicator = false) => {
+    if (showRefreshIndicator) {
+      setRefreshing(true)
+    }
     try {
-      const res = await fetch('/api/fixtures/upcoming')
-      const data = await res.json()
-      setFixtures(data)
+      // Fetch both upcoming and recent results in parallel
+      const [upcomingRes, recentRes] = await Promise.all([
+        fetch('/api/fixtures/upcoming'),
+        fetch('/api/fixtures/recent-results?rounds=2')
+      ])
+
+      const upcomingData = await upcomingRes.json()
+      const recentData = await recentRes.json()
+
+      setFixtures(Array.isArray(upcomingData) ? upcomingData : [])
+      setRecentResults(Array.isArray(recentData) ? recentData : [])
     } catch (error) {
       console.error('Failed to fetch fixtures:', error)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
@@ -305,6 +335,15 @@ export default function PredictionsPage() {
                 )}
                 Generate All ({fixturesWithoutPredictions.length})
               </button>
+              <button
+                onClick={() => fetchFixtures(true)}
+                disabled={refreshing || loading}
+                className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm disabled:opacity-50"
+                title="Refresh data"
+              >
+                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
             </div>
           </div>
 
@@ -436,38 +475,89 @@ export default function PredictionsPage() {
           </div>
         )}
 
+        {/* Tab Navigation */}
+        <div className="flex border-b border-border mb-6">
+          <button
+            onClick={() => setActiveTab('upcoming')}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              activeTab === 'upcoming'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Upcoming ({filteredFixtures.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('results')}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+              activeTab === 'results'
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Recent Results ({filteredRecentResults.length})
+          </button>
+        </div>
+
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : filteredFixtures.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            {fixtures.length === 0 ? 'No upcoming fixtures found' : 'No fixtures match the selected filters'}
-          </div>
-        ) : viewMode === 'cards' ? (
-          /* Cards View */
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredFixtures.map(fixture => (
-              <PredictionCard
-                key={fixture.id}
-                fixture={fixture}
-                onGeneratePrediction={handleGeneratePrediction}
-                isGenerating={generatingIds.includes(fixture.id)}
-                error={errorIds[fixture.id]}
-                onClearError={() => clearError(fixture.id)}
-              />
-            ))}
-          </div>
+        ) : activeTab === 'upcoming' ? (
+          /* Upcoming Fixtures Tab */
+          filteredFixtures.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              {fixtures.length === 0 ? 'No upcoming fixtures found' : 'No fixtures match the selected filters'}
+            </div>
+          ) : viewMode === 'cards' ? (
+            /* Cards View */
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredFixtures.map(fixture => (
+                <PredictionCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  onGeneratePrediction={handleGeneratePrediction}
+                  isGenerating={generatingIds.includes(fixture.id)}
+                  error={errorIds[fixture.id]}
+                  onClearError={() => clearError(fixture.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Table View */
+            <PredictionTable
+              fixtures={filteredFixtures}
+              onGeneratePrediction={handleGeneratePrediction}
+              generatingIds={generatingIds}
+              errorIds={errorIds}
+              onClearError={clearError}
+            />
+          )
         ) : (
-          /* Table View */
-          <PredictionTable
-            fixtures={filteredFixtures}
-            onGeneratePrediction={handleGeneratePrediction}
-            generatingIds={generatingIds}
-            errorIds={errorIds}
-            onClearError={clearError}
-          />
+          /* Recent Results Tab */
+          filteredRecentResults.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              {recentResults.length === 0 ? 'No recent results found' : 'No results match the selected filters'}
+            </div>
+          ) : viewMode === 'cards' ? (
+            /* Cards View */
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {filteredRecentResults.map(fixture => (
+                <RecentResultCard
+                  key={fixture.id}
+                  fixture={fixture}
+                />
+              ))}
+            </div>
+          ) : (
+            /* Table View */
+            <RecentResultsTable
+              results={filteredRecentResults}
+            />
+          )
         )}
       </div>
 

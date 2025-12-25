@@ -4,7 +4,8 @@ import { getUpcomingFixtures } from '@/lib/supabase/queries'
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : undefined
 
     const fixtures = await getUpcomingFixtures(limit)
 
