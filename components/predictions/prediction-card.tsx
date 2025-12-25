@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
@@ -27,6 +27,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const [showScores, setShowScores] = useState(false) // Collapsed by default
   const [showOdds, setShowOdds] = useState(false) // Collapsed by default
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null)
 
   // Handle both array and object formats from Supabase
   const prediction = Array.isArray(fixture.prediction)
@@ -125,6 +127,60 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
       console.error('Failed to fetch history:', error)
     } finally {
       setLoadingHistory(false)
+    }
+  }
+
+  // Delete current prediction
+  const handleDeletePrediction = async () => {
+    if (!confirm('Are you sure you want to delete this prediction? This action cannot be undone.')) {
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/predictions?fixture_id=${fixture.id}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        // Refresh the page or trigger a refetch
+        window.location.reload()
+      } else {
+        alert(`Failed to delete prediction: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to delete prediction:', error)
+      alert('Failed to delete prediction. Please try again.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // Delete a specific prediction history record
+  const handleDeleteHistoryRecord = async (historyId: string) => {
+    if (!confirm('Are you sure you want to delete this prediction history record? This action cannot be undone.')) {
+      return
+    }
+
+    setDeletingHistoryId(historyId)
+    try {
+      const res = await fetch(`/api/predictions/history?history_id=${historyId}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        // Remove from local state
+        setHistory(history.filter(h => h.id !== historyId))
+      } else {
+        alert(`Failed to delete history record: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Failed to delete history record:', error)
+      alert('Failed to delete history record. Please try again.')
+    } finally {
+      setDeletingHistoryId(null)
     }
   }
 
@@ -519,6 +575,15 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               <History className={cn("w-4 h-4", loadingHistory && "animate-spin")} />
               History
             </button>
+            <button
+              onClick={handleDeletePrediction}
+              disabled={deleting}
+              className="flex-1 p-3 flex items-center justify-center gap-2 text-sm text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+              title="Delete this prediction"
+            >
+              <Trash2 className="w-4 h-4" />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
           </div>
         ) : !error && (
           <button
@@ -611,32 +676,33 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               return (
                 <div key={h.id || idx} className="bg-card border rounded-lg overflow-hidden">
                   {/* Header - Always Visible */}
-                  <button
-                    onClick={() => setExpandedHistoryId(isHistoryExpanded ? null : h.id)}
-                    className="w-full p-3 text-left hover:bg-muted/50 transition-colors"
-                  >
-                    {/* Row 1: Prediction + Confidence + Date */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold',
-                          h.prediction_result === '1' && 'bg-home text-white',
-                          h.prediction_result === 'X' && 'bg-draw text-white',
-                          h.prediction_result === '2' && 'bg-away text-white'
-                        )}>
-                          {h.prediction_result || '?'}
-                        </span>
-                        <span className="font-medium text-sm">
-                          {h.confidence_pct || h.overall_index}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(h.created_at).toLocaleDateString('en-GB', {
-                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                          })}
-                        </span>
+                  <div className="flex items-stretch">
+                    <button
+                      onClick={() => setExpandedHistoryId(isHistoryExpanded ? null : h.id)}
+                      className="flex-1 p-3 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Row 1: Prediction + Confidence + Date */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold',
+                            h.prediction_result === '1' && 'bg-home text-white',
+                            h.prediction_result === 'X' && 'bg-draw text-white',
+                            h.prediction_result === '2' && 'bg-away text-white'
+                          )}>
+                            {h.prediction_result || '?'}
+                          </span>
+                          <span className="font-medium text-sm">
+                            {h.confidence_pct || h.overall_index}%
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(h.created_at).toLocaleDateString('en-GB', {
+                              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                        <ChevronDown className={cn("w-4 h-4 transition-transform", isHistoryExpanded && "rotate-180")} />
                       </div>
-                      <ChevronDown className={cn("w-4 h-4 transition-transform", isHistoryExpanded && "rotate-180")} />
-                    </div>
 
                     {/* Row 2: Quick Stats */}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -679,6 +745,20 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                       <span className="w-6 text-right">2</span>
                     </div>
                   </button>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteHistoryRecord(h.id)
+                    }}
+                    disabled={deletingHistoryId === h.id}
+                    className="px-3 flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                    title="Delete this history record"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
 
                   {/* Expanded Details */}
                   {isHistoryExpanded && (

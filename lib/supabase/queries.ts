@@ -359,6 +359,45 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
   return data
 }
 
+// Delete prediction (main prediction for a fixture)
+export async function deletePrediction(fixtureId: string) {
+  const serverSupabase = createServerClient()
+
+  const { error } = await serverSupabase
+    .from('predictions')
+    .delete()
+    .eq('fixture_id', fixtureId)
+
+  if (error) throw error
+  return { success: true }
+}
+
+// Delete a specific prediction history record
+export async function deletePredictionHistoryRecord(historyId: string) {
+  const serverSupabase = createServerClient()
+
+  const { error } = await serverSupabase
+    .from('prediction_history')
+    .delete()
+    .eq('id', historyId)
+
+  if (error) throw error
+  return { success: true }
+}
+
+// Delete all prediction history for a fixture
+export async function deleteAllPredictionHistory(fixtureId: string) {
+  const serverSupabase = createServerClient()
+
+  const { error } = await serverSupabase
+    .from('prediction_history')
+    .delete()
+    .eq('fixture_id', fixtureId)
+
+  if (error) throw error
+  return { success: true }
+}
+
 // Get team season stats
 export async function getTeamSeasonStats(teamId: string) {
   const { data, error } = await supabase
