@@ -347,16 +347,30 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
   const drawPct = prediction.draw_pct != null ? Math.round(prediction.draw_pct) : null
   const awayWinPct = prediction.away_win_pct != null ? Math.round(prediction.away_win_pct) : null
 
+  // Validate required fields
+  if (!prediction.prediction) {
+    console.error('Missing prediction field in AI output:', prediction)
+    throw new Error('Invalid prediction: missing "prediction" field')
+  }
+
+  // Validate probabilities sum to 100 (within 1% tolerance)
+  if (homeWinPct !== null && drawPct !== null && awayWinPct !== null) {
+    const totalPct = homeWinPct + drawPct + awayWinPct
+    if (Math.abs(totalPct - 100) > 1) {
+      console.warn(`Prediction probabilities don't sum to 100: ${totalPct}% (${homeWinPct}/${drawPct}/${awayWinPct})`)
+    }
+  }
+
   const { data, error } = await serverSupabase
     .from('predictions')
     .upsert({
       fixture_id: fixtureId,
       overall_index: overallIndex,
-      prediction_result: prediction.prediction_1x2,
+      prediction_result: prediction.prediction,
       confidence_level: overallIndex >= 70 ? 'high' : overallIndex >= 50 ? 'medium' : 'low',
       confidence_pct: overallIndex,
       factors: factorsData, // Full A-I factor breakdown stored here
-      analysis_text: prediction.detailed_analysis,
+      analysis_text: prediction.analysis,
       key_factors: prediction.key_factors,
       risk_factors: prediction.risk_factors,
       model_version: modelUsed,
@@ -366,7 +380,7 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
       home_win_pct: homeWinPct,
       draw_pct: drawPct,
       away_win_pct: awayWinPct,
-      over_under_2_5: prediction.over_under,
+      over_under_2_5: prediction.over_under_2_5,
       btts: prediction.btts,
       value_bet: prediction.value_bet,
       updated_at: new Date().toISOString(),
