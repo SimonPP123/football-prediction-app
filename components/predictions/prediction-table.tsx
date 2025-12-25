@@ -164,10 +164,10 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                       )}
                     </td>
                     <td className="p-3 text-center text-sm">
-                      {prediction?.factors?.over_under || '-'}
+                      {prediction?.over_under_2_5 || prediction?.factors?.over_under || '-'}
                     </td>
                     <td className="p-3 text-center text-sm">
-                      {prediction?.factors?.btts || '-'}
+                      {prediction?.btts || prediction?.factors?.btts || '-'}
                     </td>
                     <td className="p-3 text-center">
                       {hasOdds ? (
@@ -257,36 +257,36 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                                   <div className="flex-1 bg-muted rounded-full h-2">
                                     <div
                                       className="h-full bg-home rounded-full"
-                                      style={{ width: `${prediction.factors.home_win_pct || 0}%` }}
+                                      style={{ width: `${prediction.home_win_pct || prediction.factors?.home_win_pct || 0}%` }}
                                     />
                                   </div>
-                                  <span className="w-10 text-right">{prediction.factors.home_win_pct || 0}%</span>
+                                  <span className="w-10 text-right">{prediction.home_win_pct || prediction.factors?.home_win_pct || 0}%</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                   <span className="w-6">X</span>
                                   <div className="flex-1 bg-muted rounded-full h-2">
                                     <div
                                       className="h-full bg-draw rounded-full"
-                                      style={{ width: `${prediction.factors.draw_pct || 0}%` }}
+                                      style={{ width: `${prediction.draw_pct || prediction.factors?.draw_pct || 0}%` }}
                                     />
                                   </div>
-                                  <span className="w-10 text-right">{prediction.factors.draw_pct || 0}%</span>
+                                  <span className="w-10 text-right">{prediction.draw_pct || prediction.factors?.draw_pct || 0}%</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                   <span className="w-6">2</span>
                                   <div className="flex-1 bg-muted rounded-full h-2">
                                     <div
                                       className="h-full bg-away rounded-full"
-                                      style={{ width: `${prediction.factors.away_win_pct || 0}%` }}
+                                      style={{ width: `${prediction.away_win_pct || prediction.factors?.away_win_pct || 0}%` }}
                                     />
                                   </div>
-                                  <span className="w-10 text-right">{prediction.factors.away_win_pct || 0}%</span>
+                                  <span className="w-10 text-right">{prediction.away_win_pct || prediction.factors?.away_win_pct || 0}%</span>
                                 </div>
                               </div>
-                              {prediction.factors.value_bet && (
+                              {(prediction.value_bet || prediction.factors?.value_bet) && (
                                 <div className="mt-3 p-2 bg-primary/10 rounded text-sm">
                                   <span className="text-primary font-medium">Value: </span>
-                                  {prediction.factors.value_bet}
+                                  {prediction.value_bet || prediction.factors?.value_bet}
                                 </div>
                               )}
                             </div>
