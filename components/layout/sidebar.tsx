@@ -10,7 +10,8 @@ import {
   Users,
   Calendar,
   BarChart3,
-  Settings,
+  Database,
+  FileText,
 } from 'lucide-react'
 
 const navItems = [
@@ -20,6 +21,8 @@ const navItems = [
   { href: '/teams', label: 'Teams', icon: Users },
   { href: '/matches', label: 'Matches', icon: Calendar },
   { href: '/stats', label: 'Statistics', icon: BarChart3 },
+  { href: '/data', label: 'Data Management', icon: Database },
+  { href: '/data/docs', label: 'API Docs', icon: FileText },
 ]
 
 export function Sidebar() {
