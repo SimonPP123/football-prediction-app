@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { OddsMarket, OddsOutcome } from '@/types'
 
 interface PredictionTableProps {
   fixtures: any[]
-  onGeneratePrediction?: (fixtureId: string) => void
+  onGeneratePrediction?: (fixtureId: string) => Promise<boolean> | void
   generatingIds?: string[]
+  errorIds?: Record<string, string>
+  onClearError?: (fixtureId: string) => void
 }
 
-export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds = [] }: PredictionTableProps) {
+export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds = [], errorIds = {}, onClearError }: PredictionTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const getPredictionBadgeColor = (result: string) => {
@@ -29,6 +32,32 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
     return 'bg-red-500/20 text-red-500'
   }
 
+  // Get best odds for h2h
+  const getBestH2HOdds = (odds: OddsMarket[]) => {
+    const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
+    let bestHome = { price: 0, bookmaker: '' }
+    let bestDraw = { price: 0, bookmaker: '' }
+    let bestAway = { price: 0, bookmaker: '' }
+
+    h2hOdds.forEach(o => {
+      const homeVal = o.values?.[0] as OddsOutcome | undefined
+      const drawVal = o.values?.[1] as OddsOutcome | undefined
+      const awayVal = o.values?.[2] as OddsOutcome | undefined
+
+      if (homeVal && homeVal.price > bestHome.price) {
+        bestHome = { price: homeVal.price, bookmaker: o.bookmaker }
+      }
+      if (drawVal && drawVal.price > bestDraw.price) {
+        bestDraw = { price: drawVal.price, bookmaker: o.bookmaker }
+      }
+      if (awayVal && awayVal.price > bestAway.price) {
+        bestAway = { price: awayVal.price, bookmaker: o.bookmaker }
+      }
+    })
+
+    return { bestHome, bestDraw, bestAway }
+  }
+
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       <div className="overflow-x-auto">
@@ -42,6 +71,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
               <th className="text-center p-3">Conf</th>
               <th className="text-center p-3">O/U</th>
               <th className="text-center p-3">BTTS</th>
+              <th className="text-center p-3">Odds</th>
               <th className="text-center p-3">Action</th>
             </tr>
           </thead>
@@ -53,6 +83,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                 : fixture.prediction
               const isExpanded = expandedId === fixture.id
               const isGenerating = generatingIds.includes(fixture.id)
+              const error = errorIds[fixture.id]
+
+              // Get odds data
+              const odds: OddsMarket[] = fixture.odds || []
+              const hasOdds = odds.length > 0
+              const { bestHome, bestDraw, bestAway } = hasOdds ? getBestH2HOdds(odds) : { bestHome: { price: 0 }, bestDraw: { price: 0 }, bestAway: { price: 0 } }
 
               return (
                 <>
@@ -133,7 +169,37 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                       {prediction?.factors?.btts || '-'}
                     </td>
                     <td className="p-3 text-center">
-                      {prediction ? (
+                      {hasOdds ? (
+                        <div className="flex items-center justify-center gap-1 text-xs">
+                          <DollarSign className="w-3 h-3 text-green-500" />
+                          <span className="font-medium">{bestHome.price.toFixed(2)}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="font-medium">{bestDraw.price.toFixed(2)}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="font-medium">{bestAway.price.toFixed(2)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      {error ? (
+                        <button
+                          onClick={() => {
+                            onClearError?.(fixture.id)
+                            onGeneratePrediction?.(fixture.id)
+                          }}
+                          disabled={isGenerating}
+                          className="p-1 rounded hover:bg-red-500/20 text-red-500 transition-colors disabled:opacity-50"
+                          title={error}
+                        >
+                          {isGenerating ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <AlertCircle className="w-4 h-4" />
+                          )}
+                        </button>
+                      ) : prediction ? (
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : fixture.id)}
                           className="p-1 rounded hover:bg-muted transition-colors"
@@ -150,7 +216,11 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                           disabled={isGenerating}
                           className="p-1 rounded hover:bg-primary/10 text-primary transition-colors disabled:opacity-50"
                         >
-                          <TrendingUp className="w-4 h-4" />
+                          {isGenerating ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <TrendingUp className="w-4 h-4" />
+                          )}
                         </button>
                       )}
                     </td>
@@ -159,8 +229,8 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                   {/* Expanded Row */}
                   {isExpanded && prediction && (
                     <tr key={`${fixture.id}-expanded`}>
-                      <td colSpan={8} className="bg-muted/20 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <td colSpan={9} className="bg-muted/20 p-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                           {/* Probabilities */}
                           {prediction.factors && (
                             <div>
@@ -205,6 +275,38 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                               )}
                             </div>
                           )}
+
+                          {/* Betting Odds */}
+                          <div>
+                            <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                              <DollarSign className="w-4 h-4 text-green-500" />
+                              Best Odds
+                            </h4>
+                            {hasOdds ? (
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="w-6 font-medium">1</span>
+                                  <span className="flex-1 text-green-500 font-medium">{bestHome.price.toFixed(2)}</span>
+                                  <span className="text-xs text-muted-foreground">{(bestHome as any).bookmaker}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="w-6 font-medium">X</span>
+                                  <span className="flex-1 text-green-500 font-medium">{bestDraw.price.toFixed(2)}</span>
+                                  <span className="text-xs text-muted-foreground">{(bestDraw as any).bookmaker}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <span className="w-6 font-medium">2</span>
+                                  <span className="flex-1 text-green-500 font-medium">{bestAway.price.toFixed(2)}</span>
+                                  <span className="text-xs text-muted-foreground">{(bestAway as any).bookmaker}</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-2">
+                                  {odds.filter(o => o.bet_type === 'h2h').length} bookmakers
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">No odds available</p>
+                            )}
+                          </div>
 
                           {/* Key Factors */}
                           <div>

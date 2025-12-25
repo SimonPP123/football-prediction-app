@@ -67,6 +67,10 @@ export async function POST(request: Request) {
       model: selectedModel,
     }
 
+    // Set up 5-minute timeout for webhook call
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minutes
+
     try {
       console.log(`Calling webhook: ${webhookUrl}`)
       const webhookResponse = await fetch(webhookUrl, {
@@ -75,7 +79,9 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(webhookPayload),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
 
       if (webhookResponse.ok) {
         const rawResponse = await webhookResponse.json()
@@ -119,7 +125,19 @@ export async function POST(request: Request) {
           })
         }
       }
-    } catch (webhookError) {
+    } catch (webhookError: any) {
+      clearTimeout(timeoutId)
+
+      // Check if this is a timeout error
+      if (webhookError?.name === 'AbortError') {
+        console.error('Webhook timeout after 5 minutes')
+        return NextResponse.json({
+          success: false,
+          error: 'timeout',
+          message: 'Prediction generation timed out after 5 minutes. Please try again.',
+        }, { status: 408 })
+      }
+
       console.error('Webhook error (n8n might not be configured yet):', webhookError)
       // Fall through to placeholder prediction
     }

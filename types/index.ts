@@ -241,3 +241,31 @@ export interface HeadToHead {
     away_goals: number
   }> | null
 }
+
+// Odds types
+export interface OddsOutcome {
+  name: string         // "Home", "Draw", "Away" or team name
+  price: number        // Decimal odds (e.g., 1.85)
+  point?: number       // For spreads/totals (e.g., -0.5, 2.5)
+}
+
+export interface OddsMarket {
+  id: string
+  fixture_id: string
+  bookmaker: string
+  bet_type: string     // "h2h", "spreads", "totals"
+  values: OddsOutcome[]
+  updated_at: string
+}
+
+// Best odds across all bookmakers
+export interface BestOdds {
+  home: { price: number; bookmaker: string }
+  draw: { price: number; bookmaker: string }
+  away: { price: number; bookmaker: string }
+}
+
+// Extended fixture with odds
+export interface FixtureWithOdds extends FixtureWithTeams {
+  odds?: OddsMarket[]
+}

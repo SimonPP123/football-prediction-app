@@ -51,6 +51,8 @@ export default function PredictionsPage() {
   const [selectedRounds, setSelectedRounds] = useState<number[]>([])
   const [showRoundFilter, setShowRoundFilter] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)
+  const [errorIds, setErrorIds] = useState<Record<string, string>>({}) // fixtureId -> error message
+  const [generateAllStats, setGenerateAllStats] = useState<{ success: number; failed: number } | null>(null)
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -133,8 +135,13 @@ export default function PredictionsPage() {
     }
   }
 
-  const handleGeneratePrediction = async (fixtureId: string, regenerate: boolean = false) => {
+  const handleGeneratePrediction = async (fixtureId: string, regenerate: boolean = false): Promise<boolean> => {
     setGeneratingIds(prev => [...prev, fixtureId])
+    // Clear any previous error for this fixture
+    setErrorIds(prev => {
+      const { [fixtureId]: _, ...rest } = prev
+      return rest
+    })
 
     try {
       const res = await fetch('/api/predictions/generate', {
@@ -147,15 +154,36 @@ export default function PredictionsPage() {
         }),
       })
 
-      if (res.ok) {
+      const data = await res.json()
+
+      if (res.ok && data.success) {
         // Refresh fixtures to get new prediction
         await fetchFixtures()
+        return true
+      } else {
+        // Handle error response
+        const errorMsg = data.error === 'timeout'
+          ? 'Timed out after 5 minutes'
+          : data.message || data.error || 'Generation failed'
+        setErrorIds(prev => ({ ...prev, [fixtureId]: errorMsg }))
+        return false
       }
     } catch (error) {
       console.error('Failed to generate prediction:', error)
+      const errorMsg = error instanceof Error ? error.message : 'Network error'
+      setErrorIds(prev => ({ ...prev, [fixtureId]: errorMsg }))
+      return false
     } finally {
       setGeneratingIds(prev => prev.filter(id => id !== fixtureId))
     }
+  }
+
+  // Clear error for a fixture (used by retry button)
+  const clearError = (fixtureId: string) => {
+    setErrorIds(prev => {
+      const { [fixtureId]: _, ...rest } = prev
+      return rest
+    })
   }
 
   const handleSaveWebhook = () => {
@@ -183,12 +211,25 @@ export default function PredictionsPage() {
     if (unpredicted.length === 0) return
 
     setGeneratingAll(true)
+    setGenerateAllStats(null) // Reset stats
+
+    let success = 0
+    let failed = 0
 
     for (const fixture of unpredicted) {
-      await handleGeneratePrediction(fixture.id)
+      const result = await handleGeneratePrediction(fixture.id)
+      if (result) {
+        success++
+      } else {
+        failed++
+      }
     }
 
     setGeneratingAll(false)
+    setGenerateAllStats({ success, failed })
+
+    // Clear stats after 5 seconds
+    setTimeout(() => setGenerateAllStats(null), 5000)
   }
 
   const fixturesWithPredictions = filteredFixtures.filter(f => getPrediction(f))
@@ -372,6 +413,29 @@ export default function PredictionsPage() {
           </div>
         </div>
 
+        {/* Generate All Stats Notification */}
+        {generateAllStats && (
+          <div className={cn(
+            "mb-4 p-3 rounded-lg flex items-center gap-3 text-sm",
+            generateAllStats.failed > 0
+              ? "bg-amber-500/10 border border-amber-500/20"
+              : "bg-green-500/10 border border-green-500/20"
+          )}>
+            <span className={generateAllStats.failed > 0 ? "text-amber-600" : "text-green-600"}>
+              Generated {generateAllStats.success} prediction{generateAllStats.success !== 1 ? 's' : ''}
+              {generateAllStats.failed > 0 && (
+                <span className="text-red-500"> ({generateAllStats.failed} failed)</span>
+              )}
+            </span>
+            <button
+              onClick={() => setGenerateAllStats(null)}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -390,6 +454,8 @@ export default function PredictionsPage() {
                 fixture={fixture}
                 onGeneratePrediction={handleGeneratePrediction}
                 isGenerating={generatingIds.includes(fixture.id)}
+                error={errorIds[fixture.id]}
+                onClearError={() => clearError(fixture.id)}
               />
             ))}
           </div>
@@ -399,6 +465,8 @@ export default function PredictionsPage() {
             fixtures={filteredFixtures}
             onGeneratePrediction={handleGeneratePrediction}
             generatingIds={generatingIds}
+            errorIds={errorIds}
+            onClearError={clearError}
           />
         )}
       </div>

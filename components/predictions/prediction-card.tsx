@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { OddsMarket, OddsOutcome } from '@/types'
 
 interface ScorePrediction {
   score: string
@@ -11,15 +12,19 @@ interface ScorePrediction {
 
 interface PredictionCardProps {
   fixture: any
-  onGeneratePrediction?: (fixtureId: string, regenerate?: boolean) => void
+  onGeneratePrediction?: (fixtureId: string, regenerate?: boolean) => Promise<boolean> | void
   isGenerating?: boolean
+  error?: string
+  onClearError?: () => void
 }
 
-export function PredictionCard({ fixture, onGeneratePrediction, isGenerating }: PredictionCardProps) {
+export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, error, onClearError }: PredictionCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<any[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [showScores, setShowScores] = useState(false) // Collapsed by default
+  const [showOdds, setShowOdds] = useState(false) // Collapsed by default
 
   // Handle both array and object formats from Supabase
   const prediction = Array.isArray(fixture.prediction)
@@ -30,6 +35,41 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating }: 
   // Get score predictions from prediction data
   const scorePredictons: ScorePrediction[] = prediction?.score_predictions || []
   const mostLikelyScore = prediction?.most_likely_score || null
+
+  // Get odds from fixture
+  const odds: OddsMarket[] = fixture.odds || []
+  const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
+  const totalOdds = odds.filter(o => o.bet_type === 'totals')
+  const spreadOdds = odds.filter(o => o.bet_type === 'spreads')
+  const hasOdds = odds.length > 0
+
+  // Calculate best odds for a specific outcome position
+  const getBestOdds = (oddsArr: OddsMarket[], outcomeIndex: number) => {
+    let best = { price: 0, bookmaker: '' }
+    oddsArr.forEach(o => {
+      const val = o.values?.[outcomeIndex] as OddsOutcome | undefined
+      if (val && val.price > best.price) {
+        best = { price: val.price, bookmaker: o.bookmaker }
+      }
+    })
+    return best
+  }
+
+  // Get best h2h odds
+  const bestHome = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 0) : { price: 0, bookmaker: '' }
+  const bestDraw = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 1) : { price: 0, bookmaker: '' }
+  const bestAway = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 2) : { price: 0, bookmaker: '' }
+
+  // Format relative time for odds update
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    if (hours < 1) return 'Just now'
+    if (hours < 24) return `${hours}h ago`
+    return `${Math.floor(hours / 24)}d ago`
+  }
 
   // Fetch prediction history
   const fetchHistory = async () => {
@@ -188,40 +228,212 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating }: 
           </div>
         )}
 
-        {/* Score Predictions */}
-        {hasPrediction && scorePredictons.length > 0 && (
+        {/* Score Predictions - Collapsible */}
+        {hasPrediction && (scorePredictons.length > 0 || mostLikelyScore) && (
           <div className="mt-4">
-            <div className="flex items-center gap-2 mb-2">
+            {/* Collapsed state - just show most likely score badge */}
+            <button
+              onClick={() => setShowScores(!showScores)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+            >
               <Target className="w-4 h-4 text-primary" />
-              <span className="text-xs font-medium">Score Predictions</span>
+              <span className="text-xs font-medium">Most Likely:</span>
               {mostLikelyScore && (
-                <span className="ml-auto text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
-                  Most likely: {mostLikelyScore}
+                <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded font-medium">
+                  {mostLikelyScore}
                 </span>
               )}
-            </div>
-            <div className="grid grid-cols-5 gap-1">
-              {scorePredictons.slice(0, 5).map((sp, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "text-center p-1.5 rounded text-xs",
-                    sp.score === mostLikelyScore
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/50"
-                  )}
-                >
-                  <div className="font-medium">{sp.score}</div>
-                  <div className="text-[10px] opacity-75">{sp.probability}%</div>
+              {scorePredictons.length > 0 && scorePredictons[0] && (
+                <span className="text-xs text-muted-foreground">
+                  ({scorePredictons[0].probability}%)
+                </span>
+              )}
+              <ChevronDown className={cn(
+                "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                showScores && "rotate-180"
+              )} />
+            </button>
+
+            {/* Expanded state - show all scores with probability bars */}
+            {showScores && scorePredictons.length > 0 && (
+              <div className="mt-2 space-y-1.5 p-2 bg-muted/30 rounded-lg">
+                {scorePredictons.map((sp, idx) => (
+                  <div key={sp.score} className="flex items-center gap-2 text-xs">
+                    <span className="w-10 font-mono font-medium">{sp.score}</span>
+                    <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          idx === 0 ? "bg-primary" : "bg-primary/50"
+                        )}
+                        style={{ width: `${Math.min(sp.probability * 3, 100)}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-muted-foreground">{sp.probability}%</span>
+                    {idx === 0 && <Star className="w-3 h-3 text-yellow-500 shrink-0" />}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Betting Odds - Collapsible */}
+        {hasOdds && (
+          <div className="mt-4">
+            {/* Quick view - best odds */}
+            <button
+              onClick={() => setShowOdds(!showOdds)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors text-left"
+            >
+              <DollarSign className="w-4 h-4 text-green-500" />
+              <span className="text-xs font-medium">Best Odds:</span>
+              <div className="flex gap-3 text-xs">
+                {bestHome.price > 0 && (
+                  <span>1: <strong className="text-foreground">{bestHome.price.toFixed(2)}</strong></span>
+                )}
+                {bestDraw.price > 0 && (
+                  <span>X: <strong className="text-foreground">{bestDraw.price.toFixed(2)}</strong></span>
+                )}
+                {bestAway.price > 0 && (
+                  <span>2: <strong className="text-foreground">{bestAway.price.toFixed(2)}</strong></span>
+                )}
+              </div>
+              <ChevronDown className={cn(
+                "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                showOdds && "rotate-180"
+              )} />
+            </button>
+
+            {/* Expanded odds view - all bookmakers */}
+            {showOdds && (
+              <div className="mt-2 space-y-3 p-3 bg-muted/30 rounded-lg max-h-72 overflow-y-auto">
+                {/* H2H Market */}
+                {h2hOdds.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium mb-2 text-muted-foreground">Match Result (1X2)</h5>
+                    <div className="grid grid-cols-4 gap-1 text-xs mb-1 px-1">
+                      <span className="text-muted-foreground">Bookmaker</span>
+                      <span className="text-center text-muted-foreground">1</span>
+                      <span className="text-center text-muted-foreground">X</span>
+                      <span className="text-center text-muted-foreground">2</span>
+                    </div>
+                    <div className="space-y-1">
+                      {h2hOdds.map(o => (
+                        <div key={o.id} className="grid grid-cols-4 gap-1 text-xs bg-card rounded p-1">
+                          <span className="text-muted-foreground truncate">{o.bookmaker}</span>
+                          <span className={cn(
+                            "text-center font-medium",
+                            o.values?.[0]?.price === bestHome.price && bestHome.price > 0 && "text-green-500"
+                          )}>
+                            {(o.values?.[0] as OddsOutcome)?.price?.toFixed(2) || '-'}
+                          </span>
+                          <span className={cn(
+                            "text-center font-medium",
+                            o.values?.[1]?.price === bestDraw.price && bestDraw.price > 0 && "text-green-500"
+                          )}>
+                            {(o.values?.[1] as OddsOutcome)?.price?.toFixed(2) || '-'}
+                          </span>
+                          <span className={cn(
+                            "text-center font-medium",
+                            o.values?.[2]?.price === bestAway.price && bestAway.price > 0 && "text-green-500"
+                          )}>
+                            {(o.values?.[2] as OddsOutcome)?.price?.toFixed(2) || '-'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Totals Market */}
+                {totalOdds.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium mb-2 text-muted-foreground">Over/Under Goals</h5>
+                    <div className="space-y-1">
+                      {totalOdds.map(o => {
+                        const overOutcome = o.values?.find((v: OddsOutcome) => v.name?.toLowerCase().includes('over'))
+                        const underOutcome = o.values?.find((v: OddsOutcome) => v.name?.toLowerCase().includes('under'))
+                        return (
+                          <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
+                            <span className="w-20 text-muted-foreground truncate">{o.bookmaker}</span>
+                            <span className="flex-1 text-center">
+                              O{(overOutcome as OddsOutcome)?.point || '2.5'}: <strong>{(overOutcome as OddsOutcome)?.price?.toFixed(2) || '-'}</strong>
+                            </span>
+                            <span className="flex-1 text-center">
+                              U{(underOutcome as OddsOutcome)?.point || '2.5'}: <strong>{(underOutcome as OddsOutcome)?.price?.toFixed(2) || '-'}</strong>
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Spreads Market */}
+                {spreadOdds.length > 0 && (
+                  <div>
+                    <h5 className="text-xs font-medium mb-2 text-muted-foreground">Asian Handicap</h5>
+                    <div className="space-y-1">
+                      {spreadOdds.map(o => (
+                        <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
+                          <span className="w-20 text-muted-foreground truncate">{o.bookmaker}</span>
+                          {o.values?.slice(0, 2).map((v: OddsOutcome, idx: number) => (
+                            <span key={idx} className="flex-1 text-center">
+                              {v.name?.split(' ').pop() || 'Home'} ({v.point?.toFixed(1)}): <strong>{v.price?.toFixed(2)}</strong>
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Last updated */}
+                <div className="text-[10px] text-muted-foreground pt-2 border-t border-border/50 flex items-center gap-1">
+                  <span>Updated: {formatRelativeTime(odds[0]?.updated_at || new Date().toISOString())}</span>
+                  <span className="text-muted-foreground/50">•</span>
+                  <span>{h2hOdds.length} bookmaker{h2hOdds.length !== 1 ? 's' : ''}</span>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* No odds available message */}
+        {!hasOdds && hasPrediction && (
+          <div className="mt-4 p-2 bg-muted/30 rounded-lg text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+            <DollarSign className="w-4 h-4 opacity-50" />
+            No betting odds available yet
           </div>
         )}
       </div>
 
+      {/* Error State */}
+      {error && (
+        <div className="border-t border-border bg-red-500/10 p-3">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-red-500 font-medium">Generation Failed</p>
+              <p className="text-xs text-red-400 mt-0.5">{error}</p>
+            </div>
+            <button
+              onClick={() => {
+                onClearError?.()
+                onGeneratePrediction?.(fixture.id)
+              }}
+              disabled={isGenerating}
+              className="shrink-0 px-3 py-1.5 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+            >
+              {isGenerating ? 'Retrying...' : 'Retry'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Generate / Expand Button */}
-      <div className="border-t border-border">
+      <div className={cn("border-t border-border", error && "border-t-0")}>
         {hasPrediction ? (
           <div className="flex divide-x divide-border">
             <button
@@ -259,7 +471,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating }: 
               History
             </button>
           </div>
-        ) : (
+        ) : !error && (
           <button
             onClick={() => onGeneratePrediction?.(fixture.id)}
             disabled={isGenerating}

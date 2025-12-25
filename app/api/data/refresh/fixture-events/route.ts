@@ -102,15 +102,20 @@ export async function POST() {
         for (const event of data.response) {
           const teamId = teamMap.get(event.team?.id)
 
+          // Skip events without elapsed time (required field)
+          if (event.time?.elapsed === undefined || event.time?.elapsed === null) {
+            continue
+          }
+
           const { error } = await supabase
             .from('fixture_events')
             .upsert({
               fixture_id: fixture.id,
               team_id: teamId || null,
-              elapsed: event.time?.elapsed || null,
+              elapsed: event.time.elapsed,
               extra_time: event.time?.extra || null,
-              type: event.type,
-              detail: event.detail,
+              type: event.type || 'Unknown',
+              detail: event.detail || null,
               player_name: event.player?.name || null,
               player_id: event.player?.id || null,
               assist_name: event.assist?.name || null,

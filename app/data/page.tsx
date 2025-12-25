@@ -54,16 +54,32 @@ interface TableStats {
   lastUpdated?: string | null
 }
 
+type DataCategory = 'master' | 'live' | 'post-match' | 'historical' | 'external' | 'ai'
+
 interface DataSource {
   id: string
   name: string
   tableName: string
+  targetTables: string[]
   endpoint: string | null
   refreshEndpoint: string | null
   icon: any
   description: string
+  dataCategory: DataCategory
+  refreshSchedule: string
+  refreshExample: string
   estimatedTime?: string
   rateLimit?: string
+  dependencies?: string[]
+}
+
+const categoryStyles: Record<DataCategory, { label: string; color: string; bg: string }> = {
+  master: { label: 'Master', color: 'text-slate-600', bg: 'bg-slate-100' },
+  live: { label: 'Live', color: 'text-red-600', bg: 'bg-red-100' },
+  'post-match': { label: 'Post-Match', color: 'text-orange-600', bg: 'bg-orange-100' },
+  historical: { label: 'Historical', color: 'text-blue-600', bg: 'bg-blue-100' },
+  external: { label: 'External', color: 'text-purple-600', bg: 'bg-purple-100' },
+  ai: { label: 'AI', color: 'text-emerald-600', bg: 'bg-emerald-100' },
 }
 
 interface Category {
@@ -82,10 +98,10 @@ const categories: Category[] = [
     icon: Database,
     description: 'Essential data tables',
     dataSources: [
-      { id: 'leagues', name: 'Leagues', tableName: 'leagues', endpoint: null, refreshEndpoint: null, icon: Globe, description: 'League information', estimatedTime: 'Static' },
-      { id: 'venues', name: 'Venues', tableName: 'venues', endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: MapPin, description: 'Stadium data', estimatedTime: '~5s' },
-      { id: 'teams', name: 'Teams', tableName: 'teams', endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: Users, description: 'Club data', estimatedTime: '~5s' },
-      { id: 'fixtures', name: 'Fixtures', tableName: 'fixtures', endpoint: ENDPOINTS.fixtures.url, refreshEndpoint: '/api/data/refresh/fixtures', icon: Calendar, description: 'Match schedule', estimatedTime: '~15s' },
+      { id: 'leagues', name: 'Leagues', tableName: 'leagues', targetTables: ['leagues'], endpoint: null, refreshEndpoint: null, icon: Globe, description: 'League information', dataCategory: 'master', refreshSchedule: 'One-time', refreshExample: 'Pre-configured in database', estimatedTime: 'Static' },
+      { id: 'venues', name: 'Venues', tableName: 'venues', targetTables: ['venues'], endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: MapPin, description: 'Stadium data', dataCategory: 'master', refreshSchedule: 'Season start', refreshExample: 'Refresh once in August', estimatedTime: '~5s' },
+      { id: 'teams', name: 'Teams', tableName: 'teams', targetTables: ['teams', 'venues'], endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: Users, description: 'Club data', dataCategory: 'master', refreshSchedule: 'Season start', refreshExample: 'Refresh once in August', estimatedTime: '~5s' },
+      { id: 'fixtures', name: 'Fixtures', tableName: 'fixtures', targetTables: ['fixtures'], endpoint: ENDPOINTS.fixtures.url, refreshEndpoint: '/api/data/refresh/fixtures', icon: Calendar, description: 'Match schedule', dataCategory: 'live', refreshSchedule: 'Daily 06:00 UTC', refreshExample: 'Refresh every morning for updates', estimatedTime: '~15s', dependencies: ['teams', 'venues'] },
     ],
   },
   {
@@ -94,10 +110,10 @@ const categories: Category[] = [
     icon: Activity,
     description: 'Per-match statistics and events',
     dataSources: [
-      { id: 'fixture_statistics', name: 'Match Statistics', tableName: 'fixture_statistics', endpoint: ENDPOINTS.fixtureStatistics.url, refreshEndpoint: '/api/data/refresh/fixture-statistics', icon: BarChart3, description: 'Per-match stats', estimatedTime: '~5min', rateLimit: '500ms/fixture' },
-      { id: 'fixture_events', name: 'Match Events', tableName: 'fixture_events', endpoint: ENDPOINTS.fixtureEvents.url, refreshEndpoint: '/api/data/refresh/fixture-events', icon: Target, description: 'Goals, cards, subs', estimatedTime: '~3min', rateLimit: '300ms/fixture' },
-      { id: 'lineups', name: 'Lineups', tableName: 'lineups', endpoint: ENDPOINTS.lineups.url, refreshEndpoint: '/api/data/refresh/lineups', icon: UserCheck, description: 'Starting XI', estimatedTime: '~3min', rateLimit: '300ms/fixture' },
-      { id: 'standings', name: 'Standings', tableName: 'standings', endpoint: ENDPOINTS.standings.url, refreshEndpoint: '/api/data/refresh/standings', icon: Trophy, description: 'League table', estimatedTime: '~5s' },
+      { id: 'fixture_statistics', name: 'Match Statistics', tableName: 'fixture_statistics', targetTables: ['fixture_statistics'], endpoint: ENDPOINTS.fixtureStatistics.url, refreshEndpoint: '/api/data/refresh/fixture-statistics', icon: BarChart3, description: 'Per-match stats', dataCategory: 'post-match', refreshSchedule: 'After FT status', refreshExample: 'Run after matches complete', estimatedTime: '~5min', rateLimit: '500ms/fixture', dependencies: ['fixtures'] },
+      { id: 'fixture_events', name: 'Match Events', tableName: 'fixture_events', targetTables: ['fixture_events'], endpoint: ENDPOINTS.fixtureEvents.url, refreshEndpoint: '/api/data/refresh/fixture-events', icon: Target, description: 'Goals, cards, subs', dataCategory: 'post-match', refreshSchedule: 'After FT status', refreshExample: 'Run after matches complete', estimatedTime: '~3min', rateLimit: '300ms/fixture', dependencies: ['fixtures'] },
+      { id: 'lineups', name: 'Lineups', tableName: 'lineups', targetTables: ['lineups'], endpoint: ENDPOINTS.lineups.url, refreshEndpoint: '/api/data/refresh/lineups', icon: UserCheck, description: 'Starting XI', dataCategory: 'post-match', refreshSchedule: '1hr before kickoff', refreshExample: 'Available ~60min before match', estimatedTime: '~3min', rateLimit: '300ms/fixture', dependencies: ['fixtures'] },
+      { id: 'standings', name: 'Standings', tableName: 'standings', targetTables: ['standings'], endpoint: ENDPOINTS.standings.url, refreshEndpoint: '/api/data/refresh/standings', icon: Trophy, description: 'League table', dataCategory: 'live', refreshSchedule: 'Daily 06:00 UTC', refreshExample: 'Refresh every morning', estimatedTime: '~5s', dependencies: ['teams'] },
     ],
   },
   {
@@ -106,9 +122,9 @@ const categories: Category[] = [
     icon: BarChart3,
     description: 'Team analytics and history',
     dataSources: [
-      { id: 'team_season_stats', name: 'Team Stats', tableName: 'team_season_stats', endpoint: ENDPOINTS.teamStats.url, refreshEndpoint: '/api/data/refresh/team-stats', icon: BarChart3, description: 'Season aggregates', estimatedTime: '~10s', rateLimit: '300ms/team' },
-      { id: 'injuries', name: 'Injuries', tableName: 'injuries', endpoint: ENDPOINTS.injuries.url, refreshEndpoint: '/api/data/refresh/injuries', icon: AlertTriangle, description: 'Current injuries', estimatedTime: '~5s' },
-      { id: 'head_to_head', name: 'Head-to-Head', tableName: 'head_to_head', endpoint: ENDPOINTS.headToHead.url, refreshEndpoint: '/api/data/refresh/head-to-head', icon: Repeat, description: 'H2H history', estimatedTime: '~2min', rateLimit: '300ms/pair' },
+      { id: 'team_season_stats', name: 'Team Stats', tableName: 'team_season_stats', targetTables: ['team_season_stats'], endpoint: ENDPOINTS.teamStats.url, refreshEndpoint: '/api/data/refresh/team-stats', icon: BarChart3, description: 'Season aggregates', dataCategory: 'historical', refreshSchedule: 'Weekly Sunday', refreshExample: 'Refresh after weekend matches', estimatedTime: '~10s', rateLimit: '300ms/team', dependencies: ['teams'] },
+      { id: 'injuries', name: 'Injuries', tableName: 'injuries', targetTables: ['injuries'], endpoint: ENDPOINTS.injuries.url, refreshEndpoint: '/api/data/refresh/injuries', icon: AlertTriangle, description: 'Current injuries', dataCategory: 'live', refreshSchedule: 'Daily 07:30 UTC', refreshExample: 'Refresh morning before matches', estimatedTime: '~5s', dependencies: ['teams', 'players'] },
+      { id: 'head_to_head', name: 'Head-to-Head', tableName: 'head_to_head', targetTables: ['head_to_head'], endpoint: ENDPOINTS.headToHead.url, refreshEndpoint: '/api/data/refresh/head-to-head', icon: Repeat, description: 'H2H history', dataCategory: 'historical', refreshSchedule: 'Monthly', refreshExample: 'Refresh once a month', estimatedTime: '~2min', rateLimit: '300ms/pair', dependencies: ['teams'] },
     ],
   },
   {
@@ -117,12 +133,12 @@ const categories: Category[] = [
     icon: Users,
     description: 'Player profiles and statistics',
     dataSources: [
-      { id: 'players', name: 'Players', tableName: 'players', endpoint: ENDPOINTS.players.url, refreshEndpoint: '/api/data/refresh/player-stats', icon: Users, description: 'Player profiles', estimatedTime: '~5min', rateLimit: '400ms/page' },
-      { id: 'player_squads', name: 'Squads', tableName: 'player_squads', endpoint: ENDPOINTS.playerSquads.url, refreshEndpoint: '/api/data/refresh/player-squads', icon: UserCheck, description: 'Current rosters', estimatedTime: '~10s', rateLimit: '300ms/team' },
-      { id: 'player_season_stats', name: 'Season Stats', tableName: 'player_season_stats', endpoint: ENDPOINTS.players.url, refreshEndpoint: '/api/data/refresh/player-stats', icon: BarChart3, description: 'Player season stats', estimatedTime: '~5min', rateLimit: '400ms/page' },
-      { id: 'player_match_stats', name: 'Match Stats', tableName: 'player_match_stats', endpoint: null, refreshEndpoint: null, icon: Activity, description: 'Per-match player stats', estimatedTime: 'Via Lineups' },
-      { id: 'top_performers', name: 'Top Performers', tableName: 'top_performers', endpoint: ENDPOINTS.topScorers.url, refreshEndpoint: '/api/data/refresh/top-performers', icon: Award, description: 'Scorers, assists', estimatedTime: '~5s' },
-      { id: 'coaches', name: 'Coaches', tableName: 'coaches', endpoint: ENDPOINTS.coaches.url, refreshEndpoint: '/api/data/refresh/coaches', icon: Briefcase, description: 'Manager info', estimatedTime: '~10s', rateLimit: '300ms/team' },
+      { id: 'players', name: 'Players', tableName: 'players', targetTables: ['players', 'player_season_stats'], endpoint: ENDPOINTS.players.url, refreshEndpoint: '/api/data/refresh/player-stats', icon: Users, description: 'Player profiles', dataCategory: 'historical', refreshSchedule: 'Weekly Sunday', refreshExample: 'Refresh after weekend matches', estimatedTime: '~5min', rateLimit: '400ms/page' },
+      { id: 'player_squads', name: 'Squads', tableName: 'player_squads', targetTables: ['players', 'player_squads'], endpoint: ENDPOINTS.playerSquads.url, refreshEndpoint: '/api/data/refresh/player-squads', icon: UserCheck, description: 'Current rosters', dataCategory: 'master', refreshSchedule: 'Season start + transfers', refreshExample: 'Refresh after transfer windows', estimatedTime: '~10s', rateLimit: '300ms/team', dependencies: ['teams'] },
+      { id: 'player_season_stats', name: 'Season Stats', tableName: 'player_season_stats', targetTables: ['player_season_stats'], endpoint: ENDPOINTS.players.url, refreshEndpoint: '/api/data/refresh/player-stats', icon: BarChart3, description: 'Player season stats', dataCategory: 'historical', refreshSchedule: 'Weekly Sunday', refreshExample: 'Refresh after weekend matches', estimatedTime: '~5min', rateLimit: '400ms/page', dependencies: ['players'] },
+      { id: 'player_match_stats', name: 'Match Stats', tableName: 'player_match_stats', targetTables: ['player_match_stats'], endpoint: null, refreshEndpoint: null, icon: Activity, description: 'Per-match player stats', dataCategory: 'post-match', refreshSchedule: 'Via Lineups', refreshExample: 'Auto-populated from lineups', estimatedTime: 'Via Lineups', dependencies: ['lineups'] },
+      { id: 'top_performers', name: 'Top Performers', tableName: 'top_performers', targetTables: ['top_performers'], endpoint: ENDPOINTS.topScorers.url, refreshEndpoint: '/api/data/refresh/top-performers', icon: Award, description: 'Scorers, assists', dataCategory: 'historical', refreshSchedule: 'Weekly Sunday', refreshExample: 'Refresh after weekend matches', estimatedTime: '~5s', dependencies: ['players'] },
+      { id: 'coaches', name: 'Coaches', tableName: 'coaches', targetTables: ['coaches'], endpoint: ENDPOINTS.coaches.url, refreshEndpoint: '/api/data/refresh/coaches', icon: Briefcase, description: 'Manager info', dataCategory: 'master', refreshSchedule: 'Season start', refreshExample: 'Refresh if manager changes', estimatedTime: '~10s', rateLimit: '300ms/team', dependencies: ['teams'] },
     ],
   },
   {
@@ -131,10 +147,10 @@ const categories: Category[] = [
     icon: Globe,
     description: 'External APIs and computed data',
     dataSources: [
-      { id: 'odds', name: 'Odds', tableName: 'odds', endpoint: 'The Odds API', refreshEndpoint: null, icon: DollarSign, description: 'Betting odds', estimatedTime: 'Manual' },
-      { id: 'weather', name: 'Weather', tableName: 'weather', endpoint: 'Open-Meteo API', refreshEndpoint: null, icon: CloudRain, description: 'Match weather', estimatedTime: 'Manual' },
-      { id: 'referee_stats', name: 'Referee Stats', tableName: 'referee_stats', endpoint: 'Computed', refreshEndpoint: null, icon: Gavel, description: 'Referee tendencies', estimatedTime: 'Computed' },
-      { id: 'transfers', name: 'Transfers', tableName: 'transfers', endpoint: ENDPOINTS.transfers.url, refreshEndpoint: '/api/data/refresh/transfers', icon: ArrowLeftRight, description: 'Transfer history', estimatedTime: '~30s', rateLimit: '300ms/team' },
+      { id: 'odds', name: 'Odds', tableName: 'odds', targetTables: ['odds'], endpoint: 'The Odds API', refreshEndpoint: '/api/data/refresh/odds', icon: DollarSign, description: 'Betting odds', dataCategory: 'external', refreshSchedule: '4hrs before kickoff', refreshExample: 'Refresh matchday morning', estimatedTime: '~10s', dependencies: ['fixtures'] },
+      { id: 'weather', name: 'Weather', tableName: 'weather', targetTables: ['weather'], endpoint: 'Open-Meteo API', refreshEndpoint: '/api/data/refresh/weather', icon: CloudRain, description: 'Match weather', dataCategory: 'external', refreshSchedule: '4hrs before kickoff', refreshExample: 'Refresh matchday morning', estimatedTime: '~10s', dependencies: ['fixtures', 'venues'] },
+      { id: 'referee_stats', name: 'Referee Stats', tableName: 'referee_stats', targetTables: ['referee_stats'], endpoint: 'Computed', refreshEndpoint: '/api/data/refresh/referee-stats', icon: Gavel, description: 'Referee tendencies', dataCategory: 'ai', refreshSchedule: 'Weekly', refreshExample: 'Compute after fixture_events', estimatedTime: '~5s', dependencies: ['fixtures', 'fixture_events'] },
+      { id: 'transfers', name: 'Transfers', tableName: 'transfers', targetTables: ['transfers'], endpoint: ENDPOINTS.transfers.url, refreshEndpoint: '/api/data/refresh/transfers', icon: ArrowLeftRight, description: 'Transfer history', dataCategory: 'historical', refreshSchedule: 'Transfer windows', refreshExample: 'Refresh Jan & Aug', estimatedTime: '~30s', rateLimit: '300ms/team', dependencies: ['teams', 'players'] },
     ],
   },
   {
@@ -143,9 +159,9 @@ const categories: Category[] = [
     icon: Sparkles,
     description: 'Prediction data and history',
     dataSources: [
-      { id: 'predictions', name: 'Predictions', tableName: 'predictions', endpoint: 'n8n Webhook', refreshEndpoint: null, icon: Target, description: 'AI predictions', estimatedTime: 'Via Predictions page' },
-      { id: 'prediction_history', name: 'Prediction History', tableName: 'prediction_history', endpoint: null, refreshEndpoint: null, icon: History, description: 'Version history', estimatedTime: 'Internal' },
-      { id: 'api_predictions', name: 'API Predictions', tableName: 'api_predictions', endpoint: 'API-Football Predictions', refreshEndpoint: null, icon: Brain, description: 'External predictions', estimatedTime: 'Future' },
+      { id: 'predictions', name: 'Predictions', tableName: 'predictions', targetTables: ['predictions'], endpoint: 'n8n Webhook', refreshEndpoint: null, icon: Target, description: 'AI predictions', dataCategory: 'ai', refreshSchedule: 'On demand', refreshExample: 'Generate via Predictions page', estimatedTime: 'Via Predictions page' },
+      { id: 'prediction_history', name: 'Prediction History', tableName: 'prediction_history', targetTables: ['prediction_history'], endpoint: null, refreshEndpoint: null, icon: History, description: 'Version history', dataCategory: 'ai', refreshSchedule: 'Automatic', refreshExample: 'Auto-tracked on prediction updates', estimatedTime: 'Internal' },
+      { id: 'api_predictions', name: 'API Predictions', tableName: 'api_predictions', targetTables: ['api_predictions'], endpoint: 'API-Football', refreshEndpoint: '/api/data/refresh/api-predictions', icon: Brain, description: 'External predictions', dataCategory: 'external', refreshSchedule: 'Before matches', refreshExample: 'Fetch 24hrs before kickoff', estimatedTime: '~2min', dependencies: ['fixtures'] },
     ],
   },
 ]
@@ -397,26 +413,47 @@ export default function DataManagementPage() {
                         const isRefreshing = refreshing[source.id]
                         const status = refreshStatus[source.id] || 'idle'
                         const canRefresh = !!source.refreshEndpoint
+                        const catStyle = categoryStyles[source.dataCategory]
+
+                        // Check dependencies
+                        const missingDeps = source.dependencies?.filter(dep => {
+                          const depStats = stats?.[dep]
+                          return !depStats || depStats.count === 0
+                        }) || []
 
                         return (
                           <div
                             key={source.id}
                             className="bg-muted/30 rounded-lg p-4 space-y-3"
                           >
-                            {/* Header */}
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-center gap-2">
-                                <Icon className="w-4 h-4 text-primary" />
-                                <div>
+                            {/* Header with badges */}
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <Icon className="w-4 h-4 text-primary shrink-0" />
+                                <div className="min-w-0">
                                   <h4 className="font-medium text-sm">{source.name}</h4>
-                                  <p className="text-xs text-muted-foreground">{source.description}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{source.description}</p>
                                 </div>
                               </div>
-                              {source.estimatedTime && (
-                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                                  {source.estimatedTime}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", catStyle.bg, catStyle.color)}>
+                                  {catStyle.label}
                                 </span>
-                              )}
+                                {source.estimatedTime && (
+                                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                    {source.estimatedTime}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Table badge */}
+                            <div className="flex flex-wrap gap-1">
+                              {source.targetTables.map(table => (
+                                <span key={table} className="text-[10px] font-mono bg-background border border-border px-1.5 py-0.5 rounded">
+                                  📋 {table}
+                                </span>
+                              ))}
                             </div>
 
                             {/* Stats */}
@@ -459,16 +496,37 @@ export default function DataManagementPage() {
                               </div>
                             )}
 
+                            {/* Refresh Schedule Info */}
+                            <div className="text-[11px] space-y-1 border-t border-border pt-2">
+                              <div className="flex items-start gap-1.5">
+                                <span className="text-muted-foreground">📅</span>
+                                <span className="text-muted-foreground">{source.refreshSchedule}</span>
+                              </div>
+                              <div className="flex items-start gap-1.5">
+                                <span className="text-muted-foreground">💡</span>
+                                <span className="text-muted-foreground italic">{source.refreshExample}</span>
+                              </div>
+                            </div>
+
+                            {/* Dependency Warning */}
+                            {missingDeps.length > 0 && (
+                              <div className="flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
+                                <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                                <span>Requires: {missingDeps.join(', ')} (missing data)</span>
+                              </div>
+                            )}
+
                             {/* Refresh Button */}
                             {canRefresh && (
                               <button
                                 onClick={() => handleRefresh(source)}
-                                disabled={isRefreshing}
+                                disabled={isRefreshing || missingDeps.length > 0}
                                 className={cn(
                                   "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
                                   status === 'success' && "bg-green-500/20 text-green-500",
                                   status === 'error' && "bg-red-500/20 text-red-500",
-                                  status === 'idle' && "bg-primary/10 text-primary hover:bg-primary/20",
+                                  status === 'idle' && !missingDeps.length && "bg-primary/10 text-primary hover:bg-primary/20",
+                                  status === 'idle' && missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
                                   isRefreshing && "opacity-70"
                                 )}
                               >
@@ -478,6 +536,8 @@ export default function DataManagementPage() {
                                   <><Check className="w-3 h-3" /> Updated!</>
                                 ) : status === 'error' ? (
                                   <><X className="w-3 h-3" /> Failed</>
+                                ) : missingDeps.length > 0 ? (
+                                  <><AlertTriangle className="w-3 h-3" /> Missing Dependencies</>
                                 ) : (
                                   <><RefreshCw className="w-3 h-3" /> Refresh</>
                                 )}

@@ -40,7 +40,8 @@ export async function getUpcomingFixtures(limit = 10) {
       home_team:teams!fixtures_home_team_id_fkey(*),
       away_team:teams!fixtures_away_team_id_fkey(*),
       venue:venues(*),
-      prediction:predictions(*)
+      prediction:predictions(*),
+      odds:odds(*)
     `)
     .gte('match_date', now)
     .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
@@ -78,7 +79,8 @@ export async function getNextRoundFixtures() {
       home_team:teams!fixtures_home_team_id_fkey(*),
       away_team:teams!fixtures_away_team_id_fkey(*),
       venue:venues(*),
-      prediction:predictions(*)
+      prediction:predictions(*),
+      odds:odds(*)
     `)
     .eq('round', fixture.round)
     .order('match_date', { ascending: true })
@@ -116,7 +118,8 @@ export async function getFixture(id: string) {
       prediction:predictions(*),
       statistics:fixture_statistics(*),
       events:fixture_events(*),
-      lineups:lineups(*)
+      lineups:lineups(*),
+      odds:odds(*)
     `)
     .eq('id', id)
     .single()

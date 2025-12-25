@@ -68,16 +68,12 @@ export async function POST() {
         .from('injuries')
         .upsert({
           player_id: playerId || null,
-          player_api_id: item.player.id,
           player_name: item.player.name,
-          player_photo: item.player.photo,
           team_id: teamId,
-          season: SEASON,
-          type: item.player.type,
-          reason: item.player.reason,
-          reported_date: item.fixture?.date || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'player_api_id,team_id,season' })
+          type: item.player.type || null,
+          reason: item.player.reason || null,
+          reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
+        }, { onConflict: 'player_id,reported_date' })
 
       if (error) {
         addLog('error', `Error updating ${item.player.name}: ${error.message}`)

@@ -125,6 +125,7 @@ export async function POST() {
           .upsert({
             team1_id: team1.id,
             team2_id: team2.id,
+            fixture_data: lastFixtures, // Required NOT NULL column
             matches_played: data.response.length,
             team1_wins: team1Wins,
             team2_wins: team2Wins,
