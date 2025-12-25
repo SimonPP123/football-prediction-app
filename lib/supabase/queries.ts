@@ -309,7 +309,8 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
   const serverSupabase = createServerClient()
 
   // Use overall_index if provided, otherwise fall back to confidence
-  const overallIndex = prediction.overall_index || prediction.confidence
+  // Round to integer since database columns are INTEGER type
+  const overallIndex = Math.round(prediction.overall_index || prediction.confidence || 50)
 
   // Build the factors object - includes A-I breakdown and quick-access fields
   // If prediction.factors is provided (new format), use it; otherwise build from fields
@@ -321,6 +322,11 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
     btts: prediction.btts,
     value_bet: prediction.value_bet,
   }
+
+  // Round all percentage values to integers for database
+  const homeWinPct = prediction.home_win_pct != null ? Math.round(prediction.home_win_pct) : null
+  const drawPct = prediction.draw_pct != null ? Math.round(prediction.draw_pct) : null
+  const awayWinPct = prediction.away_win_pct != null ? Math.round(prediction.away_win_pct) : null
 
   const { data, error } = await serverSupabase
     .from('predictions')
@@ -338,9 +344,9 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
       model_used: modelUsed,
       score_predictions: prediction.score_predictions || null,
       most_likely_score: prediction.most_likely_score || null,
-      home_win_pct: prediction.home_win_pct,
-      draw_pct: prediction.draw_pct,
-      away_win_pct: prediction.away_win_pct,
+      home_win_pct: homeWinPct,
+      draw_pct: drawPct,
+      away_win_pct: awayWinPct,
       over_under_2_5: prediction.over_under,
       btts: prediction.btts,
       value_bet: prediction.value_bet,
