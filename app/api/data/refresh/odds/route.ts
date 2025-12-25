@@ -89,15 +89,14 @@ export async function POST() {
 
     addLog('info', 'Starting odds refresh from The Odds API...')
 
-    // Get upcoming fixtures (next 7 days)
-    const nextWeek = new Date()
-    nextWeek.setDate(nextWeek.getDate() + 7)
+    // Get ALL upcoming fixtures for the season (until end of 2025-26 season)
+    const endOfSeason = new Date('2026-06-01')
 
     const { data: fixtures } = await supabase
       .from('fixtures')
       .select('id, api_id, home_team:teams!fixtures_home_team_id_fkey(name), away_team:teams!fixtures_away_team_id_fkey(name), match_date')
       .gte('match_date', new Date().toISOString())
-      .lte('match_date', nextWeek.toISOString())
+      .lte('match_date', endOfSeason.toISOString())
       .eq('status', 'NS')
 
     if (!fixtures || fixtures.length === 0) {
