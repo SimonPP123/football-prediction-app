@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Header } from '@/components/layout/header'
 import {
   Calendar,
@@ -32,6 +32,7 @@ import {
   History,
   Brain,
   Copy,
+  Square,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
@@ -209,7 +210,10 @@ export default function DataManagementPage() {
   })
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null)
   const [expandedDetails, setExpandedDetails] = useState<Record<string, boolean>>({})
+  const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
+  const abortControllersRef = useRef<Record<string, AbortController>>({})
+  const stopAllRef = useRef(false)
 
   const toggleDetails = (sourceId: string) => {
     setExpandedDetails(prev => ({ ...prev, [sourceId]: !prev[sourceId] }))
@@ -264,8 +268,35 @@ export default function DataManagementPage() {
     setTimeout(() => setCopiedEndpoint(null), 2000)
   }
 
+  const handleStopAll = useCallback(() => {
+    stopAllRef.current = true
+    addLog('warning', 'system', 'Stopping all refresh operations...')
+
+    // Abort all ongoing requests
+    Object.entries(abortControllersRef.current).forEach(([sourceId, controller]) => {
+      controller.abort()
+      addLog('warning', sourceId, 'Request cancelled')
+    })
+
+    // Clear all abort controllers
+    abortControllersRef.current = {}
+
+    // Reset all refreshing states
+    setRefreshing({})
+    setIsRefreshingAll(false)
+
+    addLog('info', 'system', 'All refresh operations stopped')
+  }, [])
+
   const handleRefresh = async (source: DataSource) => {
     if (!source.refreshEndpoint) return
+
+    // Check if stop was requested
+    if (stopAllRef.current) return
+
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    abortControllersRef.current[source.id] = abortController
 
     setRefreshing(prev => ({ ...prev, [source.id]: true }))
     setRefreshStatus(prev => ({ ...prev, [source.id]: 'idle' }))
@@ -276,7 +307,10 @@ export default function DataManagementPage() {
 
     try {
       // Use streaming endpoint for real-time logs
-      const res = await fetch(`${source.refreshEndpoint}?stream=true`, { method: 'POST' })
+      const res = await fetch(`${source.refreshEndpoint}?stream=true`, {
+        method: 'POST',
+        signal: abortController.signal
+      })
 
       // Check if streaming is supported (text/event-stream)
       const contentType = res.headers.get('content-type') || ''
@@ -342,24 +376,41 @@ export default function DataManagementPage() {
         }
       }
     } catch (error) {
+      // Handle aborted requests gracefully
+      if (error instanceof Error && error.name === 'AbortError') {
+        setRefreshStatus(prev => ({ ...prev, [source.id]: 'idle' }))
+        return
+      }
       addLog('error', source.id, `${source.name} failed: ${error instanceof Error ? error.message : 'Network error'}`)
       setRefreshStatus(prev => ({ ...prev, [source.id]: 'error' }))
     } finally {
+      // Clean up abort controller
+      delete abortControllersRef.current[source.id]
       setRefreshing(prev => ({ ...prev, [source.id]: false }))
       setTimeout(() => setRefreshStatus(prev => ({ ...prev, [source.id]: 'idle' })), 3000)
     }
   }
 
   const handleRefreshAll = async () => {
+    stopAllRef.current = false // Reset stop flag
+    setIsRefreshingAll(true)
     addLog('info', 'system', 'Starting refresh of all data sources...')
 
     const refreshableSources = categories.flatMap(c => c.dataSources.filter(s => s.refreshEndpoint))
 
     for (const source of refreshableSources) {
+      // Check if stop was requested before each source
+      if (stopAllRef.current) {
+        addLog('warning', 'system', 'Refresh sequence stopped by user')
+        break
+      }
       await handleRefresh(source)
     }
 
-    addLog('success', 'system', 'All data sources refreshed')
+    if (!stopAllRef.current) {
+      addLog('success', 'system', 'All data sources refreshed')
+    }
+    setIsRefreshingAll(false)
   }
 
   const getLogColor = (type: LogEntry['type']) => {
@@ -412,7 +463,16 @@ export default function DataManagementPage() {
               <span className="text-muted-foreground">Refreshable:</span>
               <span className="font-bold">{totalRefreshable} endpoints</span>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {Object.values(refreshing).some(Boolean) && (
+                <button
+                  onClick={handleStopAll}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  Stop All
+                </button>
+              )}
               <button
                 onClick={handleRefreshAll}
                 disabled={Object.values(refreshing).some(Boolean)}
