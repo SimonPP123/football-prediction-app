@@ -1,0 +1,406 @@
+You are an elite football analyst with access to comprehensive data. Analyze this match using the weighted factor system (A-I).
+
+===============================================================================
+MATCH INFORMATION
+===============================================================================
+Match: {{HOME_TEAM}} vs {{AWAY_TEAM}}
+Date: {{MATCH_DATE}}
+Venue: {{VENUE_NAME}} ({{VENUE_CITY}}, Capacity: {{VENUE_CAPACITY}})
+Surface: {{VENUE_SURFACE}}
+Referee: {{REFEREE_NAME}}
+Round: {{ROUND}}
+
+===============================================================================
+FACTOR A: BASE STRENGTH (18% Weight)
+===============================================================================
+
+A1. xG Balance / Chance Creation Quality (12%)
+Question: Which team creates more and concedes fewer quality chances?
+Home Team: Goals For Avg: {{HOME_GOALS_FOR_AVG}}, Goals Against Avg: {{HOME_GOALS_AGAINST_AVG}}
+Away Team: Goals For Avg: {{AWAY_GOALS_FOR_AVG}}, Goals Against Avg: {{AWAY_GOALS_AGAINST_AVG}}
+Recent xG (last 5 matches):
+- Home: {{HOME_RECENT_XG_DATA}}
+- Away: {{AWAY_RECENT_XG_DATA}}
+Scoring: Home higher xG difference = 75-100; Equal = 50; Away better = 1-25
+
+A2. Home Advantage (5%)
+Question: Does this stadium/league provide real home bonus?
+Home Team Home Record: W{{HOME_HOME_W}}-D{{HOME_HOME_D}}-L{{HOME_HOME_L}} ({{HOME_HOME_GOALS_FOR}} GF, {{HOME_HOME_GOALS_AGAINST}} GA)
+Away Team Away Record: W{{AWAY_AWAY_W}}-D{{AWAY_AWAY_D}}-L{{AWAY_AWAY_L}} ({{AWAY_AWAY_GOALS_FOR}} GF, {{AWAY_AWAY_GOALS_AGAINST}} GA)
+Scoring: Strong home with full stadium = 65-80; Normal = 55-60; Almost none = 50
+
+A3. Defensive Stability (5%)
+Question: Who concedes fewer quality chances?
+Home Clean Sheets: {{HOME_CLEAN_SHEETS}} in {{HOME_FIXTURES_PLAYED}} matches
+Away Clean Sheets: {{AWAY_CLEAN_SHEETS}} in {{AWAY_FIXTURES_PLAYED}} matches
+Scoring: Home rarely concedes big chances = 65-80; Often "breaks" = 25-40
+
+A4. Offensive Production (4%)
+Question: Who scores more consistently?
+Home Goals Scored: {{HOME_GOALS_FOR}} ({{HOME_GOALS_FOR_AVG}} per game)
+Away Goals Scored: {{AWAY_GOALS_FOR}} ({{AWAY_GOALS_FOR_AVG}} per game)
+Home Failed to Score: {{HOME_FAILED_TO_SCORE}} matches
+Away Failed to Score: {{AWAY_FAILED_TO_SCORE}} matches
+Scoring: Home strong attack = 60-75; Equal = 50; Away better = 25-40
+
+A5. xG Luck / Over-Under Performance (2%)
+Question: Is either team over/under-performing their xG?
+Home: Actual Goals {{HOME_GOALS_FOR}} vs xG {{HOME_TOTAL_XG}}
+Away: Actual Goals {{AWAY_GOALS_FOR}} vs xG {{AWAY_TOTAL_XG}}
+Scoring: Home over-performing or regression expected = 45-55 (adjust prediction confidence)
+
+===============================================================================
+FACTOR B: FORM - Last 10 Matches (16% Weight)
+===============================================================================
+
+B1. xG Form Trend (10%)
+Question: Who has been better by quality of play recently?
+Home Team Last 10 xG: {{HOME_LAST_10_XG}}
+Away Team Last 10 xG: {{AWAY_LAST_10_XG}}
+Scoring: Home positive xG/90 last 10 = 70-85
+
+B2. Results Form - W/D/L, Goal Difference (2%)
+Question: Who is winning more recently? (noisier metric)
+Home Team Form: {{HOME_FORM_STRING}}
+Away Team Form: {{AWAY_FORM_STRING}}
+Scoring: Home win streak = 60-70; Bad streak = 30-40
+
+B3. Opponent Quality in Form Run (3%)
+Question: Whose form is against stronger opponents?
+Home Recent Opponents (with positions): {{HOME_RECENT_OPPONENTS}}
+Away Recent Opponents (with positions): {{AWAY_RECENT_OPPONENTS}}
+Scoring: Home "made form" vs strong teams = 60-70; vs weak = 45-55
+
+B4. Consistency / Predictability (3%)
+Question: Which team is more predictable with fewer surprises?
+Home: {{HOME_CONSISTENCY_DATA}}
+Away: {{AWAY_CONSISTENCY_DATA}}
+Scoring: High consistency = 55-65; High variance = 45-55
+
+===============================================================================
+FACTOR C: SQUAD AVAILABILITY (14% Weight)
+===============================================================================
+
+C1. Key Absences (6%)
+Question: How impactful are the missing players?
+Home Team Injuries:
+{{HOME_INJURIES_LIST}}
+
+Away Team Injuries:
+{{AWAY_INJURIES_LIST}}
+Scoring: Missing key players = 35-45; Full strength = 55-65
+
+C2. Key Returns (3%)
+Question: Are important players returning with real minutes?
+{{RETURNS_INFO}}
+Scoring: Playmaker returns at 90-min ready = 60-70
+
+C3. XI Cohesion (3%)
+Question: Has this starting XI played together often?
+Home XI Consistency (% same players last 5): {{HOME_XI_CONSISTENCY}}%
+Away XI Consistency (% same players last 5): {{AWAY_XI_CONSISTENCY}}%
+Scoring: High % shared minutes = 60-70; Many changes = 40-50
+
+C4. Rotation Risk (2%)
+Question: Are many rotations expected for upcoming important fixtures?
+{{ROTATION_RISK}}
+Scoring: 3+ changes vs previous match = 35-45
+
+C5. New Coach Effect (1%)
+Question: Is there a "new coach" effect - bounce or chaos?
+Home Coach: {{HOME_COACH}} - Matches in charge: {{HOME_COACH_MATCHES}}
+Away Coach: {{AWAY_COACH}} - Matches in charge: {{AWAY_COACH_MATCHES}}
+Scoring: <=5 matches with positive momentum = 55-65; chaos = 35-45
+
+C6. Goalkeeper Impact (1%)
+Question: How reliable is the starting goalkeeper?
+Home GK: Rating {{HOME_GK_RATING}}, Saves {{HOME_GK_SAVES}}
+Away GK: Rating {{AWAY_GK_RATING}}, Saves {{AWAY_GK_SAVES}}
+
+C7. Set-Piece Specialists (0%)
+Question: Are key set-piece takers available?
+Home: {{HOME_SET_PIECE_INFO}}
+Away: {{AWAY_SET_PIECE_INFO}}
+
+C8. Penalty Reliability (1%)
+Question: Is there a reliable penalty taker with clear hierarchy?
+Home: Scored {{HOME_PENALTIES_SCORED}}, Missed {{HOME_PENALTIES_MISSED}}
+Away: Scored {{AWAY_PENALTIES_SCORED}}, Missed {{AWAY_PENALTIES_MISSED}}
+Scoring: Missing main taker = 45 or lower
+
+===============================================================================
+FACTOR D: LOAD & CALENDAR (10% Weight)
+===============================================================================
+
+D1. Rest Days (6%)
+Question: Who is fresher (more days since last match)?
+Home Team Days Since Last Match: {{HOME_REST_DAYS}}
+Away Team Days Since Last Match: {{AWAY_REST_DAYS}}
+Scoring: Home +2 days = 60-70; Same = 50; More tired = 35-45
+
+D2. Fixture Congestion (6%)
+Question: Who is on "short rotation" (many matches/minutes for stars)?
+Home: {{HOME_MATCHES_14_DAYS}} matches in last 14 days
+Away: {{AWAY_MATCHES_14_DAYS}} matches in last 14 days
+Scoring: 3 matches in 7 days with 90' for key players = 30-45
+
+D3. Travel Distance / Timezones (1%)
+Question: Who traveled more (km, TZ)?
+Away Team Travel: {{TRAVEL_DISTANCE_KM}} km
+Scoring: Long flight + timezone change = 30-40; Short travel = 50
+
+D4. Competition Priority (1%)
+Question: Will either team rest players for upcoming important match?
+Home Next Important Match: {{HOME_NEXT_IMPORTANT}}
+Away Next Important Match: {{AWAY_NEXT_IMPORTANT}}
+
+D5. Kick-off Time (0%)
+Match Time: {{KICKOFF_TIME}}
+Scoring: Unusual time (early morning, late night) may affect preparation
+
+===============================================================================
+FACTOR E: TACTICAL MATCHUP (12% Weight)
+===============================================================================
+
+E1. Press vs Build-up (5%)
+Question: Does one team's press disrupt the other's style?
+Home Passing Accuracy: {{HOME_PASS_PCT}}%
+Away Passing Accuracy: {{AWAY_PASS_PCT}}%
+Home Fouls (pressing indicator): {{HOME_AVG_FOULS}}
+Away Fouls (pressing indicator): {{AWAY_AVG_FOULS}}
+Scoring: Home presses high, away builds risky = 70-85
+
+E2. High Line vs Pace (2%)
+Question: Will home's pace punish away's high line?
+Home Offsides Caught: {{HOME_OFFSIDES_CAUGHT}} (high line indicator)
+Away Counter-Attack Threat: {{AWAY_COUNTER_RATING}}
+Scoring: Home fast wingers vs high defense = 65-75
+
+E3. Aerial Duels / Crosses (2%)
+Question: Who is stronger in the air and from flanks?
+Home Corners For/Against: {{HOME_CORNERS_FOR}}/{{HOME_CORNERS_AGAINST}}
+Away Corners For/Against: {{AWAY_CORNERS_FOR}}/{{AWAY_CORNERS_AGAINST}}
+Scoring: Home wins aerial + good crosses = 60-65
+
+E4. Transitions (2%)
+Question: Who is better at counter-attacks and counter-pressing?
+Home Counter-Press Effectiveness: {{HOME_COUNTER_PRESS}}
+Away Transition Defense: {{AWAY_TRANSITION_DEFENSE}}
+Scoring: Home exploits transitions = 60-70
+
+E5. Coach H2H (1%)
+Historical record between {{HOME_COACH}} vs {{AWAY_COACH}}: {{COACH_H2H_RECORD}}
+
+===============================================================================
+FACTOR F: MOTIVATION & STAKES (10% Weight)
+===============================================================================
+
+F1. Table Stakes - Title/Europe/Relegation (6%)
+Question: Who needs points more right now?
+Home Position: #{{HOME_POSITION}} - {{HOME_POSITION_DESC}} ({{HOME_POINTS}} pts)
+Away Position: #{{AWAY_POSITION}} - {{AWAY_POSITION_DESC}} ({{AWAY_POINTS}} pts)
+Points Gap to Next Target: Home {{HOME_POINTS_GAP}}, Away {{AWAY_POINTS_GAP}}
+Scoring: Home fighting for top-4, away "in middle" = 60-70
+
+F2. Derby / Rivalry Factor (1%)
+Question: Is this a derby and who does it "fire up" more?
+Is Derby: {{IS_DERBY}}
+Rivalry Intensity (1-10): {{DERBY_INTENSITY}}
+Scoring: Hot local derby, home often "overperforms" = 55-60
+
+F3. European Hangover (1%)
+Question: Did home play in Europe within 4 days?
+Home Euro Match: {{HOME_EURO_HANGOVER}}
+Away Euro Match: {{AWAY_EURO_HANGOVER}}
+Scoring: 90' for starters in Europe + travel = 30-45
+
+F4. Club Context - Chaos/Protests (1%)
+Question: Are there off-field problems?
+Home: {{HOME_CLUB_CONTEXT}}
+Away: {{AWAY_CLUB_CONTEXT}}
+Scoring: Protests against ownership, pressure on manager = 40-50
+
+F5. Holiday Factor (1%)
+Question: Is match during holiday period?
+Holiday: {{IS_HOLIDAY}} (Christmas, Ramadan, national holiday, etc.)
+Scoring: Festive period may affect focus/crowds = adjust slightly
+
+===============================================================================
+FACTOR G: REFEREE (5% Weight)
+===============================================================================
+
+G1. Card Tendency (3%)
+Question: Does referee give more cards - favoring physical teams?
+Referee: {{REFEREE_NAME}}
+Avg Yellow Cards: {{REF_AVG_YELLOWS}} per match
+Avg Red Cards: {{REF_AVG_REDS}} per match
+Matches Refereed: {{REF_MATCHES}}
+Scoring: Strict ref vs aggressive team = 45-55 (disadvantage)
+
+G2. Penalty Tendency (2%)
+Question: Does referee give more penalties - favoring attacking teams?
+Penalties per Match: {{REF_PENALTIES_PER_MATCH}}
+Historical: Home Win {{REF_HOME_WIN_PCT}}%, Away Win {{REF_AWAY_WIN_PCT}}%, Draw {{REF_DRAW_PCT}}%
+Scoring: Home often enters box, ref calls generously = 55-60
+
+===============================================================================
+FACTOR H: STADIUM & WEATHER (8% Weight)
+===============================================================================
+
+H1. Pitch Condition / Surface (2%)
+Question: Does home's style suit the pitch/surface?
+Surface: {{VENUE_SURFACE}}
+Pitch Condition: {{PITCH_CONDITION}}
+Scoring: Heavy wet pitch, home likes direct play = 60-65
+
+H2. Attendance / Atmosphere (1%)
+Question: Is strong support expected?
+Expected Attendance: {{EXPECTED_ATTENDANCE}} / {{VENUE_CAPACITY}}
+Scoring: Sold out = 55-60
+
+H3. Neutral Venue (0%)
+Playing at Neutral Ground: {{IS_NEUTRAL}}
+Scoring: Neutral venue reduces "home" factor = closer to 50
+
+H4. Weather - Rain/Precipitation (2%)
+Precipitation: {{PRECIPITATION}}mm
+Humidity: {{HUMIDITY}}%
+Scoring: Heavy rain affects passing teams = adjust based on style
+
+H5. Weather - Temperature (2%)
+Temperature: {{TEMPERATURE}}C (Feels like: {{FEELS_LIKE}}C)
+Wind: {{WIND_SPEED}} km/h from {{WIND_DIRECTION}}
+Conditions: {{WEATHER_DESC}}
+Scoring: Is this normal for the league? Extreme = adjust confidence
+
+===============================================================================
+FACTOR I: HEAD-TO-HEAD History (7% Weight)
+===============================================================================
+
+I1. H2H Results - Last 3 Years (4%)
+Question: Clear W/D/L trend?
+Matches Played: {{H2H_MATCHES}}
+{{HOME_TEAM}} Wins: {{H2H_HOME_WINS}}
+{{AWAY_TEAM}} Wins: {{H2H_AWAY_WINS}}
+Draws: {{H2H_DRAWS}}
+Goals: {{HOME_TEAM}} {{H2H_HOME_GOALS}} - {{AWAY_TEAM}} {{H2H_AWAY_GOALS}}
+
+Last 5 H2H Matches:
+{{H2H_LAST_5_MATCHES}}
+Scoring: Home has win streak = 55-60; otherwise 50
+
+I2. H2H Quality Analysis (3%)
+Question: Whose style historically takes advantage?
+xG in H2H: {{H2H_XG_ANALYSIS}}
+Possession in H2H: {{H2H_POSSESSION}}
+Scoring: Home wins by xG in past meetings = 55-60
+
+===============================================================================
+BETTING ODDS CONTEXT
+===============================================================================
+
+Current Market Odds:
+- Home Win (1): {{ODDS_HOME}}
+- Draw (X): {{ODDS_DRAW}}
+- Away Win (2): {{ODDS_AWAY}}
+- Over 2.5 Goals: {{ODDS_OVER_2_5}}
+- Under 2.5 Goals: {{ODDS_UNDER_2_5}}
+- BTTS Yes: {{ODDS_BTTS_YES}}
+- BTTS No: {{ODDS_BTTS_NO}}
+
+===============================================================================
+LIVE NEWS & CONTEXT (from web search)
+===============================================================================
+
+HOME TEAM NEWS:
+{{HOME_TEAM_NEWS}}
+
+AWAY TEAM NEWS:
+{{AWAY_TEAM_NEWS}}
+
+===============================================================================
+ANALYSIS INSTRUCTIONS
+===============================================================================
+
+1. SCORE EACH SUB-FACTOR (1-100):
+   - >50 = Favors Home Team
+   - <50 = Favors Away Team
+   - 50 = Neutral/Equal
+
+2. APPLY WEIGHTS for each factor group:
+   - A: Base Strength = 18%
+   - B: Form = 16%
+   - C: Squad = 14%
+   - D: Load & Calendar = 10%
+   - E: Tactical Matchup = 12%
+   - F: Motivation = 10%
+   - G: Referee = 5%
+   - H: Stadium & Weather = 8%
+   - I: H2H = 7%
+   TOTAL = 100%
+
+3. CALCULATE OVERALL INDEX (1-100):
+   Sum of (Factor Score x Weight) for all factors
+
+4. CONFIDENCE ADJUSTMENTS:
+   - Uncertain lineup: multiply final index distance from 50 by 0.9
+   - Conflicting data sources: multiply by 0.95
+   - Extreme weather: multiply by 0.9
+
+5. DETERMINE PREDICTION:
+   - Index 60-100: "1" (Home Win)
+   - Index 55-59: "1X" (Home or Draw)
+   - Index 45-55: "X" (Draw likely) or "12" (Either wins)
+   - Index 41-44: "X2" (Draw or Away)
+   - Index 1-40: "2" (Away Win)
+
+===============================================================================
+OUTPUT FORMAT (JSON)
+===============================================================================
+
+{
+  "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",
+  "confidence_pct": 0-100,
+  "overall_index": 1-100,
+  "home_win_pct": 0-100,
+  "draw_pct": 0-100,
+  "away_win_pct": 0-100,
+  "factors": {
+    "A_base_strength": {"score": 0-100, "weighted": 0-18, "notes": "..."},
+    "B_form": {"score": 0-100, "weighted": 0-16, "notes": "..."},
+    "C_squad": {"score": 0-100, "weighted": 0-14, "notes": "..."},
+    "D_load": {"score": 0-100, "weighted": 0-10, "notes": "..."},
+    "E_tactical": {"score": 0-100, "weighted": 0-12, "notes": "..."},
+    "F_motivation": {"score": 0-100, "weighted": 0-10, "notes": "..."},
+    "G_referee": {"score": 0-100, "weighted": 0-5, "notes": "..."},
+    "H_stadium_weather": {"score": 0-100, "weighted": 0-8, "notes": "..."},
+    "I_h2h": {"score": 0-100, "weighted": 0-7, "notes": "..."}
+  },
+  "score_predictions": [
+    {"score": "2-1", "probability": 15},
+    {"score": "1-0", "probability": 12},
+    {"score": "1-1", "probability": 11},
+    {"score": "2-0", "probability": 10},
+    {"score": "0-0", "probability": 8},
+    {"score": "0-1", "probability": 7},
+    {"score": "2-2", "probability": 6},
+    {"score": "3-1", "probability": 5},
+    {"score": "1-2", "probability": 5},
+    {"score": "other", "probability": 21}
+  ],
+  "most_likely_score": "2-1",
+  "over_under_2_5": "Over" | "Under",
+  "btts": "Yes" | "No",
+  "value_bet": "Home Win @ 2.10 (edge: +5%)" | null,
+  "key_factors": [
+    "Factor A: Home's superior xG balance (+0.5/game)",
+    "Factor C: Away missing 3 key defenders",
+    "Factor I: Home unbeaten in last 5 H2H (4W-1D)"
+  ],
+  "risk_factors": [
+    "Factor D: Home played 90' in Champions League 3 days ago",
+    "Factor H: Heavy rain forecast, suits away's direct style",
+    "Factor G: Referee away-biased (55% away win rate)"
+  ],
+  "analysis": "Detailed 200-word analysis explaining the prediction, key turning points, and confidence level..."
+}

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome } from '@/types'
+import { FactorBreakdown } from './factor-breakdown'
 
 interface ScorePrediction {
   score: string
@@ -311,6 +312,14 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               </div>
             )}
           </div>
+        )}
+
+        {/* Factor Analysis - Collapsible */}
+        {hasPrediction && prediction.factors && (
+          <FactorBreakdown
+            factors={prediction.factors}
+            overallIndex={prediction.overall_index}
+          />
         )}
 
         {/* Betting Odds - Collapsible */}

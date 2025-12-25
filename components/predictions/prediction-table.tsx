@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome } from '@/types'
+import { FactorBreakdown } from './factor-breakdown'
 
 interface PredictionTableProps {
   fixtures: any[]
@@ -230,7 +231,22 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                   {isExpanded && prediction && (
                     <tr key={`${fixture.id}-expanded`}>
                       <td colSpan={9} className="bg-muted/20 p-4">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {/* Factor Analysis - New Section */}
+                          {prediction.factors && (prediction.factors.A_base_strength || prediction.factors.B_form) && (
+                            <div className="md:col-span-2">
+                              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                <BarChart3 className="w-4 h-4 text-primary" />
+                                Factor Analysis
+                              </h4>
+                              <FactorBreakdown
+                                factors={prediction.factors}
+                                overallIndex={prediction.overall_index}
+                                compact={true}
+                              />
+                            </div>
+                          )}
+
                           {/* Probabilities */}
                           {prediction.factors && (
                             <div>

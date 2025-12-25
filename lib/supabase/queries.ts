@@ -308,22 +308,29 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
   // Use server client with service role key for UPSERT operations
   const serverSupabase = createServerClient()
 
+  // Use overall_index if provided, otherwise fall back to confidence
+  const overallIndex = prediction.overall_index || prediction.confidence
+
+  // Build the factors object - includes A-I breakdown and quick-access fields
+  // If prediction.factors is provided (new format), use it; otherwise build from fields
+  const factorsData = prediction.factors || {
+    home_win_pct: prediction.home_win_pct,
+    draw_pct: prediction.draw_pct,
+    away_win_pct: prediction.away_win_pct,
+    over_under: prediction.over_under,
+    btts: prediction.btts,
+    value_bet: prediction.value_bet,
+  }
+
   const { data, error } = await serverSupabase
     .from('predictions')
     .upsert({
       fixture_id: fixtureId,
-      overall_index: prediction.confidence,
+      overall_index: overallIndex,
       prediction_result: prediction.prediction_1x2,
-      confidence_level: prediction.confidence >= 70 ? 'high' : prediction.confidence >= 50 ? 'medium' : 'low',
-      confidence_pct: prediction.confidence,
-      factors: {
-        home_win_pct: prediction.home_win_pct,
-        draw_pct: prediction.draw_pct,
-        away_win_pct: prediction.away_win_pct,
-        over_under: prediction.over_under,
-        btts: prediction.btts,
-        value_bet: prediction.value_bet,
-      },
+      confidence_level: overallIndex >= 70 ? 'high' : overallIndex >= 50 ? 'medium' : 'low',
+      confidence_pct: overallIndex,
+      factors: factorsData, // Full A-I factor breakdown stored here
       analysis_text: prediction.detailed_analysis,
       key_factors: prediction.key_factors,
       risk_factors: prediction.risk_factors,

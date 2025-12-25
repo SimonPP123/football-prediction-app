@@ -110,12 +110,31 @@ export async function POST(request: Request) {
       }
 
       // Map n8n response to our database schema
+      // Handle both old format (probabilities object) and new format (flat fields)
+      const homeWinPct = prediction.probabilities?.home_win_pct || prediction.home_win_pct
+      const drawPct = prediction.probabilities?.draw_pct || prediction.draw_pct
+      const awayWinPct = prediction.probabilities?.away_win_pct || prediction.away_win_pct
+
+      // Build factors object - includes A-I breakdown if available, plus quick-access fields
+      const factorsData = {
+        // A-I Factor breakdown (if provided by AI)
+        ...(prediction.factors || {}),
+        // Quick-access fields for UI
+        home_win_pct: homeWinPct,
+        draw_pct: drawPct,
+        away_win_pct: awayWinPct,
+        over_under: prediction.over_under_2_5,
+        btts: prediction.btts,
+        value_bet: prediction.value_bet,
+      }
+
       const predictionData = {
         prediction_1x2: prediction.prediction,
         confidence: prediction.confidence_pct,
-        home_win_pct: prediction.probabilities?.home_win_pct || prediction.home_win_pct,
-        draw_pct: prediction.probabilities?.draw_pct || prediction.draw_pct,
-        away_win_pct: prediction.probabilities?.away_win_pct || prediction.away_win_pct,
+        overall_index: prediction.overall_index || prediction.confidence_pct, // Use overall_index if available
+        home_win_pct: homeWinPct,
+        draw_pct: drawPct,
+        away_win_pct: awayWinPct,
         over_under: prediction.over_under_2_5,
         btts: prediction.btts,
         value_bet: prediction.value_bet,
@@ -124,6 +143,7 @@ export async function POST(request: Request) {
         detailed_analysis: prediction.analysis,
         score_predictions: prediction.score_predictions || null,
         most_likely_score: prediction.most_likely_score || null,
+        factors: factorsData, // Full factor breakdown for display
       }
 
       const saved = await savePrediction(fixture_id, predictionData, selectedModel)
