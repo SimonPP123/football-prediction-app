@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { savePrediction } from '@/lib/supabase/queries'
+import { savePrediction, savePredictionToHistory, getPrediction } from '@/lib/supabase/queries'
 
 const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.analyserinsights.com/webhook/football-prediction'
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, webhook_url } = await request.json()
+    const { fixture_id, webhook_url, model } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json(
@@ -15,8 +15,22 @@ export async function POST(request: Request) {
       )
     }
 
+    // Default model if not provided
+    const selectedModel = model || 'gpt-4o'
+
     // Use custom webhook URL if provided, otherwise use default
     const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
+
+    // Check if there's an existing prediction - save to history before regenerating
+    try {
+      const existingPrediction = await getPrediction(fixture_id)
+      if (existingPrediction) {
+        await savePredictionToHistory(fixture_id)
+        console.log(`Saved existing prediction to history for fixture ${fixture_id}`)
+      }
+    } catch (historyError) {
+      console.warn('Could not save to history (table may not exist yet):', historyError)
+    }
 
     // Get fixture details
     const { data: fixture, error: fixtureError } = await supabase
@@ -50,6 +64,7 @@ export async function POST(request: Request) {
       match_date: fixtureData.fixture_date,
       venue: fixtureData.venue?.name,
       round: fixtureData.round,
+      model: selectedModel,
     }
 
     try {
@@ -75,21 +90,24 @@ export async function POST(request: Request) {
           const predictionData = {
             prediction_1x2: prediction.prediction,
             confidence: prediction.confidence_pct,
-            home_win_pct: prediction.probabilities.home_win_pct,
-            draw_pct: prediction.probabilities.draw_pct,
-            away_win_pct: prediction.probabilities.away_win_pct,
+            home_win_pct: prediction.probabilities?.home_win_pct || prediction.home_win_pct,
+            draw_pct: prediction.probabilities?.draw_pct || prediction.draw_pct,
+            away_win_pct: prediction.probabilities?.away_win_pct || prediction.away_win_pct,
             over_under: prediction.over_under_2_5,
             btts: prediction.btts,
             value_bet: prediction.value_bet,
             key_factors: prediction.key_factors,
             risk_factors: prediction.risk_factors,
             detailed_analysis: prediction.analysis,
+            score_predictions: prediction.score_predictions || null,
+            most_likely_score: prediction.most_likely_score || null,
           }
 
-          const saved = await savePrediction(fixture_id, predictionData)
+          const saved = await savePrediction(fixture_id, predictionData, selectedModel)
           return NextResponse.json({
             success: true,
             prediction: saved,
+            model_used: selectedModel,
           })
         }
       }
@@ -118,14 +136,17 @@ export async function POST(request: Request) {
         'Configure n8n workflow for real analysis'
       ],
       detailed_analysis: 'This is a placeholder prediction. The n8n AI workflow has not been configured yet. Once set up, this will contain detailed AI-generated analysis based on team form, head-to-head records, injuries, and other factors.',
+      score_predictions: null,
+      most_likely_score: null,
     }
 
-    const saved = await savePrediction(fixture_id, placeholderPrediction)
+    const saved = await savePrediction(fixture_id, placeholderPrediction, selectedModel)
 
     return NextResponse.json({
       success: true,
       prediction: saved,
       placeholder: true,
+      model_used: selectedModel,
     })
   } catch (error) {
     console.error('Error generating prediction:', error)

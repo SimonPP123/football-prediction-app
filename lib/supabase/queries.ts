@@ -204,8 +204,60 @@ export async function getPrediction(fixtureId: string) {
   return data
 }
 
+// Save prediction to history before updating
+export async function savePredictionToHistory(fixtureId: string) {
+  // Get current prediction
+  const { data: current, error: fetchError } = await supabase
+    .from('predictions')
+    .select('*')
+    .eq('fixture_id', fixtureId)
+    .single()
+
+  if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
+  if (!current) return null // No existing prediction to save
+
+  // Save to history
+  const { data, error } = await supabase
+    .from('prediction_history')
+    .insert({
+      fixture_id: current.fixture_id,
+      model_used: current.model_used || current.model_version,
+      prediction_result: current.prediction_result,
+      overall_index: current.overall_index,
+      factors: current.factors,
+      score_predictions: current.score_predictions,
+      most_likely_score: current.most_likely_score,
+      analysis_text: current.analysis_text,
+      key_factors: current.key_factors,
+      risk_factors: current.risk_factors,
+      home_win_pct: current.home_win_pct || current.factors?.home_win_pct,
+      draw_pct: current.draw_pct || current.factors?.draw_pct,
+      away_win_pct: current.away_win_pct || current.factors?.away_win_pct,
+      over_under_2_5: current.over_under_2_5 || current.factors?.over_under,
+      btts: current.btts || current.factors?.btts,
+      confidence_pct: current.confidence_pct || current.overall_index,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+// Get prediction history for a fixture
+export async function getPredictionHistory(fixtureId: string) {
+  const { data, error } = await supabase
+    .from('prediction_history')
+    .select('*')
+    .eq('fixture_id', fixtureId)
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
 // Save prediction
-export async function savePrediction(fixtureId: string, prediction: any) {
+export async function savePrediction(fixtureId: string, prediction: any, modelUsed: string = 'gpt-4o') {
   const { data, error } = await supabase
     .from('predictions')
     .upsert({
@@ -213,6 +265,7 @@ export async function savePrediction(fixtureId: string, prediction: any) {
       overall_index: prediction.confidence,
       prediction_result: prediction.prediction_1x2,
       confidence_level: prediction.confidence >= 70 ? 'high' : prediction.confidence >= 50 ? 'medium' : 'low',
+      confidence_pct: prediction.confidence,
       factors: {
         home_win_pct: prediction.home_win_pct,
         draw_pct: prediction.draw_pct,
@@ -224,7 +277,16 @@ export async function savePrediction(fixtureId: string, prediction: any) {
       analysis_text: prediction.detailed_analysis,
       key_factors: prediction.key_factors,
       risk_factors: prediction.risk_factors,
-      model_version: 'gpt-4o',
+      model_version: modelUsed,
+      model_used: modelUsed,
+      score_predictions: prediction.score_predictions || null,
+      most_likely_score: prediction.most_likely_score || null,
+      home_win_pct: prediction.home_win_pct,
+      draw_pct: prediction.draw_pct,
+      away_win_pct: prediction.away_win_pct,
+      over_under_2_5: prediction.over_under,
+      btts: prediction.btts,
+      value_bet: prediction.value_bet,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'fixture_id' })
     .select()

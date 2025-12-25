@@ -68,20 +68,67 @@ export interface Standing {
   team?: Team
 }
 
+export interface ScorePrediction {
+  score: string
+  probability: number
+}
+
 export interface Prediction {
   id: string
   fixture_id: string
   overall_index: number | null
   prediction_result: '1' | 'X' | '2' | '1X' | 'X2' | '12' | null
   confidence_level: 'high' | 'medium' | 'low' | null
+  confidence_pct: number | null
   factors: Record<string, any>
   analysis_text: string | null
   key_factors: string[] | null
   risk_factors: string[] | null
   model_version: string
+  model_used: string | null
+  score_predictions: ScorePrediction[] | null
+  most_likely_score: string | null
+  home_win_pct: number | null
+  draw_pct: number | null
+  away_win_pct: number | null
+  over_under_2_5: string | null
+  btts: string | null
+  value_bet: string | null
   created_at: string
   updated_at: string
 }
+
+export interface PredictionHistory {
+  id: string
+  fixture_id: string
+  model_used: string | null
+  prediction_result: string | null
+  overall_index: number | null
+  factors: Record<string, any> | null
+  score_predictions: ScorePrediction[] | null
+  most_likely_score: string | null
+  analysis_text: string | null
+  key_factors: string[] | null
+  risk_factors: string[] | null
+  home_win_pct: number | null
+  draw_pct: number | null
+  away_win_pct: number | null
+  over_under_2_5: string | null
+  btts: string | null
+  confidence_pct: number | null
+  created_at: string
+}
+
+export const AI_MODELS = [
+  { id: 'gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+  { id: 'claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
+  { id: 'gemini-pro', name: 'Gemini Pro', provider: 'Google' },
+  { id: 'llama-3.1-70b', name: 'Llama 3.1 70B', provider: 'Meta' },
+] as const
+
+export type AIModelId = typeof AI_MODELS[number]['id']
 
 export interface AIPrediction {
   prediction_1x2: '1' | 'X' | '2'
