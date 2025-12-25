@@ -12,18 +12,12 @@ const supabase = createClient(
 const ODDS_API_KEY = process.env.ODDS_API_KEY
 const ODDS_API_BASE = 'https://api.the-odds-api.com/v4'
 
-// All betting markets to fetch
+// Featured betting markets supported by The Odds API for soccer
+// Note: btts, double_chance, draw_no_bet, h2h_h1, h2h_h2 are NOT available for soccer_epl
 const ODDS_MARKETS = [
-  // Featured markets (original)
   'h2h',           // Match Result (1X2)
   'spreads',       // Asian Handicap / Point Spread
   'totals',        // Over/Under goals
-  // Core soccer markets (new)
-  'btts',          // Both Teams To Score (Yes/No)
-  'double_chance', // 1X, X2, 12
-  'draw_no_bet',   // Home/Away with stake returned on draw
-  'h2h_h1',        // First half result
-  'h2h_h2',        // Second half result
 ] as const
 
 const MARKETS_PARAM = ODDS_MARKETS.join(',')
