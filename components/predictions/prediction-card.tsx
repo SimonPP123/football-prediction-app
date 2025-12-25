@@ -38,10 +38,14 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     .slice() // Create a copy to avoid mutating original
     .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
 
-  // Most likely score is the one with highest probability
-  const mostLikelyScore = scorePredictons.length > 0
-    ? scorePredictons[0].score
-    : (prediction?.most_likely_score || null)
+  // Most likely score is the one with highest probability (excluding "other")
+  const mostLikelyScore = (() => {
+    const validScores = scorePredictons.filter(sp =>
+      sp.score?.toLowerCase() !== 'other'
+    )
+    if (validScores.length > 0) return validScores[0].score
+    return prediction?.most_likely_score || null
+  })()
 
   // Get odds from fixture
   const odds: OddsMarket[] = fixture.odds || []
@@ -632,9 +636,10 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className="bg-muted px-2 py-0.5 rounded">{h.model_used || 'AI'}</span>
                       {(() => {
-                        // Sort history score predictions by probability to get true most likely
+                        // Sort history score predictions by probability to get true most likely (excluding "other")
                         const sortedScores = (h.score_predictions || [])
                           .slice()
+                          .filter((sp: any) => sp.score?.toLowerCase() !== 'other')
                           .sort((a: any, b: any) => (b.probability || 0) - (a.probability || 0))
                         const historyMostLikely = sortedScores.length > 0
                           ? sortedScores[0].score
