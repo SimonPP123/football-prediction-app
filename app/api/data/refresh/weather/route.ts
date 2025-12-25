@@ -60,7 +60,7 @@ async function handleStreamingRefresh() {
         .select(`
           id, api_id, match_date,
           home_team:teams!fixtures_home_team_id_fkey(name),
-          venue:venues!fixtures_venue_id_fkey(name, latitude, longitude)
+          venue:venues!fixtures_venue_id_fkey(name, lat, lng)
         `)
         .gte('match_date', new Date().toISOString())
         .lte('match_date', nextWeek.toISOString())
@@ -74,7 +74,7 @@ async function handleStreamingRefresh() {
 
       const fixturesWithVenue = fixtures.filter(f => {
         const venue = f.venue as any
-        return venue?.latitude && venue?.longitude
+        return venue?.lat && venue?.lng
       })
 
       sendLog({ type: 'info', message: `Found ${fixturesWithVenue.length} fixtures with venue coordinates (${fixtures.length} total)` })
@@ -99,7 +99,7 @@ async function handleStreamingRefresh() {
         try {
           const dateStr = matchDate.toISOString().split('T')[0]
           const hour = matchDate.getUTCHours()
-          const endpoint = `${WEATHER_API_BASE}?latitude=${venue.latitude}&longitude=${venue.longitude}&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}`
+          const endpoint = `${WEATHER_API_BASE}?latitude=${venue.lat}&longitude=${venue.lng}&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}`
 
           const response = await fetch(endpoint)
           if (!response.ok) throw new Error(`Weather API error: ${response.status}`)
@@ -170,7 +170,7 @@ async function handleBatchRefresh() {
       .select(`
         id, api_id, match_date,
         home_team:teams!fixtures_home_team_id_fkey(name),
-        venue:venues!fixtures_venue_id_fkey(name, latitude, longitude)
+        venue:venues!fixtures_venue_id_fkey(name, lat, lng)
       `)
       .gte('match_date', new Date().toISOString())
       .lte('match_date', nextWeek.toISOString())
@@ -190,7 +190,7 @@ async function handleBatchRefresh() {
     // Filter fixtures that have venue coordinates
     const fixturesWithVenue = fixtures.filter(f => {
       const venue = f.venue as any
-      return venue?.latitude && venue?.longitude
+      return venue?.lat && venue?.lng
     })
 
     addLog('info', `Found ${fixturesWithVenue.length} fixtures with venue coordinates (${fixtures.length} total)`)
@@ -216,7 +216,7 @@ async function handleBatchRefresh() {
         const dateStr = matchDate.toISOString().split('T')[0]
         const hour = matchDate.getUTCHours()
 
-        const endpoint = `${WEATHER_API_BASE}?latitude=${venue.latitude}&longitude=${venue.longitude}&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}`
+        const endpoint = `${WEATHER_API_BASE}?latitude=${venue.lat}&longitude=${venue.lng}&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,relative_humidity_2m,weather_code&start_date=${dateStr}&end_date=${dateStr}`
 
         const response = await fetch(endpoint)
         if (!response.ok) {

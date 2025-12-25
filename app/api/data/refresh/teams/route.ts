@@ -10,6 +10,32 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Premier League stadium coordinates for weather API
+const VENUE_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'Emirates Stadium': { lat: 51.5549, lng: -0.1084 },
+  'Villa Park': { lat: 52.5092, lng: -1.8847 },
+  'Vitality Stadium': { lat: 50.7352, lng: -1.8384 },
+  'Gtech Community Stadium': { lat: 51.4907, lng: -0.2886 },
+  'Amex Stadium': { lat: 50.8609, lng: -0.0831 },
+  'American Express Stadium': { lat: 50.8609, lng: -0.0831 },
+  'Stamford Bridge': { lat: 51.4817, lng: -0.1910 },
+  'Selhurst Park': { lat: 51.3983, lng: -0.0855 },
+  'Goodison Park': { lat: 53.4388, lng: -2.9663 },
+  'Craven Cottage': { lat: 51.4749, lng: -0.2217 },
+  'Portman Road': { lat: 52.0553, lng: 1.1453 },
+  'King Power Stadium': { lat: 52.6204, lng: -1.1422 },
+  'Anfield': { lat: 53.4308, lng: -2.9609 },
+  'Etihad Stadium': { lat: 53.4831, lng: -2.2004 },
+  'Old Trafford': { lat: 53.4631, lng: -2.2913 },
+  "St. James' Park": { lat: 54.9756, lng: -1.6217 },
+  'St. James Park': { lat: 54.9756, lng: -1.6217 },
+  'City Ground': { lat: 52.9399, lng: -1.1325 },
+  "St. Mary's Stadium": { lat: 50.9058, lng: -1.3910 },
+  'Tottenham Hotspur Stadium': { lat: 51.6043, lng: -0.0664 },
+  'London Stadium': { lat: 51.5387, lng: -0.0166 },
+  'Molineux Stadium': { lat: 52.5902, lng: -2.1305 },
+}
+
 interface LogEntry {
   type: 'info' | 'success' | 'error' | 'warning' | 'progress'
   message: string
@@ -77,6 +103,7 @@ async function handleStreamingRefresh() {
 
         let venueId = null
         if (venue && venue.id) {
+          const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
           const { data: venueData, error: venueError } = await supabase
             .from('venues')
             .upsert({
@@ -86,8 +113,8 @@ async function handleStreamingRefresh() {
               country: 'England',
               capacity: venue.capacity,
               surface: venue.surface,
-              lat: null,
-              lng: null,
+              lat: coords.lat,
+              lng: coords.lng,
             }, { onConflict: 'api_id' })
             .select('id')
             .single()
@@ -201,6 +228,7 @@ async function handleBatchRefresh() {
       // Upsert venue first
       let venueId = null
       if (venue && venue.id) {
+        const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
         const { data: venueData, error: venueError } = await supabase
           .from('venues')
           .upsert({
@@ -210,8 +238,8 @@ async function handleBatchRefresh() {
             country: 'England',
             capacity: venue.capacity,
             surface: venue.surface,
-            lat: null,
-            lng: null,
+            lat: coords.lat,
+            lng: coords.lng,
           }, { onConflict: 'api_id' })
           .select('id')
           .single()

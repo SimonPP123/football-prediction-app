@@ -78,6 +78,7 @@ async function handleStreamingRefresh() {
           .from('injuries')
           .upsert({
             player_id: playerId || null,
+            player_api_id: item.player.id,
             player_name: item.player.name,
             team_id: teamId,
             injury_type: item.player.type || null,
@@ -164,6 +165,7 @@ async function handleBatchRefresh() {
         .from('injuries')
         .upsert({
           player_id: playerId || null,
+          player_api_id: item.player.id,
           player_name: item.player.name,
           team_id: teamId,
           injury_type: item.player.type || null,
