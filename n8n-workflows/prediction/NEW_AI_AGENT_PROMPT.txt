@@ -34,9 +34,13 @@ Analysis:
 - Compare overall chance quality
 
 Scoring:
-- Home +0.5 xG difference advantage = 70-85
-- Balanced xG = 50
-- Away +0.5 xG difference advantage = 15-30
+- Home massive xG advantage (+1.0 or more difference) = 85-100
+- Home strong xG advantage (+0.5 to +0.9 difference) = 70-84
+- Home moderate xG advantage (+0.2 to +0.4 difference) = 56-69
+- Balanced xG (±0.1 difference) = 45-55
+- Away moderate xG advantage (-0.2 to -0.4 difference) = 31-44
+- Away strong xG advantage (-0.5 to -0.9 difference) = 16-30
+- Away massive xG advantage (-1.0 or worse difference) = 1-15
 
 ---
 
@@ -51,9 +55,13 @@ Analysis:
 - Venue capacity and typical atmosphere
 
 Scoring:
-- Strong home fortress (80%+ home points) = 65-75
-- Normal home advantage = 55-60
-- Weak home record or strong away team = 45-50
+- Extreme home fortress (90%+ home win rate) = 85-100
+- Strong home advantage (70-89% home points) = 70-84
+- Moderate home advantage (55-69% home points) = 56-69
+- Balanced home/away records = 45-55
+- Moderate away strength (away team wins 55%+ away games) = 31-44
+- Strong away team (70%+ away points) = 16-30
+- Extreme away dominance (90%+ away win rate) = 1-15
 
 ---
 
@@ -68,9 +76,13 @@ Analysis:
 - Defensive solidity trends
 
 Scoring:
-- Home superior defense (more clean sheets, lower GA) = 65-75
-- Balanced = 50
-- Away superior defense = 25-35
+- Home elite defense (60%+ clean sheets, GA <0.8/game) = 85-100
+- Home strong defense (40-59% clean sheets, GA <1.2/game) = 70-84
+- Home moderate defensive edge = 56-69
+- Balanced defensive quality = 45-55
+- Away moderate defensive edge = 31-44
+- Away strong defense (40-59% clean sheets, GA <1.2/game) = 16-30
+- Away elite defense (60%+ clean sheets, GA <0.8/game) = 1-15
 
 ---
 
@@ -85,9 +97,13 @@ Analysis:
 - Scoring consistency
 
 Scoring:
-- Home significantly better attack = 65-75
-- Balanced = 50
-- Away significantly better attack = 25-35
+- Home elite attack (2.5+ goals/game, rarely fail to score) = 85-100
+- Home strong attack (1.8-2.4 goals/game) = 70-84
+- Home moderate attacking edge = 56-69
+- Balanced attacking quality = 45-55
+- Away moderate attacking edge = 31-44
+- Away strong attack (1.8-2.4 goals/game) = 16-30
+- Away elite attack (2.5+ goals/game, rarely fail to score) = 1-15
 
 ---
 
@@ -102,9 +118,11 @@ Analysis:
 - Regression to mean expected?
 
 Scoring:
-- If home over-performing significantly OR away under-performing = 55-65
-- Balanced / no clear pattern = 50
-- If away over-performing significantly OR home under-performing = 35-45
+- Home massively overperforming xG (+5 goals) OR away underperforming (-5) = 70-100
+- Home moderately lucky (+2 to +4 vs xG) = 56-69
+- Balanced / no clear luck pattern = 45-55
+- Away moderately lucky (+2 to +4 vs xG) = 31-44
+- Away massively overperforming xG (+5 goals) OR home underperforming (-5) = 1-30
 
 ===============================================================================
 FACTOR B: RECENT FORM (20% Total Weight)
@@ -121,9 +139,13 @@ Analysis:
 - Quality of recent performances by xG
 
 Scoring:
-- Home strong positive xG trend, away declining = 75-90
-- Balanced recent xG = 50
-- Away strong positive xG trend, home declining = 10-25
+- Home xG surging (+0.5/game improvement), away collapsing = 85-100
+- Home strong positive xG trend (+0.2 to +0.4/game) = 70-84
+- Home slight xG improvement = 56-69
+- Balanced or stable xG trends = 45-55
+- Away slight xG improvement = 31-44
+- Away strong positive xG trend (+0.2 to +0.4/game) = 16-30
+- Away xG surging (+0.5/game improvement), home collapsing = 1-15
 
 ---
 
@@ -138,9 +160,13 @@ Analysis:
 - Goal difference trend
 
 Scoring:
-- Home on strong win streak = 65-75
-- Balanced form = 50
-- Away on strong win streak, home poor = 25-35
+- Home on 5+ win streak, away losing streak = 85-100
+- Home strong form (70%+ points last 5-10 games) = 70-84
+- Home moderate form edge (55-69% points) = 56-69
+- Balanced form (both ~50% points) = 45-55
+- Away moderate form edge (55-69% points) = 31-44
+- Away strong form (70%+ points last 5-10 games) = 16-30
+- Away on 5+ win streak, home losing streak = 1-15
 
 ---
 
@@ -155,9 +181,13 @@ Analysis:
 - Quality-adjusted form
 
 Scoring:
-- Home beat strong teams, away beat weak = 60-70
-- Similar opponent quality = 50
-- Away beat strong teams, home beat weak = 30-40
+- Home beat top-6 teams, away beat bottom-6 only = 85-100
+- Home beat mid-table+, away struggled vs quality = 70-84
+- Home moderate quality-adjusted edge = 56-69
+- Similar opponent quality in recent form = 45-55
+- Away moderate quality-adjusted edge = 31-44
+- Away beat mid-table+, home struggled vs quality = 16-30
+- Away beat top-6 teams, home beat bottom-6 only = 1-15
 
 ---
 
@@ -172,9 +202,13 @@ Analysis:
 - Predictability of performance level
 
 Scoring:
-- Home very consistent, away erratic = 60-70
-- Both consistent = 50
-- Away consistent, home erratic = 30-40
+- Home extremely consistent (no surprise results), away wildly erratic = 85-100
+- Home consistent, away somewhat erratic = 70-84
+- Home slight consistency edge = 56-69
+- Both equally consistent or erratic = 45-55
+- Away slight consistency edge = 31-44
+- Away consistent, home somewhat erratic = 16-30
+- Away extremely consistent, home wildly erratic = 1-15
 
 ===============================================================================
 FACTOR C: KEY PLAYERS (10% Total Weight)
@@ -191,9 +225,13 @@ Analysis:
 - Reliability in high-pressure situations
 
 Scoring:
-- Home has elite penalty taker (90%+), away weak = 60-70
-- Both reliable = 50
-- Away has elite taker, home weak = 30-40
+- Home elite penalty taker (95%+ conversion), away poor (60% or worse) = 85-100
+- Home strong taker (85-94%), away weak or unreliable = 70-84
+- Home moderate edge in penalty reliability = 56-69
+- Both have similar penalty reliability = 45-55
+- Away moderate edge in penalty reliability = 31-44
+- Away strong taker (85-94%), home weak or unreliable = 16-30
+- Away elite penalty taker (95%+), home poor (60% or worse) = 1-15
 
 ---
 
@@ -208,9 +246,13 @@ Analysis:
 - Star player impact and form
 
 Scoring:
-- Home stars in excellent form, away struggling = 60-70
-- Balanced star quality/form = 50
-- Away stars in excellent form, home struggling = 30-40
+- Home stars elite form (8.0+ ratings, goals in streak), away stars poor = 85-100
+- Home stars strong form (7.5-7.9 ratings), away stars ordinary = 70-84
+- Home moderate star player advantage = 56-69
+- Balanced star player quality and form = 45-55
+- Away moderate star player advantage = 31-44
+- Away stars strong form (7.5-7.9 ratings), home stars ordinary = 16-30
+- Away stars elite form (8.0+ ratings, goals in streak), home stars poor = 1-15
 
 ---
 
@@ -228,9 +270,13 @@ Analysis:
 - Any key returns mentioned?
 
 Scoring:
-- Home full strength, away missing key players = 65-75
-- Both relatively full strength = 50
-- Away full strength, home missing key players = 25-35
+- Home fully fit, away missing 3+ starters or star player = 85-100
+- Home mostly fit, away missing 1-2 key players = 70-84
+- Home slight injury advantage = 56-69
+- Both squads relatively full strength = 45-55
+- Away slight injury advantage = 31-44
+- Away mostly fit, home missing 1-2 key players = 16-30
+- Away fully fit, home missing 3+ starters or star player = 1-15
 - If no injury info found in news = 50 (neutral)
 
 ===============================================================================
@@ -248,9 +294,13 @@ Analysis:
 - Style clash: high press vs possession team?
 
 Scoring:
-- Home presses high, away struggles with press = 70-85
-- No clear tactical mismatch = 50
-- Away presses high, home struggles = 15-30
+- Home elite press, away poor under pressure (50% pass accuracy under press) = 85-100
+- Home strong press advantage, away struggles moderately = 70-84
+- Home moderate tactical pressing edge = 56-69
+- No clear tactical mismatch or both adapt well = 45-55
+- Away moderate tactical pressing edge = 31-44
+- Away strong press advantage, home struggles moderately = 16-30
+- Away elite press, home poor under pressure (50% pass accuracy) = 1-15
 
 ---
 
@@ -265,9 +315,13 @@ Analysis:
 - Tactical vulnerability
 
 Scoring:
-- Home has pace, away plays high line = 65-75
-- Balanced = 50
-- Away has pace, home plays high line = 25-35
+- Home elite pace attackers, away extreme high line (5+ offsides/game) = 85-100
+- Home strong pace advantage vs away's high line = 70-84
+- Home moderate pace/line mismatch advantage = 56-69
+- Balanced tactical setup, no pace/line vulnerability = 45-55
+- Away moderate pace/line mismatch advantage = 31-44
+- Away strong pace advantage vs home's high line = 16-30
+- Away elite pace attackers, home extreme high line (5+ offsides/game) = 1-15
 
 ---
 
@@ -282,9 +336,13 @@ Analysis:
 - Set-piece threat
 
 Scoring:
-- Home strong aerially, many corners = 65-75
-- Balanced aerial battle = 50
-- Away strong aerially, many corners = 25-35
+- Home dominant aerially (8+ corners/game, tall team), away weak aerially = 85-100
+- Home strong aerial and set-piece advantage = 70-84
+- Home moderate aerial edge = 56-69
+- Balanced aerial battle and set-piece threat = 45-55
+- Away moderate aerial edge = 31-44
+- Away strong aerial and set-piece advantage = 16-30
+- Away dominant aerially (8+ corners/game, tall team), home weak aerially = 1-15
 
 ===============================================================================
 FACTOR E: TABLE POSITION & CONTEXT (12% Total Weight)
@@ -301,9 +359,13 @@ Analysis:
 - Pressure and motivation from table position
 
 Scoring:
-- Home fighting for top-4/survival, away comfortable = 65-75
-- Both need points equally = 50
-- Away fighting, home comfortable = 25-35
+- Home desperate (relegation zone or must-win for Europe), away coasting = 85-100
+- Home fighting for key target (top-4/survival), away mid-table comfort = 70-84
+- Home moderate motivational edge from table position = 56-69
+- Both need points equally or both mid-table = 45-55
+- Away moderate motivational edge from table position = 31-44
+- Away fighting for key target, home mid-table comfort = 16-30
+- Away desperate (relegation/Europe must-win), home coasting = 1-15
 
 ---
 
@@ -320,9 +382,13 @@ Analysis:
 - Positive/negative narratives
 
 Scoring:
-- Home positive context, away crisis = 60-70
-- Both stable = 50
-- Away positive, home crisis = 30-40
+- Home euphoric (new manager bounce, takeover), away in crisis (protests, manager sack rumors) = 85-100
+- Home positive context, away negative morale indicators = 70-84
+- Home slight morale/context advantage = 56-69
+- Both stable or no significant context = 45-55
+- Away slight morale/context advantage = 31-44
+- Away positive context, home negative morale indicators = 16-30
+- Away euphoric, home in crisis = 1-15
 - If no context found = 50 (neutral)
 
 ===============================================================================
@@ -340,9 +406,13 @@ Analysis:
 - Which team adapts better to wet conditions?
 
 Scoring:
-- Heavy rain favors home's style = 60-70
-- Normal conditions or neutral impact = 50
-- Heavy rain favors away's style = 30-40
+- Extreme rain (20mm+) strongly favors home's direct/physical style = 85-100
+- Moderate to heavy rain (10-19mm) favors home's style = 70-84
+- Light rain (5-9mm) slightly favors home = 56-69
+- Normal/dry conditions or neutral weather impact = 45-55
+- Light rain (5-9mm) slightly favors away = 31-44
+- Moderate to heavy rain (10-19mm) favors away's style = 16-30
+- Extreme rain (20mm+) strongly favors away's direct/physical style = 1-15
 
 ---
 
@@ -357,9 +427,13 @@ Analysis:
 - Extreme conditions?
 
 Scoring:
-- Conditions favor home = 60-70
-- Normal/neutral conditions = 50
-- Conditions favor away = 30-40
+- Extreme conditions (below 0°C or above 30°C, wind 40+ km/h) strongly favor home = 85-100
+- Harsh conditions (0-5°C or 25-29°C, wind 25-39 km/h) favor home = 70-84
+- Challenging conditions slightly favor home = 56-69
+- Normal/neutral conditions (10-20°C, light wind) = 45-55
+- Challenging conditions slightly favor away = 31-44
+- Harsh conditions favor away = 16-30
+- Extreme conditions strongly favor away = 1-15
 
 ===============================================================================
 FACTOR G: HEAD-TO-HEAD (10% Total Weight)
@@ -377,9 +451,13 @@ Analysis:
 - Psychological advantage?
 
 Scoring:
-- Home dominates H2H (70%+ win rate) = 65-75
-- Balanced H2H = 50
-- Away dominates H2H = 25-35
+- Home dominates H2H (80%+ win rate, won last 5+ meetings) = 85-100
+- Home strong H2H record (65-79% win rate) = 70-84
+- Home moderate H2H advantage = 56-69
+- Balanced H2H history (similar wins) = 45-55
+- Away moderate H2H advantage = 31-44
+- Away strong H2H record (65-79% win rate) = 16-30
+- Away dominates H2H (80%+ win rate, won last 5+ meetings) = 1-15
 
 ---
 
@@ -394,9 +472,13 @@ Analysis:
 - Historical xG in H2H if available
 
 Scoring:
-- Home wins by quality/dominance in H2H = 60-70
-- No clear pattern = 50
-- Away wins by quality/dominance = 30-40
+- Home wins H2H matches by large margins (3+ goal average), dominant xG = 85-100
+- Home wins H2H matches convincingly, clear quality edge = 70-84
+- Home moderate quality advantage in H2H patterns = 56-69
+- No clear quality pattern in H2H matches = 45-55
+- Away moderate quality advantage in H2H patterns = 31-44
+- Away wins H2H matches convincingly, clear quality edge = 16-30
+- Away wins H2H matches by large margins (3+ goal average), dominant xG = 1-15
 
 ===============================================================================
 ANALYSIS INSTRUCTIONS
