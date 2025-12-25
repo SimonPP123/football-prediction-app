@@ -271,15 +271,15 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
             <div className="bg-muted/50 rounded p-2">
               <p className="text-muted-foreground">O/U 2.5</p>
-              <p className="font-medium">{prediction.factors.over_under || 'N/A'}</p>
+              <p className="font-medium">{prediction.over_under_2_5 || prediction.factors?.over_under || 'N/A'}</p>
             </div>
             <div className="bg-muted/50 rounded p-2">
               <p className="text-muted-foreground">BTTS</p>
-              <p className="font-medium">{prediction.factors.btts || 'N/A'}</p>
+              <p className="font-medium">{prediction.btts || prediction.factors?.btts || 'N/A'}</p>
             </div>
             <div className="bg-muted/50 rounded p-2">
               <p className="text-muted-foreground">Value</p>
-              <p className="font-medium text-sm break-words">{prediction.factors.value_bet || 'N/A'}</p>
+              <p className="font-medium text-sm break-words">{prediction.value_bet || prediction.factors?.value_bet || 'N/A'}</p>
             </div>
           </div>
         )}
