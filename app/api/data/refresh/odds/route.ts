@@ -46,6 +46,7 @@ const TEAM_ALIASES: Record<string, string[]> = {
   'leicester city': ['leicester'],
   'afc bournemouth': ['bournemouth'],
   'ipswich town': ['ipswich'],
+  'leeds united': ['leeds'],
 }
 
 // Normalize team name for matching
