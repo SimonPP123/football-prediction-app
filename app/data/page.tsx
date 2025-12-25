@@ -33,6 +33,7 @@ import {
   Brain,
   Copy,
   Square,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
@@ -214,6 +215,9 @@ export default function DataManagementPage() {
   const [isRefreshingAll, setIsRefreshingAll] = useState(false)
   const [oddsModalOpen, setOddsModalOpen] = useState(false)
   const [oddsSelectedRefreshing, setOddsSelectedRefreshing] = useState(false)
+  const [isPreMatchRefreshing, setIsPreMatchRefreshing] = useState(false)
+  const [includeRefereeStats, setIncludeRefereeStats] = useState(false)
+  const [includeLineups, setIncludeLineups] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
@@ -502,6 +506,73 @@ export default function DataManagementPage() {
     }
   }
 
+  const handlePreMatchRefresh = async () => {
+    setIsPreMatchRefreshing(true)
+    addLog('info', 'pre-match', 'Starting pre-match data refresh...')
+
+    try {
+      const res = await fetch('/api/data/refresh/pre-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          includeRefereeStats,
+          includeLineups,
+        }),
+      })
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
+                    addLog('success', 'pre-match', `Pre-match refresh complete: ${data.successful}/${data.endpoints} successful${duration}`)
+                    await fetchStats()
+                  } else {
+                    addLog('error', 'pre-match', `Pre-match refresh failed: ${data.failed} endpoints had errors`)
+                  }
+                } else {
+                  addLog(data.type || 'info', 'pre-match', data.message, data.details)
+                }
+              } catch (parseError) {
+                console.error('Failed to parse SSE data:', line)
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        if (data.success) {
+          addLog('success', 'pre-match', `Pre-match refresh complete`)
+          await fetchStats()
+        } else {
+          addLog('error', 'pre-match', `Pre-match refresh failed: ${data.error || 'Unknown error'}`)
+        }
+      }
+    } catch (error) {
+      addLog('error', 'pre-match', `Pre-match refresh failed: ${error instanceof Error ? error.message : 'Network error'}`)
+    } finally {
+      setIsPreMatchRefreshing(false)
+    }
+  }
+
   const getLogColor = (type: LogEntry['type']) => {
     switch (type) {
       case 'success': return 'text-green-500'
@@ -553,23 +624,55 @@ export default function DataManagementPage() {
               <span className="font-bold">{totalRefreshable} endpoints</span>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {Object.values(refreshing).some(Boolean) && (
+              {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing) && (
                 <button
                   onClick={handleStopAll}
                   className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
                 >
                   <Square className="w-4 h-4 fill-current" />
-                  Stop All
+                  Stop
                 </button>
               )}
               <button
+                onClick={handlePreMatchRefresh}
+                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
+              >
+                <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
+                {isPreMatchRefreshing ? 'Refreshing...' : 'Pre-Match'}
+              </button>
+              <button
                 onClick={handleRefreshAll}
-                disabled={Object.values(refreshing).some(Boolean)}
+                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 <RefreshCw className={cn("w-4 h-4", Object.values(refreshing).some(Boolean) && "animate-spin")} />
                 Refresh All
               </button>
+            </div>
+          </div>
+          {/* Pre-Match Options */}
+          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-4 text-sm">
+            <span className="text-muted-foreground">Pre-Match includes: standings, injuries, team-stats, H2H, statistics, weather, odds</span>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeRefereeStats}
+                  onChange={(e) => setIncludeRefereeStats(e.target.checked)}
+                  className="w-4 h-4 rounded border-border"
+                />
+                <span className="text-muted-foreground">+ Referee Stats</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeLineups}
+                  onChange={(e) => setIncludeLineups(e.target.checked)}
+                  className="w-4 h-4 rounded border-border"
+                />
+                <span className="text-muted-foreground">+ Lineups <span className="text-xs">(~1hr before)</span></span>
+              </label>
             </div>
           </div>
         </div>
