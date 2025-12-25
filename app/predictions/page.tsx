@@ -47,7 +47,7 @@ export default function PredictionsPage() {
   const [showSchema, setShowSchema] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK)
   const [copied, setCopied] = useState(false)
-  const [selectedModel, setSelectedModel] = useState('gpt-4o')
+  const [selectedModel, setSelectedModel] = useState('openai/gpt-5.2')
   const [selectedRounds, setSelectedRounds] = useState<number[]>([])
   const [showRoundFilter, setShowRoundFilter] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)

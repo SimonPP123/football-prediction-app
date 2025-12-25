@@ -11,6 +11,7 @@ import {
   Users,
   Calendar,
   BarChart3,
+  Database,
   Menu,
   X,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ const navItems = [
   { href: '/teams', label: 'Teams', icon: Users },
   { href: '/matches', label: 'Matches', icon: Calendar },
   { href: '/stats', label: 'Statistics', icon: BarChart3 },
+  { href: '/data', label: 'Data', icon: Database },
 ]
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {

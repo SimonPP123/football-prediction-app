@@ -1,8 +1,28 @@
-import { getStandings } from '@/lib/supabase/queries'
-import { Header } from '@/components/layout/header'
+'use client'
 
-export default async function StandingsPage() {
-  const standings = await getStandings()
+import { useState, useEffect } from 'react'
+import { Header } from '@/components/layout/header'
+import { Loader2 } from 'lucide-react'
+
+export default function StandingsPage() {
+  const [standings, setStandings] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchStandings()
+  }, [])
+
+  const fetchStandings = async () => {
+    try {
+      const res = await fetch('/api/standings')
+      const data = await res.json()
+      setStandings(data)
+    } catch (error) {
+      console.error('Failed to fetch standings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getPositionStyle = (rank: number, description: string | null) => {
     if (rank <= 4) return 'border-l-4 border-l-blue-500' // Champions League
@@ -11,13 +31,24 @@ export default async function StandingsPage() {
     return ''
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Standings" subtitle="Premier League 2025-2026" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen">
       <Header title="Standings" subtitle="Premier League 2025-2026" />
 
       <div className="p-6">
         {/* Legend */}
-        <div className="flex gap-4 mb-4 text-xs">
+        <div className="flex gap-4 text-xs mb-4">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded" />
             <span>Champions League</span>

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     // Default model if not provided
-    const selectedModel = model || 'gpt-4o'
+    const selectedModel = model || 'openai/gpt-5.2'
 
     // Use custom webhook URL if provided, otherwise use default
     const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
@@ -104,6 +104,14 @@ export async function POST(request: Request) {
           }
 
           const saved = await savePrediction(fixture_id, predictionData, selectedModel)
+
+          // Also save to history for every prediction (not just regenerations)
+          try {
+            await savePredictionToHistory(fixture_id)
+          } catch (histErr) {
+            console.warn('Could not save to history:', histErr)
+          }
+
           return NextResponse.json({
             success: true,
             prediction: saved,
@@ -141,6 +149,13 @@ export async function POST(request: Request) {
     }
 
     const saved = await savePrediction(fixture_id, placeholderPrediction, selectedModel)
+
+    // Also save placeholder to history
+    try {
+      await savePredictionToHistory(fixture_id)
+    } catch (histErr) {
+      console.warn('Could not save placeholder to history:', histErr)
+    }
 
     return NextResponse.json({
       success: true,
