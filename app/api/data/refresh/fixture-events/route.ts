@@ -116,8 +116,11 @@ async function handleStreamingRefresh() {
                 ignoreDuplicates: true
               })
 
-            if (error && !error.message.includes('duplicate')) {
-              errors++
+            if (error) {
+              if (!error.message.includes('duplicate')) {
+                errors++
+              }
+              // Duplicates are silently ignored
             } else {
               fixtureEvents++
               imported++
@@ -247,8 +250,11 @@ async function handleBatchRefresh() {
               ignoreDuplicates: true
             })
 
-          if (error && !error.message.includes('duplicate')) {
-            errors++
+          if (error) {
+            if (!error.message.includes('duplicate')) {
+              errors++
+            }
+            // Duplicates are silently ignored
           } else {
             fixtureEvents++
             imported++

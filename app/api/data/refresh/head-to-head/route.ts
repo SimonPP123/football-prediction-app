@@ -121,7 +121,6 @@ async function handleStreamingRefresh() {
               draws,
               team1_goals: team1Goals,
               team2_goals: team2Goals,
-              last_fixtures: lastFixtures,
               updated_at: new Date().toISOString(),
             }, { onConflict: 'team1_id,team2_id' })
 
@@ -250,14 +249,13 @@ async function handleBatchRefresh() {
           .upsert({
             team1_id: team1.id,
             team2_id: team2.id,
-            fixture_data: lastFixtures, // Required NOT NULL column
+            fixture_data: lastFixtures,
             matches_played: data.response.length,
             team1_wins: team1Wins,
             team2_wins: team2Wins,
             draws,
             team1_goals: team1Goals,
             team2_goals: team2Goals,
-            last_fixtures: lastFixtures,
             updated_at: new Date().toISOString(),
           }, { onConflict: 'team1_id,team2_id' })
 

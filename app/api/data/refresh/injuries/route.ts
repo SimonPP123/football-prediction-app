@@ -80,8 +80,8 @@ async function handleStreamingRefresh() {
             player_id: playerId || null,
             player_name: item.player.name,
             team_id: teamId,
-            type: item.player.type || null,
-            reason: item.player.reason || null,
+            injury_type: item.player.type || null,
+            injury_reason: item.player.reason || null,
             reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
           }, { onConflict: 'player_id,reported_date' })
 
@@ -166,8 +166,8 @@ async function handleBatchRefresh() {
           player_id: playerId || null,
           player_name: item.player.name,
           team_id: teamId,
-          type: item.player.type || null,
-          reason: item.player.reason || null,
+          injury_type: item.player.type || null,
+          injury_reason: item.player.reason || null,
           reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
         }, { onConflict: 'player_id,reported_date' })
 
