@@ -120,15 +120,21 @@ export interface PredictionHistory {
 }
 
 export const AI_MODELS = [
+  // OpenAI - GPT-5 Series (Latest)
+  { id: 'openai/gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
+  { id: 'openai/gpt-5.1', name: 'GPT-5.1', provider: 'OpenAI' },
+  { id: 'openai/gpt-5', name: 'GPT-5', provider: 'OpenAI' },
+  { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
+
+  // OpenAI - GPT-4.1 Series
+  { id: 'openai/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI' },
+  { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI' },
+
   // OpenAI - GPT-4o Series
   { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
   { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
 
-  // OpenAI - GPT-4.1 Series (1M context)
-  { id: 'openai/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI' },
-  { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI' },
-
-  // Google - Gemini 2.5 Series (1M context)
+  // Google - Gemini 2.5 Series
   { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'Google' },
   { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google' },
 ] as const
