@@ -120,25 +120,30 @@ export interface PredictionHistory {
 }
 
 export const AI_MODELS = [
-  // OpenAI (December 2025)
-  { id: 'openai/gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
-  { id: 'openai/gpt-5.1', name: 'GPT-5.1', provider: 'OpenAI' },
-  { id: 'openai/gpt-5', name: 'GPT-5', provider: 'OpenAI' },
-  { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
-  { id: 'openai/o3', name: 'o3 (Reasoning)', provider: 'OpenAI' },
-  { id: 'openai/o4-mini', name: 'o4 Mini (Fast Reasoning)', provider: 'OpenAI' },
-  // Anthropic (December 2025)
-  { id: 'anthropic/claude-opus-4.5', name: 'Claude Opus 4.5', provider: 'Anthropic' },
-  { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
-  { id: 'anthropic/claude-haiku-4.5', name: 'Claude Haiku 4.5', provider: 'Anthropic' },
-  // Google (December 2025) - Note: Gemini 3 not yet available on OpenRouter
+  // OpenAI - GPT-4o Series
+  { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
+
+  // OpenAI - GPT-4.1 Series (1M context)
+  { id: 'openai/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI' },
+  { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI' },
+
+  // Google - Gemini 2.5 Series (1M context)
   { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', provider: 'Google' },
   { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash', provider: 'Google' },
-  // Meta (December 2025)
-  { id: 'meta-llama/llama-4-maverick', name: 'Llama 4 Maverick', provider: 'Meta' },
-  { id: 'meta-llama/llama-4-scout', name: 'Llama 4 Scout', provider: 'Meta' },
-  // DeepSeek (December 2025)
-  { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', provider: 'DeepSeek' },
+
+  // Anthropic - Claude 4.5 Series (1M context)
+  { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', provider: 'Anthropic' },
+
+  // Anthropic - Claude 3.5 Series
+  { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', provider: 'Anthropic' },
+  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'Anthropic' },
+
+  // Meta - Llama 3.3
+  { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', provider: 'Meta' },
+
+  // DeepSeek
+  { id: 'deepseek/deepseek-v3.2', name: 'DeepSeek V3.2', provider: 'DeepSeek' },
   { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', provider: 'DeepSeek' },
 ] as const
 
