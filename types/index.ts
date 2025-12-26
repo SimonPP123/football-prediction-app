@@ -120,18 +120,9 @@ export interface PredictionHistory {
 }
 
 export const AI_MODELS = [
-  // OpenAI - GPT-5 Series (Latest)
-  { id: 'openai/gpt-5.2', name: 'GPT-5.2', provider: 'OpenAI' },
-  { id: 'openai/gpt-5.1', name: 'GPT-5.1', provider: 'OpenAI' },
-  { id: 'openai/gpt-5', name: 'GPT-5', provider: 'OpenAI' },
+  // OpenAI - Mini Models Only
   { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },
-
-  // OpenAI - GPT-4.1 Series
-  { id: 'openai/gpt-4.1', name: 'GPT-4.1', provider: 'OpenAI' },
   { id: 'openai/gpt-4.1-mini', name: 'GPT-4.1 Mini', provider: 'OpenAI' },
-
-  // OpenAI - GPT-4o Series
-  { id: 'openai/gpt-4o', name: 'GPT-4o', provider: 'OpenAI' },
   { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', provider: 'OpenAI' },
 
   // Google - Gemini 2.5 Series
