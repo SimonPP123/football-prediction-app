@@ -119,6 +119,40 @@ export interface PredictionHistory {
   created_at: string
 }
 
+export interface MatchAnalysis {
+  id: string
+  fixture_id: string
+  home_team_id: string
+  away_team_id: string
+  predicted_result: '1' | 'X' | '2' | null
+  actual_result: '1' | 'X' | '2' | null
+  prediction_correct: boolean
+  predicted_score: string | null
+  actual_score: string | null
+  score_correct: boolean | null
+  predicted_over_under: string | null
+  actual_over_under: string | null
+  over_under_correct: boolean | null
+  predicted_btts: string | null
+  actual_btts: string | null
+  btts_correct: boolean | null
+  overall_index: number | null
+  confidence_pct: number | null
+  accuracy_score: number | null
+  factors: Record<string, any> | null
+  factor_accuracy: Record<string, any> | null
+  home_team_performance: Record<string, any> | null
+  away_team_performance: Record<string, any> | null
+  post_match_analysis: string | null
+  key_insights: string[] | null
+  learning_points: string[] | null
+  surprises: string[] | null
+  model_version: string | null
+  analysis_type: string | null
+  created_at: string
+  updated_at: string
+}
+
 export const AI_MODELS = [
   // OpenAI - Mini Models Only
   { id: 'openai/gpt-5-mini', name: 'GPT-5 Mini', provider: 'OpenAI' },

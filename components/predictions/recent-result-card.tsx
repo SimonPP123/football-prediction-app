@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { PostMatchAnalysisSection } from './post-match-analysis-section'
 
 interface RecentResultCardProps {
   fixture: any
@@ -221,6 +222,9 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                 {prediction.analysis_text}
               </div>
             )}
+
+            {/* Post-Match Analysis */}
+            <PostMatchAnalysisSection fixtureId={fixture.id} />
 
             {/* Model info */}
             <div className="text-xs text-muted-foreground text-center pt-2 border-t border-border/50">

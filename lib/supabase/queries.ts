@@ -455,3 +455,55 @@ export async function getTeamInjuries(teamId: string) {
   if (error) throw error
   return data || []
 }
+
+// Get match analysis for a fixture
+export async function getMatchAnalysis(fixtureId: string) {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('*')
+    .eq('fixture_id', fixtureId)
+    .single()
+
+  if (error && error.code !== 'PGRST116') throw error
+  return data
+}
+
+// Get recent analyses for a team (for memory context)
+export async function getTeamRecentAnalyses(teamId: string, limit = 5) {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('learning_points, key_insights, created_at, fixture_id')
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+// Get accuracy statistics across all analyses
+export async function getAnalysisAccuracyStats() {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score')
+
+  if (error) throw error
+
+  const total = data.length
+  if (total === 0) return null
+
+  const resultCorrect = data.filter(a => a.prediction_correct).length
+  const scoreCorrect = data.filter(a => a.score_correct).length
+  const ouCorrect = data.filter(a => a.over_under_correct).length
+  const bttsCorrect = data.filter(a => a.btts_correct).length
+  const avgAccuracy = data.reduce((sum, a) => sum + a.accuracy_score, 0) / total
+
+  return {
+    total,
+    result_accuracy: (resultCorrect / total) * 100,
+    score_accuracy: (scoreCorrect / total) * 100,
+    over_under_accuracy: (ouCorrect / total) * 100,
+    btts_accuracy: (bttsCorrect / total) * 100,
+    average_accuracy: avgAccuracy
+  }
+}

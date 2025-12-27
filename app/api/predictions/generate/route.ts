@@ -42,6 +42,21 @@ export async function POST(request: Request) {
     // Type assertion for fixture data
     const fixtureData = fixture as any
 
+    // Fetch recent match analyses for memory context (last 5 for each team)
+    const { data: homeAnalyses } = await supabase
+      .from('match_analysis')
+      .select('learning_points, key_insights, created_at, fixture_id')
+      .or(`home_team_id.eq.${fixtureData.home_team_id},away_team_id.eq.${fixtureData.home_team_id}`)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
+    const { data: awayAnalyses } = await supabase
+      .from('match_analysis')
+      .select('learning_points, key_insights, created_at, fixture_id')
+      .or(`home_team_id.eq.${fixtureData.away_team_id},away_team_id.eq.${fixtureData.away_team_id}`)
+      .order('created_at', { ascending: false })
+      .limit(5)
+
     // Trigger n8n webhook for AI prediction
     const webhookPayload = {
       fixture_id: fixtureData.id,
@@ -53,6 +68,12 @@ export async function POST(request: Request) {
       venue: fixtureData.venue?.name,
       round: fixtureData.round,
       model: selectedModel,
+
+      // Memory context from past analyses
+      memory_context: {
+        home_team_learnings: homeAnalyses || [],
+        away_team_learnings: awayAnalyses || []
+      }
     }
 
     // Set up 5-minute timeout for webhook call
