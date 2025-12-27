@@ -133,6 +133,11 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
     )
   }
 
+  // Safety check - should not reach here without analysis
+  if (!analysis) {
+    return null
+  }
+
   // Analysis exists - display it
   return (
     <div className="space-y-3 mt-4 pt-4 border-t border-border/50">
