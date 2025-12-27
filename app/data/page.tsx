@@ -34,6 +34,7 @@ import {
   Copy,
   Square,
   Zap,
+  CheckCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
@@ -218,6 +219,8 @@ export default function DataManagementPage() {
   const [isPreMatchRefreshing, setIsPreMatchRefreshing] = useState(false)
   const [includeRefereeStats, setIncludeRefereeStats] = useState(false)
   const [includeLineups, setIncludeLineups] = useState(false)
+  const [isPostMatchRefreshing, setIsPostMatchRefreshing] = useState(false)
+  const [includePostMatchLineups, setIncludePostMatchLineups] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
@@ -573,6 +576,81 @@ export default function DataManagementPage() {
     }
   }
 
+  const handlePostMatchRefresh = async () => {
+    setIsPostMatchRefreshing(true)
+    addLog('info', 'post-match', 'Starting post-match data refresh...')
+
+    try {
+      const res = await fetch('/api/data/refresh/post-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          includeLineups: includePostMatchLineups,
+        }),
+      })
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        // Handle SSE streaming
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.type === 'log') {
+                  addLog(data.log.type, 'post-match', data.log.message)
+                } else if (data.type === 'done') {
+                  if (data.result.success) {
+                    addLog('success', 'post-match',
+                      `Post-match refresh completed: ${data.result.successful}/${data.result.total} successful`
+                    )
+                  } else {
+                    addLog('error', 'post-match',
+                      `Post-match refresh completed with ${data.result.failed} failures`
+                    )
+                  }
+                  await fetchDatabaseStats()
+                } else if (data.type === 'error') {
+                  addLog('error', 'post-match', `Post-match refresh failed: ${data.error}`)
+                }
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e)
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback to JSON response
+        const data = await res.json()
+        if (data.success) {
+          addLog('success', 'post-match',
+            `Post-match refresh completed: ${data.successful}/${data.total} successful`
+          )
+          await fetchDatabaseStats()
+        } else {
+          addLog('error', 'post-match', `Post-match refresh failed: ${data.error || 'Unknown error'}`)
+        }
+      }
+    } catch (error) {
+      addLog('error', 'post-match',
+        `Post-match refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    } finally {
+      setIsPostMatchRefreshing(false)
+    }
+  }
+
   const getLogColor = (type: LogEntry['type']) => {
     switch (type) {
       case 'success': return 'text-green-500'
@@ -624,7 +702,7 @@ export default function DataManagementPage() {
               <span className="font-bold">{totalRefreshable} endpoints</span>
             </div>
             <div className="ml-auto flex items-center gap-2">
-              {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing) && (
+              {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing) && (
                 <button
                   onClick={handleStopAll}
                   className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
@@ -635,15 +713,25 @@ export default function DataManagementPage() {
               )}
               <button
                 onClick={handlePreMatchRefresh}
-                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing}
+                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                title="Refresh critical pre-match data (standings, injuries, stats, odds)"
               >
                 <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
                 {isPreMatchRefreshing ? 'Refreshing...' : 'Pre-Match'}
               </button>
               <button
+                onClick={handlePostMatchRefresh}
+                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                title="Refresh completed match data (fixtures, statistics, events)"
+              >
+                <CheckCircle className={cn("w-4 h-4", isPostMatchRefreshing && "animate-pulse")} />
+                {isPostMatchRefreshing ? 'Refreshing...' : 'Post-Match'}
+              </button>
+              <button
                 onClick={handleRefreshAll}
-                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing}
+                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
               >
                 <RefreshCw className={cn("w-4 h-4", Object.values(refreshing).some(Boolean) && "animate-spin")} />
@@ -674,6 +762,21 @@ export default function DataManagementPage() {
                 <span className="text-muted-foreground">+ Lineups <span className="text-xs">(~1hr before)</span></span>
               </label>
             </div>
+          </div>
+          {/* Post-Match Options */}
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
+            <span className="text-muted-foreground">
+              Post-Match includes: fixtures (status/goals), statistics, events
+            </span>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePostMatchLineups}
+                onChange={(e) => setIncludePostMatchLineups(e.target.checked)}
+                className="w-4 h-4 rounded border-border"
+              />
+              <span className="text-muted-foreground">+ Lineups</span>
+            </label>
           </div>
         </div>
 
