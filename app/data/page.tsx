@@ -746,8 +746,17 @@ export default function DataManagementPage() {
             </div>
           </div>
           {/* Pre-Match Options */}
-          <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-muted-foreground">Pre-Match includes: standings, injuries, team-stats, H2H, statistics, weather, odds</span>
+          <div className="mt-3 pt-3 border-t border-border space-y-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground font-medium">Pre-Match endpoints:</span>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/standings</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/injuries</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/team-stats</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/head-to-head</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-statistics</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/weather</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/odds</code>
+            </div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -756,7 +765,7 @@ export default function DataManagementPage() {
                   onChange={(e) => setIncludeRefereeStats(e.target.checked)}
                   className="w-4 h-4 rounded border-border"
                 />
-                <span className="text-muted-foreground">+ Referee Stats</span>
+                <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/referee-stats</code></span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -765,15 +774,18 @@ export default function DataManagementPage() {
                   onChange={(e) => setIncludeLineups(e.target.checked)}
                   className="w-4 h-4 rounded border-border"
                 />
-                <span className="text-muted-foreground">+ Lineups <span className="text-xs">(~1hr before)</span></span>
+                <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/lineups</code> <span className="text-xs">(~1hr before)</span></span>
               </label>
             </div>
           </div>
           {/* Post-Match Options */}
-          <div className="mt-2 flex flex-wrap items-center gap-4 text-sm">
-            <span className="text-muted-foreground">
-              Post-Match includes: fixtures (status/goals), statistics, events
-            </span>
+          <div className="mt-2 space-y-2 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground font-medium">Post-Match endpoints:</span>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixtures?recent_only=true</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-statistics?recent_only=true</code>
+              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-events?recent_only=true</code>
+            </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -781,7 +793,7 @@ export default function DataManagementPage() {
                 onChange={(e) => setIncludePostMatchLineups(e.target.checked)}
                 className="w-4 h-4 rounded border-border"
               />
-              <span className="text-muted-foreground">+ Lineups</span>
+              <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/lineups?recent_only=true</code></span>
             </label>
           </div>
         </div>
