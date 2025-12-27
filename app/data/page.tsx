@@ -620,7 +620,7 @@ export default function DataManagementPage() {
                       `Post-match refresh completed with ${data.result.failed} failures`
                     )
                   }
-                  await fetchDatabaseStats()
+                  await fetchStats()
                 } else if (data.type === 'error') {
                   addLog('error', 'post-match', `Post-match refresh failed: ${data.error}`)
                 }
