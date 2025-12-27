@@ -589,6 +589,12 @@ export default function DataManagementPage() {
         }),
       })
 
+      // Check if response is OK
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
+      }
+
       const contentType = res.headers.get('content-type') || ''
 
       if (contentType.includes('text/event-stream') && res.body) {
