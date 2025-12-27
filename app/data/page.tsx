@@ -637,7 +637,7 @@ export default function DataManagementPage() {
           addLog('success', 'post-match',
             `Post-match refresh completed: ${data.successful}/${data.total} successful`
           )
-          await fetchDatabaseStats()
+          await fetchStats()
         } else {
           addLog('error', 'post-match', `Post-match refresh failed: ${data.error || 'Unknown error'}`)
         }
