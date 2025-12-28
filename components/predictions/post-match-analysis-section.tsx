@@ -164,37 +164,84 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
       </div>
 
       {/* Accuracy Summary */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Overall Accuracy */}
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Accuracy Score</span>
-            <span className={cn(
-              "text-lg font-bold",
-              (analysis.accuracy_score || 0) >= 70 ? "text-green-500" :
-              (analysis.accuracy_score || 0) >= 50 ? "text-yellow-500" : "text-red-500"
-            )}>
-              {Math.round(analysis.accuracy_score || 0)}%
-            </span>
+      <div className="grid grid-cols-3 gap-2">
+        {/* Result */}
+        <div className="p-2 bg-muted/50 rounded-lg text-center">
+          <span className="text-[10px] text-muted-foreground block">Result</span>
+          <div className="flex items-center justify-center gap-1 mt-1">
+            <span className="text-xs font-medium">{analysis.predicted_result}→{analysis.actual_result}</span>
+            {analysis.prediction_correct ? (
+              <CheckCircle className="w-3 h-3 text-green-500" />
+            ) : (
+              <XCircle className="w-3 h-3 text-red-500" />
+            )}
           </div>
         </div>
 
-        {/* Prediction Result */}
-        <div className="p-3 bg-muted/50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Result</span>
-            <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">
-                {analysis.predicted_result} → {analysis.actual_result}
-              </span>
-              {analysis.prediction_correct ? (
-                <Target className="w-4 h-4 text-green-500" />
+        {/* Score */}
+        {analysis.predicted_score && (
+          <div className="p-2 bg-muted/50 rounded-lg text-center">
+            <span className="text-[10px] text-muted-foreground block">Score</span>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <span className="text-xs font-medium">{analysis.predicted_score}→{analysis.actual_score}</span>
+              {analysis.score_correct ? (
+                <CheckCircle className="w-3 h-3 text-green-500" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-red-500" />
+                <XCircle className="w-3 h-3 text-red-500" />
               )}
             </div>
           </div>
+        )}
+
+        {/* O/U 2.5 */}
+        {analysis.predicted_over_under && (
+          <div className="p-2 bg-muted/50 rounded-lg text-center">
+            <span className="text-[10px] text-muted-foreground block">O/U 2.5</span>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <span className="text-xs font-medium">{analysis.predicted_over_under}</span>
+              {analysis.over_under_correct ? (
+                <CheckCircle className="w-3 h-3 text-green-500" />
+              ) : (
+                <XCircle className="w-3 h-3 text-red-500" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* BTTS */}
+        {analysis.predicted_btts && (
+          <div className="p-2 bg-muted/50 rounded-lg text-center">
+            <span className="text-[10px] text-muted-foreground block">BTTS</span>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <span className="text-xs font-medium">{analysis.predicted_btts}</span>
+              {analysis.btts_correct ? (
+                <CheckCircle className="w-3 h-3 text-green-500" />
+              ) : (
+                <XCircle className="w-3 h-3 text-red-500" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Accuracy Score */}
+        <div className="p-2 bg-muted/50 rounded-lg text-center">
+          <span className="text-[10px] text-muted-foreground block">Accuracy</span>
+          <span className={cn(
+            "text-lg font-bold",
+            (analysis.accuracy_score || 0) >= 70 ? "text-green-500" :
+            (analysis.accuracy_score || 0) >= 50 ? "text-yellow-500" : "text-red-500"
+          )}>
+            {Math.round(analysis.accuracy_score || 0)}%
+          </span>
         </div>
+
+        {/* Original Confidence */}
+        {analysis.confidence_pct && (
+          <div className="p-2 bg-muted/50 rounded-lg text-center">
+            <span className="text-[10px] text-muted-foreground block">Pre-Match</span>
+            <span className="text-lg font-medium">{analysis.confidence_pct}%</span>
+          </div>
+        )}
       </div>
 
       {/* Expand/Collapse Details */}

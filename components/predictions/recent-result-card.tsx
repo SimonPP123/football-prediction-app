@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign } from 'lucide-react'
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
 
@@ -403,6 +403,28 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {/* Historical Learning Adjustments */}
+                    {prediction.historical_adjustments?.applied && (
+                      <div className="p-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                        <h4 className="text-xs font-medium text-purple-500 mb-1 flex items-center gap-1">
+                          <BookOpen className="w-3 h-3" />
+                          Historical Adjustments
+                        </h4>
+                        {prediction.historical_adjustments.confidence_adjusted_by !== 0 && (
+                          <p className="text-[10px] text-muted-foreground mb-1">
+                            Confidence: {prediction.historical_adjustments.confidence_adjusted_by > 0 ? '+' : ''}
+                            {prediction.historical_adjustments.confidence_adjusted_by}%
+                          </p>
+                        )}
+                        <p className="text-xs text-foreground">{prediction.historical_adjustments.reason}</p>
+                        {prediction.historical_adjustments.factors_adjusted?.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Adjusted: {prediction.historical_adjustments.factors_adjusted.join(', ')}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
