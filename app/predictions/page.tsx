@@ -72,7 +72,16 @@ export default function PredictionsPage() {
     }
     const savedPrompt = localStorage.getItem('prediction_custom_prompt')
     if (savedPrompt) {
-      setCustomPrompt(savedPrompt)
+      // Migration: Clear old-format prompts that contain the header or output format
+      // New format should start with "FACTOR A" section, not "You are an elite"
+      if (savedPrompt.includes('You are an elite football analyst') ||
+          savedPrompt.includes('OUTPUT FORMAT (JSON)')) {
+        // Old format detected - clear it to use the new editable-only default
+        localStorage.removeItem('prediction_custom_prompt')
+        console.log('Cleared old-format custom prompt from localStorage')
+      } else {
+        setCustomPrompt(savedPrompt)
+      }
     }
     const savedSecret = localStorage.getItem('webhook_secret')
     if (savedSecret) {
@@ -1031,9 +1040,9 @@ export default function PredictionsPage() {
           <div className="bg-card border rounded-xl shadow-lg w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
               <div>
-                <h3 className="text-lg font-semibold">Edit Prediction Prompt</h3>
+                <h3 className="text-lg font-semibold">Edit Factor Analysis Prompt</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Customize the AI prompt sent to n8n. Variables in {"{{ }}"} are replaced by n8n.
+                  Customize factors A-F and analysis instructions. Header (match details) and output JSON format are fixed.
                 </p>
               </div>
               <button
