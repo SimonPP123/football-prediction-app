@@ -9,9 +9,10 @@ import { RecentResultsTable } from '@/components/predictions/recent-results-tabl
 import { AccuracyStatsPanel } from '@/components/predictions/accuracy-stats-panel'
 import { ModelComparison } from '@/components/predictions/model-comparison'
 import { CalibrationChart } from '@/components/predictions/calibration-chart'
-import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, Info, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3 } from 'lucide-react'
+import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, Info, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
+import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/default-prompt'
 
 // Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
@@ -74,6 +75,14 @@ export default function PredictionsPage() {
   const [tempAnalysisWebhook, setTempAnalysisWebhook] = useState('')
   const [analysisWebhookUrl, setAnalysisWebhookUrl] = useState(DEFAULT_ANALYSIS_WEBHOOK)
   const settingsDropdownRef = useRef<HTMLDivElement>(null)
+  // Webhook documentation modal state
+  const [showWebhookDocs, setShowWebhookDocs] = useState(false)
+  const [webhookDocsTab, setWebhookDocsTab] = useState<'prediction' | 'analysis'>('prediction')
+  const [webhookDocsCopied, setWebhookDocsCopied] = useState(false)
+  // Prompt editor modal state
+  const [showPromptEditor, setShowPromptEditor] = useState(false)
+  const [customPrompt, setCustomPrompt] = useState('')
+  const [tempPrompt, setTempPrompt] = useState('')
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -88,6 +97,10 @@ export default function PredictionsPage() {
     const savedAnalysisUrl = localStorage.getItem('analysis_webhook_url')
     if (savedAnalysisUrl) {
       setAnalysisWebhookUrl(savedAnalysisUrl)
+    }
+    const savedPrompt = localStorage.getItem('prediction_custom_prompt')
+    if (savedPrompt) {
+      setCustomPrompt(savedPrompt)
     }
   }, [])
 
@@ -200,6 +213,7 @@ export default function PredictionsPage() {
           fixture_id: fixtureId,
           webhook_url: webhookUrl,
           model: selectedModel,
+          custom_prompt: customPrompt || null,
         }),
       })
 
@@ -272,6 +286,36 @@ export default function PredictionsPage() {
     setTempAnalysisWebhook(DEFAULT_ANALYSIS_WEBHOOK)
     localStorage.removeItem('analysis_webhook_url')
     setEditingAnalysisWebhook(false)
+  }
+
+  // Prompt editor handlers
+  const openPromptEditor = () => {
+    setTempPrompt(customPrompt || DEFAULT_PREDICTION_PROMPT)
+    setShowPromptEditor(true)
+    setShowSettingsDropdown(false)
+  }
+
+  const savePrompt = () => {
+    setCustomPrompt(tempPrompt)
+    localStorage.setItem('prediction_custom_prompt', tempPrompt)
+    setShowPromptEditor(false)
+  }
+
+  const resetPrompt = () => {
+    setTempPrompt(DEFAULT_PREDICTION_PROMPT)
+  }
+
+  const clearCustomPrompt = () => {
+    setCustomPrompt('')
+    localStorage.removeItem('prediction_custom_prompt')
+    setShowPromptEditor(false)
+  }
+
+  // Webhook docs handlers
+  const copyWebhookPayload = (payload: string) => {
+    navigator.clipboard.writeText(payload)
+    setWebhookDocsCopied(true)
+    setTimeout(() => setWebhookDocsCopied(false), 2000)
   }
 
   const copySchema = () => {
@@ -476,8 +520,8 @@ export default function PredictionsPage() {
                       </div>
                     </div>
 
-                    {/* Schema Documentation Link */}
-                    <div className="p-3">
+                    {/* Documentation & Prompt Links */}
+                    <div className="p-3 space-y-2">
                       <button
                         onClick={() => {
                           setShowSchema(true)
@@ -486,8 +530,27 @@ export default function PredictionsPage() {
                         className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
                       >
                         <Info className="w-3 h-3" />
-                        View Schema Documentation
+                        View Response Schema
                         <ExternalLink className="w-3 h-3 ml-auto" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowWebhookDocs(true)
+                          setShowSettingsDropdown(false)
+                        }}
+                        className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
+                      >
+                        <FileJson className="w-3 h-3" />
+                        Webhook Documentation
+                        <ExternalLink className="w-3 h-3 ml-auto" />
+                      </button>
+                      <button
+                        onClick={openPromptEditor}
+                        className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        Edit Prediction Prompt
+                        {customPrompt && <span className="text-[10px] bg-primary/10 text-primary px-1 rounded ml-auto">Custom</span>}
                       </button>
                     </div>
                   </div>
@@ -829,6 +892,378 @@ export default function PredictionsPage() {
                     <span className="text-muted-foreground">Optional. Array of score predictions with probabilities</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Webhook Documentation Modal */}
+      {showWebhookDocs && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border rounded-xl shadow-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold">Webhook Documentation</h3>
+              <button
+                onClick={() => setShowWebhookDocs(false)}
+                className="p-1 hover:bg-muted rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b">
+              <button
+                onClick={() => setWebhookDocsTab('prediction')}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                  webhookDocsTab === 'prediction'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Pre-Match (Prediction)
+              </button>
+              <button
+                onClick={() => setWebhookDocsTab('analysis')}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                  webhookDocsTab === 'analysis'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Post-Match (Analysis)
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1">
+              {webhookDocsTab === 'prediction' ? (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">Endpoint</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      POST {webhookUrl}
+                    </code>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">API Route</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      /api/predictions/generate
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This payload is sent when generating a prediction for an upcoming match.
+                    The n8n workflow receives this data and uses it to fetch additional information
+                    before generating the AI prediction.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "fixture_id": "550e8400-e29b-41d4-a716-446655440000",
+  "home_team": "Liverpool",
+  "home_team_id": "550e8400-e29b-41d4-a716-446655440001",
+  "away_team": "Manchester City",
+  "away_team_id": "550e8400-e29b-41d4-a716-446655440002",
+  "match_date": "2025-01-15T15:00:00Z",
+  "venue": "Anfield",
+  "round": "Regular Season - 21",
+  "model": "openai/gpt-5.2",
+  "custom_prompt": null,
+  "memory_context": {
+    "home_team_learnings": [
+      {
+        "learning_points": ["Strong defensive performance", "Set piece threat"],
+        "key_insights": ["Home form excellent", "Clean sheets trend"],
+        "created_at": "2025-01-10T12:00:00Z",
+        "fixture_id": "..."
+      }
+    ],
+    "away_team_learnings": [
+      {
+        "learning_points": ["Possession dominance", "Counter-attack vulnerability"],
+        "key_insights": ["Away form inconsistent"],
+        "created_at": "2025-01-08T12:00:00Z",
+        "fixture_id": "..."
+      }
+    ]
+  }
+}`}
+                    </pre>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => copyWebhookPayload(`{
+  "fixture_id": "uuid",
+  "home_team": "string",
+  "home_team_id": "uuid",
+  "away_team": "string",
+  "away_team_id": "uuid",
+  "match_date": "ISO date string",
+  "venue": "string",
+  "round": "string",
+  "model": "string",
+  "custom_prompt": "string | null",
+  "memory_context": {
+    "home_team_learnings": "array",
+    "away_team_learnings": "array"
+  }
+}`)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded"
+                    >
+                      {webhookDocsCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {webhookDocsCopied ? 'Copied!' : 'Copy Schema'}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Field Descriptions</h4>
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">fixture_id</code>
+                        <span className="text-muted-foreground">UUID of the fixture in the database</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">home_team / away_team</code>
+                        <span className="text-muted-foreground">Team names for display and news search</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">model</code>
+                        <span className="text-muted-foreground">AI model identifier (e.g., "openai/gpt-5.2")</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">custom_prompt</code>
+                        <span className="text-muted-foreground">Custom prompt override (null = use default)</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">memory_context</code>
+                        <span className="text-muted-foreground">Past match analyses for both teams (learning from history)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">Endpoint</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      POST {analysisWebhookUrl}
+                    </code>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">API Route</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      /api/match-analysis/generate
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This payload is sent after a match completes to generate post-match analysis.
+                    It includes the original prediction, actual match statistics, events, and odds
+                    to analyze prediction accuracy.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "fixture_id": "550e8400-e29b-41d4-a716-446655440000",
+  "home_team": "Liverpool",
+  "home_team_id": "550e8400-e29b-41d4-a716-446655440001",
+  "away_team": "Manchester City",
+  "away_team_id": "550e8400-e29b-41d4-a716-446655440002",
+  "actual_score": "2-1",
+  "match_date": "2025-01-15T15:00:00Z",
+  "prediction": {
+    "prediction": "1",
+    "confidence_pct": 68,
+    "overall_index": 62,
+    "home_win_pct": 55,
+    "draw_pct": 25,
+    "away_win_pct": 20,
+    "factors": {
+      "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "..." },
+      "B_form": { "score": 72, "weighted": 15.8, "notes": "..." },
+      "C_key_players": { "score": 50, "weighted": 5.5, "notes": "..." },
+      "D_tactical": { "score": 58, "weighted": 11.6, "notes": "..." },
+      "E_table_position": { "score": 60, "weighted": 7.8, "notes": "..." },
+      "F_h2h": { "score": 65, "weighted": 6.5, "notes": "..." }
+    },
+    "over_under_2_5": "Over",
+    "btts": "Yes",
+    "key_factors": ["..."],
+    "risk_factors": ["..."],
+    "analysis": "..."
+  },
+  "statistics": [
+    {
+      "team_id": "...",
+      "shots_total": 15,
+      "shots_on_target": 6,
+      "possession_pct": 52,
+      "passes_total": 450,
+      "passes_pct": 85,
+      "corners": 7,
+      "expected_goals": 1.8
+    }
+  ],
+  "events": [
+    {
+      "type": "Goal",
+      "time_elapsed": 34,
+      "team_id": "...",
+      "player_name": "M. Salah",
+      "assist_name": "T. Alexander-Arnold"
+    }
+  ],
+  "odds": [
+    {
+      "bookmaker": "bet365",
+      "home_odds": 1.85,
+      "draw_odds": 3.40,
+      "away_odds": 4.20
+    }
+  ],
+  "model": "openai/gpt-5-mini"
+}`}
+                    </pre>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => copyWebhookPayload(`{
+  "fixture_id": "uuid",
+  "home_team": "string",
+  "home_team_id": "uuid",
+  "away_team": "string",
+  "away_team_id": "uuid",
+  "actual_score": "string (e.g., '2-1')",
+  "match_date": "ISO date string",
+  "prediction": "object (full prediction data)",
+  "statistics": "array (fixture_statistics rows)",
+  "events": "array (fixture_events rows)",
+  "odds": "array (odds rows)",
+  "model": "string"
+}`)}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded"
+                    >
+                      {webhookDocsCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {webhookDocsCopied ? 'Copied!' : 'Copy Schema'}
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Field Descriptions</h4>
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">actual_score</code>
+                        <span className="text-muted-foreground">Final score (e.g., "2-1")</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">prediction</code>
+                        <span className="text-muted-foreground">Full prediction object with factors and analysis</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">statistics</code>
+                        <span className="text-muted-foreground">Match statistics (shots, possession, xG, etc.)</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">events</code>
+                        <span className="text-muted-foreground">Match events (goals, cards, substitutions)</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">odds</code>
+                        <span className="text-muted-foreground">Pre-match betting odds from various bookmakers</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prompt Editor Modal */}
+      {showPromptEditor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border rounded-xl shadow-lg w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h3 className="text-lg font-semibold">Edit Prediction Prompt</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Customize the AI prompt sent to n8n. Variables in {"{{ }}"} are replaced by n8n.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowPromptEditor(false)}
+                className="p-1 hover:bg-muted rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex flex-1 overflow-hidden">
+              {/* Variable Reference Sidebar */}
+              <div className="w-64 border-r p-3 overflow-y-auto bg-muted/30 shrink-0">
+                <h4 className="text-xs font-medium text-muted-foreground mb-2">Available Variables</h4>
+                <div className="space-y-1.5">
+                  {PROMPT_VARIABLES.map((variable, idx) => (
+                    <div
+                      key={idx}
+                      className="text-[10px] font-mono bg-background border rounded px-2 py-1 break-all cursor-pointer hover:bg-muted"
+                      onClick={() => {
+                        navigator.clipboard.writeText(variable)
+                      }}
+                      title="Click to copy"
+                    >
+                      {variable}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-3">
+                  Click a variable to copy it. Do not remove these placeholders as they are replaced with actual data by n8n.
+                </p>
+              </div>
+
+              {/* Editor */}
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <textarea
+                  value={tempPrompt}
+                  onChange={(e) => setTempPrompt(e.target.value)}
+                  className="flex-1 p-4 bg-background font-mono text-xs resize-none focus:outline-none overflow-y-auto"
+                  placeholder="Enter your custom prompt..."
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 border-t bg-muted/30">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={resetPrompt}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Reset to Default
+                </button>
+                {customPrompt && (
+                  <button
+                    onClick={clearCustomPrompt}
+                    className="px-3 py-1.5 text-sm text-red-500 hover:text-red-600"
+                  >
+                    Clear Custom Prompt
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowPromptEditor(false)}
+                  className="px-4 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={savePrompt}
+                  className="flex items-center gap-1 px-4 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  <Save className="w-4 h-4" />
+                  Save Prompt
+                </button>
               </div>
             </div>
           </div>

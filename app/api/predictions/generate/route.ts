@@ -5,7 +5,7 @@ const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.an
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, webhook_url, model } = await request.json()
+    const { fixture_id, webhook_url, model, custom_prompt } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json(
@@ -68,6 +68,8 @@ export async function POST(request: Request) {
       venue: fixtureData.venue?.name,
       round: fixtureData.round,
       model: selectedModel,
+      // Custom prompt override (null means use default in n8n)
+      custom_prompt: custom_prompt || null,
 
       // Memory context from past analyses
       memory_context: {
