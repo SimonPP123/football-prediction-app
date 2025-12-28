@@ -9,6 +9,7 @@ import { RecentResultsTable } from '@/components/predictions/recent-results-tabl
 import { AccuracyStatsPanel } from '@/components/predictions/accuracy-stats-panel'
 import { ModelComparison } from '@/components/predictions/model-comparison'
 import { CalibrationChart } from '@/components/predictions/calibration-chart'
+import { SettingsModal } from '@/components/predictions/settings-modal'
 import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
@@ -39,12 +40,9 @@ export default function PredictionsPage() {
   const [recentResults, setRecentResults] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
   const [showStats, setShowStats] = useState(false)
-  // Settings dropdown state
+  // Settings state
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
-  const [editingPredictionWebhook, setEditingPredictionWebhook] = useState(false)
-  const [editingAnalysisWebhook, setEditingAnalysisWebhook] = useState(false)
-  const [tempPredictionWebhook, setTempPredictionWebhook] = useState('')
-  const [tempAnalysisWebhook, setTempAnalysisWebhook] = useState('')
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [analysisWebhookUrl, setAnalysisWebhookUrl] = useState(DEFAULT_ANALYSIS_WEBHOOK)
   const settingsDropdownRef = useRef<HTMLDivElement>(null)
   // Webhook documentation modal state
@@ -57,8 +55,6 @@ export default function PredictionsPage() {
   const [tempPrompt, setTempPrompt] = useState('')
   // Webhook secret state
   const [webhookSecret, setWebhookSecret] = useState('')
-  const [editingWebhookSecret, setEditingWebhookSecret] = useState(false)
-  const [tempWebhookSecret, setTempWebhookSecret] = useState('')
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -96,9 +92,6 @@ export default function PredictionsPage() {
         setShowRoundFilter(false)
         setShowModelDropdown(false)
         setShowSettingsDropdown(false)
-        setEditingPredictionWebhook(false)
-        setEditingAnalysisWebhook(false)
-        setEditingWebhookSecret(false)
       }
     }
     document.addEventListener('click', handleClickOutside)
@@ -231,64 +224,31 @@ export default function PredictionsPage() {
     })
   }
 
-  // Settings dropdown handlers
-  const startEditingPredictionWebhook = () => {
-    setTempPredictionWebhook(webhookUrl)
-    setEditingPredictionWebhook(true)
-    setEditingAnalysisWebhook(false)
-  }
+  // Settings modal save handler
+  const saveSettings = (predictionUrl: string, analysisUrl: string, secret: string) => {
+    setWebhookUrl(predictionUrl)
+    setAnalysisWebhookUrl(analysisUrl)
+    setWebhookSecret(secret)
 
-  const savePredictionWebhook = () => {
-    setWebhookUrl(tempPredictionWebhook)
-    localStorage.setItem('prediction_webhook_url', tempPredictionWebhook)
-    setEditingPredictionWebhook(false)
-  }
+    if (predictionUrl && predictionUrl !== DEFAULT_WEBHOOK) {
+      localStorage.setItem('prediction_webhook_url', predictionUrl)
+    } else {
+      localStorage.removeItem('prediction_webhook_url')
+    }
 
-  const resetPredictionWebhook = () => {
-    setWebhookUrl(DEFAULT_WEBHOOK)
-    setTempPredictionWebhook(DEFAULT_WEBHOOK)
-    localStorage.removeItem('prediction_webhook_url')
-    setEditingPredictionWebhook(false)
-  }
+    if (analysisUrl && analysisUrl !== DEFAULT_ANALYSIS_WEBHOOK) {
+      localStorage.setItem('analysis_webhook_url', analysisUrl)
+    } else {
+      localStorage.removeItem('analysis_webhook_url')
+    }
 
-  const startEditingAnalysisWebhook = () => {
-    setTempAnalysisWebhook(analysisWebhookUrl)
-    setEditingAnalysisWebhook(true)
-    setEditingPredictionWebhook(false)
-  }
+    if (secret) {
+      localStorage.setItem('webhook_secret', secret)
+    } else {
+      localStorage.removeItem('webhook_secret')
+    }
 
-  const saveAnalysisWebhook = () => {
-    setAnalysisWebhookUrl(tempAnalysisWebhook)
-    localStorage.setItem('analysis_webhook_url', tempAnalysisWebhook)
-    setEditingAnalysisWebhook(false)
-  }
-
-  const resetAnalysisWebhook = () => {
-    setAnalysisWebhookUrl(DEFAULT_ANALYSIS_WEBHOOK)
-    setTempAnalysisWebhook(DEFAULT_ANALYSIS_WEBHOOK)
-    localStorage.removeItem('analysis_webhook_url')
-    setEditingAnalysisWebhook(false)
-  }
-
-  // Webhook secret handlers
-  const startEditingWebhookSecret = () => {
-    setTempWebhookSecret(webhookSecret)
-    setEditingWebhookSecret(true)
-    setEditingPredictionWebhook(false)
-    setEditingAnalysisWebhook(false)
-  }
-
-  const saveWebhookSecret = () => {
-    setWebhookSecret(tempWebhookSecret)
-    localStorage.setItem('webhook_secret', tempWebhookSecret)
-    setEditingWebhookSecret(false)
-  }
-
-  const clearWebhookSecret = () => {
-    setWebhookSecret('')
-    setTempWebhookSecret('')
-    localStorage.removeItem('webhook_secret')
-    setEditingWebhookSecret(false)
+    setShowSettingsModal(false)
   }
 
   // Prompt editor handlers
@@ -386,112 +346,7 @@ export default function PredictionsPage() {
                 </button>
 
                 {showSettingsDropdown && (
-                  <div
-                    className="absolute top-full right-0 mt-1 bg-card border rounded-lg shadow-lg z-50 w-80"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {/* Prediction Webhook Section */}
-                    <div className="p-3 border-b">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Prediction Webhook</span>
-                        {!editingPredictionWebhook && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); startEditingPredictionWebhook() }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                      {editingPredictionWebhook ? (
-                        <div className="space-y-2">
-                          <input
-                            type="url"
-                            value={tempPredictionWebhook}
-                            onChange={(e) => setTempPredictionWebhook(e.target.value)}
-                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                            placeholder="https://..."
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); savePredictionWebhook() }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            >
-                              <Save className="w-3 h-3" />
-                              Save
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); resetPredictionWebhook() }}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              Reset
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingPredictionWebhook(false) }}
-                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-foreground truncate" title={webhookUrl}>
-                          {webhookUrl}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Analysis Webhook Section */}
-                    <div className="p-3 border-b">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Analysis Webhook</span>
-                        {!editingAnalysisWebhook && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); startEditingAnalysisWebhook() }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </div>
-                      {editingAnalysisWebhook ? (
-                        <div className="space-y-2">
-                          <input
-                            type="url"
-                            value={tempAnalysisWebhook}
-                            onChange={(e) => setTempAnalysisWebhook(e.target.value)}
-                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                            placeholder="https://..."
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); saveAnalysisWebhook() }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            >
-                              <Save className="w-3 h-3" />
-                              Save
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); resetAnalysisWebhook() }}
-                              className="text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              Reset
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingAnalysisWebhook(false) }}
-                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-foreground truncate" title={analysisWebhookUrl}>
-                          {analysisWebhookUrl}
-                        </div>
-                      )}
-                    </div>
-
+                  <div className="absolute top-full right-0 mt-1 bg-card border rounded-lg shadow-lg z-50 w-72">
                     {/* AI Model Section */}
                     <div className="p-3 border-b">
                       <span className="text-xs font-medium text-muted-foreground block mb-2">AI Model</span>
@@ -519,64 +374,28 @@ export default function PredictionsPage() {
                       </div>
                     </div>
 
-                    {/* Webhook Secret Section */}
-                    <div className="p-3 border-b">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Webhook Secret</span>
-                        {!editingWebhookSecret && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); startEditingWebhookSecret() }}
-                            className="text-xs text-primary hover:underline"
-                          >
-                            {webhookSecret ? 'Edit' : 'Set'}
-                          </button>
-                        )}
+                    {/* Quick Status */}
+                    <div className="p-3 border-b space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Webhook Secret</span>
+                        <span className={webhookSecret ? "text-green-500" : "text-muted-foreground"}>
+                          {webhookSecret ? '✓ Set' : 'Not set'}
+                        </span>
                       </div>
-                      {editingWebhookSecret ? (
-                        <div className="space-y-2">
-                          <input
-                            type="password"
-                            value={tempWebhookSecret}
-                            onChange={(e) => setTempWebhookSecret(e.target.value)}
-                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                            placeholder="Enter webhook secret..."
-                          />
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); saveWebhookSecret() }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            >
-                              <Save className="w-3 h-3" />
-                              Save
-                            </button>
-                            {webhookSecret && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); clearWebhookSecret() }}
-                                className="text-xs text-red-500 hover:text-red-600"
-                              >
-                                Clear
-                              </button>
-                            )}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingWebhookSecret(false) }}
-                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-foreground">
-                          {webhookSecret ? '••••••••' : <span className="text-muted-foreground">Not set</span>}
-                        </div>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-2">
-                        Sent as X-Webhook-Secret header for n8n authentication
-                      </p>
                     </div>
 
-                    {/* Documentation & Prompt Links */}
+                    {/* Action Links */}
                     <div className="p-3 space-y-2">
+                      <button
+                        onClick={() => {
+                          setShowSettingsModal(true)
+                          setShowSettingsDropdown(false)
+                        }}
+                        className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        Configure Webhooks
+                      </button>
                       <button
                         onClick={() => {
                           setShowWebhookDocs(true)
@@ -586,7 +405,6 @@ export default function PredictionsPage() {
                       >
                         <FileJson className="w-3 h-3" />
                         Webhook Documentation
-                        <ExternalLink className="w-3 h-3 ml-auto" />
                       </button>
                       <button
                         onClick={openPromptEditor}
@@ -1296,6 +1114,20 @@ export default function PredictionsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={saveSettings}
+          initialPredictionWebhook={webhookUrl}
+          initialAnalysisWebhook={analysisWebhookUrl}
+          initialWebhookSecret={webhookSecret}
+          defaultPredictionWebhook={DEFAULT_WEBHOOK}
+          defaultAnalysisWebhook={DEFAULT_ANALYSIS_WEBHOOK}
+        />
       )}
 
     </div>
