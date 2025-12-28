@@ -507,3 +507,92 @@ export async function getAnalysisAccuracyStats() {
     average_accuracy: avgAccuracy
   }
 }
+
+// Get accuracy statistics grouped by model
+export async function getAccuracyByModel() {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('model_version, prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score')
+
+  if (error) throw error
+  if (!data || data.length === 0) return []
+
+  // Group by model
+  const byModel: Record<string, {
+    total: number
+    resultCorrect: number
+    scoreCorrect: number
+    ouCorrect: number
+    bttsCorrect: number
+    totalAccuracy: number
+  }> = {}
+
+  data.forEach(analysis => {
+    const model = analysis.model_version || 'Unknown'
+    if (!byModel[model]) {
+      byModel[model] = {
+        total: 0,
+        resultCorrect: 0,
+        scoreCorrect: 0,
+        ouCorrect: 0,
+        bttsCorrect: 0,
+        totalAccuracy: 0
+      }
+    }
+    byModel[model].total++
+    if (analysis.prediction_correct) byModel[model].resultCorrect++
+    if (analysis.score_correct) byModel[model].scoreCorrect++
+    if (analysis.over_under_correct) byModel[model].ouCorrect++
+    if (analysis.btts_correct) byModel[model].bttsCorrect++
+    byModel[model].totalAccuracy += analysis.accuracy_score || 0
+  })
+
+  return Object.entries(byModel)
+    .map(([model, stats]) => ({
+      model,
+      total: stats.total,
+      result_accuracy: (stats.resultCorrect / stats.total) * 100,
+      score_accuracy: (stats.scoreCorrect / stats.total) * 100,
+      over_under_accuracy: (stats.ouCorrect / stats.total) * 100,
+      btts_accuracy: (stats.bttsCorrect / stats.total) * 100,
+      average_accuracy: stats.totalAccuracy / stats.total
+    }))
+    .sort((a, b) => b.average_accuracy - a.average_accuracy)
+}
+
+// Get calibration data - compare predicted confidence with actual accuracy
+export async function getCalibrationData() {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('confidence_pct, prediction_correct')
+
+  if (error) throw error
+  if (!data || data.length === 0) return []
+
+  // Bucket by confidence level (10% buckets)
+  const buckets: Record<string, { predicted: number; correct: number }> = {}
+
+  data.forEach(analysis => {
+    const confidence = analysis.confidence_pct || 50
+    const bucketStart = Math.floor(confidence / 10) * 10
+    const bucketKey = `${bucketStart}-${bucketStart + 9}`
+
+    if (!buckets[bucketKey]) {
+      buckets[bucketKey] = { predicted: 0, correct: 0 }
+    }
+
+    buckets[bucketKey].predicted++
+    if (analysis.prediction_correct) {
+      buckets[bucketKey].correct++
+    }
+  })
+
+  return Object.entries(buckets)
+    .map(([bucket, data]) => ({
+      bucket,
+      expectedRate: parseInt(bucket.split('-')[0]) + 5, // midpoint
+      actualRate: data.predicted > 0 ? (data.correct / data.predicted) * 100 : 0,
+      count: data.predicted
+    }))
+    .sort((a, b) => a.expectedRate - b.expectedRate)
+}

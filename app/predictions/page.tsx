@@ -6,7 +6,10 @@ import { PredictionCard } from '@/components/predictions/prediction-card'
 import { PredictionTable } from '@/components/predictions/prediction-table'
 import { RecentResultCard } from '@/components/predictions/recent-result-card'
 import { RecentResultsTable } from '@/components/predictions/recent-results-table'
-import { LayoutGrid, List, RefreshCw, Loader2, Settings, X, Copy, Check, Info, ChevronDown, Filter, ExternalLink, Save } from 'lucide-react'
+import { AccuracyStatsPanel } from '@/components/predictions/accuracy-stats-panel'
+import { ModelComparison } from '@/components/predictions/model-comparison'
+import { CalibrationChart } from '@/components/predictions/calibration-chart'
+import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, Info, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 
@@ -52,7 +55,6 @@ export default function PredictionsPage() {
   const [fixtures, setFixtures] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [generatingIds, setGeneratingIds] = useState<string[]>([])
-  const [generatingAll, setGeneratingAll] = useState(false)
   const [showSchema, setShowSchema] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK)
   const [copied, setCopied] = useState(false)
@@ -61,10 +63,9 @@ export default function PredictionsPage() {
   const [showRoundFilter, setShowRoundFilter] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [errorIds, setErrorIds] = useState<Record<string, string>>({}) // fixtureId -> error message
-  const [generateAllStats, setGenerateAllStats] = useState<{ success: number; failed: number } | null>(null)
   const [recentResults, setRecentResults] = useState<any[]>([])
-  const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
+  const [showStats, setShowStats] = useState(false)
   // Settings dropdown state
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
   const [editingPredictionWebhook, setEditingPredictionWebhook] = useState(false)
@@ -163,10 +164,7 @@ export default function PredictionsPage() {
     setShowModelDropdown(false)
   }
 
-  const fetchFixtures = async (showRefreshIndicator = false) => {
-    if (showRefreshIndicator) {
-      setRefreshing(true)
-    }
+  const fetchFixtures = async () => {
     try {
       // Fetch both upcoming and all historical results in parallel
       const [upcomingRes, recentRes] = await Promise.all([
@@ -183,7 +181,6 @@ export default function PredictionsPage() {
       console.error('Failed to fetch fixtures:', error)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }
 
@@ -287,34 +284,7 @@ export default function PredictionsPage() {
   // Helper to get prediction from either array or object format
   const getPrediction = (f: any) => Array.isArray(f.prediction) ? f.prediction[0] : f.prediction
 
-  const handleGenerateAll = async () => {
-    const unpredicted = filteredFixtures.filter(f => !getPrediction(f))
-    if (unpredicted.length === 0) return
-
-    setGeneratingAll(true)
-    setGenerateAllStats(null) // Reset stats
-
-    let success = 0
-    let failed = 0
-
-    for (const fixture of unpredicted) {
-      const result = await handleGeneratePrediction(fixture.id)
-      if (result) {
-        success++
-      } else {
-        failed++
-      }
-    }
-
-    setGeneratingAll(false)
-    setGenerateAllStats({ success, failed })
-
-    // Clear stats after 5 seconds
-    setTimeout(() => setGenerateAllStats(null), 5000)
-  }
-
   const fixturesWithPredictions = filteredFixtures.filter(f => getPrediction(f))
-  const fixturesWithoutPredictions = filteredFixtures.filter(f => !getPrediction(f))
   const currentModel = AI_MODELS.find(m => m.id === selectedModel) || AI_MODELS[0]
 
   return (
@@ -523,27 +493,6 @@ export default function PredictionsPage() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={handleGenerateAll}
-                disabled={generatingAll || fixturesWithoutPredictions.length === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50"
-              >
-                {generatingAll ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                Generate All ({fixturesWithoutPredictions.length})
-              </button>
-              <button
-                onClick={() => fetchFixtures(true)}
-                disabled={refreshing || loading}
-                className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm disabled:opacity-50"
-                title="Refresh data"
-              >
-                <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
             </div>
           </div>
 
@@ -652,28 +601,29 @@ export default function PredictionsPage() {
           </div>
         </div>
 
-        {/* Generate All Stats Notification */}
-        {generateAllStats && (
-          <div className={cn(
-            "mb-4 p-3 rounded-lg flex items-center gap-3 text-sm",
-            generateAllStats.failed > 0
-              ? "bg-amber-500/10 border border-amber-500/20"
-              : "bg-green-500/10 border border-green-500/20"
-          )}>
-            <span className={generateAllStats.failed > 0 ? "text-amber-600" : "text-green-600"}>
-              Generated {generateAllStats.success} prediction{generateAllStats.success !== 1 ? 's' : ''}
-              {generateAllStats.failed > 0 && (
-                <span className="text-red-500"> ({generateAllStats.failed} failed)</span>
-              )}
-            </span>
-            <button
-              onClick={() => setGenerateAllStats(null)}
-              className="ml-auto text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+        {/* Stats Section - Collapsible */}
+        <div className="mb-6">
+          <button
+            onClick={() => setShowStats(!showStats)}
+            className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted/70 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-primary" />
+              <span className="font-medium">Accuracy Statistics & Analysis</span>
+            </div>
+            {showStats ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </button>
+
+          {showStats && (
+            <div className="mt-4 space-y-4">
+              <AccuracyStatsPanel />
+              <div className="grid md:grid-cols-2 gap-4">
+                <ModelComparison />
+                <CalibrationChart />
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Tab Navigation */}
         <div className="flex items-center border-b border-border mb-6">

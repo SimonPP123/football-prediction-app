@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, AlertCircle, Lightbulb, Target } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, AlertCircle, Lightbulb, Target, CheckCircle, XCircle, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MatchAnalysis } from '@/types'
 
@@ -268,6 +268,49 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Factor Accuracy Analysis */}
+          {analysis.factor_accuracy && Object.keys(analysis.factor_accuracy).length > 0 && (
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <BarChart3 className="w-3 h-3" />
+                Factor Accuracy
+              </h4>
+              <div className="grid grid-cols-3 gap-2">
+                {Object.entries(analysis.factor_accuracy).map(([factorKey, factorData]: [string, any]) => {
+                  const isAccurate = factorData?.accurate ?? factorData?.correct ?? false
+                  const notes = factorData?.notes || factorData?.reasoning || ''
+
+                  return (
+                    <div
+                      key={factorKey}
+                      className={cn(
+                        "p-2 rounded border text-xs",
+                        isAccurate ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium">{factorKey.charAt(0)}</span>
+                        {isAccurate ? (
+                          <CheckCircle className="w-3 h-3 text-green-500" />
+                        ) : (
+                          <XCircle className="w-3 h-3 text-red-500" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        {factorKey.replace(/_/g, ' ').replace(/^[A-Z]_/, '')}
+                      </p>
+                      {notes && (
+                        <p className="text-[10px] text-foreground/70 mt-1 line-clamp-2">
+                          {notes}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 

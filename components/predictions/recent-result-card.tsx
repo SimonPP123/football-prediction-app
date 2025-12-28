@@ -1,9 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3 } from 'lucide-react'
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
+
+interface ScorePrediction {
+  score: string
+  probability: number
+}
 
 // Factor metadata for display (6-factor system A-F matching NEW_AI_AGENT_PROMPT.txt)
 const FACTOR_INFO: Record<string, { name: string; weight: string }> = {
@@ -46,11 +51,19 @@ interface RecentResultCardProps {
 export function RecentResultCard({ fixture }: RecentResultCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [showFactors, setShowFactors] = useState(false)
+  const [showScores, setShowScores] = useState(false)
+  const [showKeyRiskFactors, setShowKeyRiskFactors] = useState(false)
 
   // Handle both array and object formats from Supabase
   const prediction = Array.isArray(fixture.prediction)
     ? fixture.prediction[0]
     : fixture.prediction
+
+  // Get score predictions from prediction data - sort by probability descending and exclude "other"
+  const scorePredictons: ScorePrediction[] = (prediction?.score_predictions || [])
+    .slice()
+    .filter((sp: ScorePrediction) => sp.score?.toLowerCase() !== 'other')
+    .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
 
   // Determine actual result from goals
   const getActualResult = (): '1' | 'X' | '2' | null => {
@@ -185,6 +198,42 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
               </div>
             </div>
 
+            {/* Probability Bars */}
+            {prediction.factors && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-8">1</span>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-home"
+                      style={{ width: `${prediction.factors.home_win_pct || prediction.home_win_pct || 0}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right">{prediction.factors.home_win_pct || prediction.home_win_pct || 0}%</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-8">X</span>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-draw"
+                      style={{ width: `${prediction.factors.draw_pct || prediction.draw_pct || 0}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right">{prediction.factors.draw_pct || prediction.draw_pct || 0}%</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="w-8">2</span>
+                  <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-away"
+                      style={{ width: `${prediction.factors.away_win_pct || prediction.away_win_pct || 0}%` }}
+                    />
+                  </div>
+                  <span className="w-10 text-right">{prediction.factors.away_win_pct || prediction.away_win_pct || 0}%</span>
+                </div>
+              </div>
+            )}
+
             {/* Secondary Predictions */}
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               {/* Score Prediction */}
@@ -240,6 +289,126 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                 </div>
               )}
             </div>
+
+            {/* Value Bet */}
+            {(prediction.value_bet || prediction.factors?.value_bet) && (
+              <div className="p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-sm flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-500 shrink-0" />
+                <span className="font-medium text-green-600">Value Bet: </span>
+                <span className="text-foreground">{prediction.value_bet || prediction.factors?.value_bet}</span>
+              </div>
+            )}
+
+            {/* Score Predictions with Probability Bars - Collapsible */}
+            {(scorePredictons.length > 0 || predictedScore) && (
+              <div>
+                <button
+                  onClick={() => setShowScores(!showScores)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+                >
+                  <Target className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-medium">Score Predictions:</span>
+                  {predictedScore && (
+                    <span className={cn(
+                      "text-xs px-2 py-0.5 rounded font-medium",
+                      scoreCorrect ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
+                    )}>
+                      {predictedScore}
+                    </span>
+                  )}
+                  {scoreCorrect && <CheckCircle className="w-3 h-3 text-green-500" />}
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    showScores && "rotate-180"
+                  )} />
+                </button>
+
+                {showScores && scorePredictons.length > 0 && (
+                  <div className="mt-2 space-y-1.5 p-2 bg-muted/30 rounded-lg">
+                    {scorePredictons.map((sp, idx) => (
+                      <div key={sp.score} className="flex items-center gap-2 text-xs">
+                        <span className={cn(
+                          "w-10 font-mono font-medium",
+                          actualScore === sp.score && "text-green-500"
+                        )}>
+                          {sp.score}
+                        </span>
+                        <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              actualScore === sp.score ? "bg-green-500" : idx === 0 ? "bg-primary" : "bg-primary/50"
+                            )}
+                            style={{ width: `${Math.min(sp.probability * 3, 100)}%` }}
+                          />
+                        </div>
+                        <span className="w-10 text-right text-muted-foreground">{sp.probability}%</span>
+                        {actualScore === sp.score && <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />}
+                        {idx === 0 && actualScore !== sp.score && <Star className="w-3 h-3 text-yellow-500 shrink-0" />}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Key & Risk Factors - Collapsible */}
+            {((prediction.key_factors && prediction.key_factors.length > 0) ||
+              (prediction.risk_factors && prediction.risk_factors.length > 0)) && (
+              <div>
+                <button
+                  onClick={() => setShowKeyRiskFactors(!showKeyRiskFactors)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+                >
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span className="text-xs font-medium">Key & Risk Factors</span>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    showKeyRiskFactors && "rotate-180"
+                  )} />
+                </button>
+
+                {showKeyRiskFactors && (
+                  <div className="mt-2 space-y-3 p-2 bg-muted/30 rounded-lg">
+                    {/* Key Factors */}
+                    {prediction.key_factors && prediction.key_factors.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium flex items-center gap-1 mb-2">
+                          <TrendingUp className="w-3 h-3 text-green-500" />
+                          Key Factors
+                        </h4>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          {prediction.key_factors.map((factor: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="text-green-500 shrink-0">•</span>
+                              <span>{factor}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Risk Factors */}
+                    {prediction.risk_factors && prediction.risk_factors.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium flex items-center gap-1 mb-2">
+                          <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                          Risk Factors
+                        </h4>
+                        <ul className="text-xs text-muted-foreground space-y-1">
+                          {prediction.risk_factors.map((factor: string, i: number) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="text-yellow-500 shrink-0">•</span>
+                              <span>{factor}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Expand/Collapse Analysis */}
             {prediction.analysis_text && (
