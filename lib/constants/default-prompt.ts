@@ -2,7 +2,8 @@
 // This is sent to n8n when generating predictions
 // Uses n8n expression syntax: {{ $('NodeName').item.json.field }}
 
-export const DEFAULT_PREDICTION_PROMPT = `You are an elite football analyst with access to comprehensive match data. Analyze this Premier League fixture using a weighted 6-factor system (A-F).
+// Fixed header - not editable by user
+export const PROMPT_HEADER = `You are an elite football analyst with access to comprehensive match data. Analyze this Premier League fixture using a weighted 6-factor system (A-F).
 
 **MATCH DETAILS**
 - **Home Team**: {{ $('Webhook').item.json.body.home_team }}
@@ -22,7 +23,10 @@ HOME TEAM NEWS:
 AWAY TEAM NEWS:
 {{ $('AI Agent2').item.json.output }}
 
-===============================================================================
+`
+
+// Editable factor analysis - this is what users can customize
+export const DEFAULT_PREDICTION_PROMPT = `===============================================================================
 FACTOR A: BASE STRENGTH (24% Total Weight)
 ===============================================================================
 
