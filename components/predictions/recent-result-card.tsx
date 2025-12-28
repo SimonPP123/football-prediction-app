@@ -495,7 +495,7 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                                 {factorInfo?.name || key.replace(/_/g, ' ')}
                               </p>
                               {notes && (
-                                <p className="text-foreground/70 text-[10px] mt-1 line-clamp-2">
+                                <p className="text-foreground/70 text-[10px] mt-1">
                                   {notes}
                                 </p>
                               )}

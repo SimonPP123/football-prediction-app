@@ -122,10 +122,8 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
         throw new Error(errorData.message || 'Failed to regenerate analysis')
       }
 
-      // Wait a moment then refetch
-      setTimeout(() => {
-        fetchAnalysis()
-      }, 2000)
+      // Data is now in Supabase - fetch immediately (API is synchronous)
+      await fetchAnalysis()
     } catch (err: any) {
       console.error('Error regenerating analysis:', err)
       setError(err.message || 'Failed to regenerate analysis')
@@ -388,7 +386,7 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
                           {factorKey.replace(/_/g, ' ').replace(/^[A-Z]_/, '')}
                         </p>
                         {notes && (
-                          <p className="text-[10px] text-foreground/70 mt-1 line-clamp-2">
+                          <p className="text-[10px] text-foreground/70 mt-1">
                             {notes}
                           </p>
                         )}
