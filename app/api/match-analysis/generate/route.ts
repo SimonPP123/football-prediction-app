@@ -6,7 +6,7 @@ const DEFAULT_WEBHOOK_URL = process.env.N8N_ANALYSIS_WEBHOOK ||
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, force_regenerate, model, webhook_url } = await request.json()
+    const { fixture_id, force_regenerate, model, webhook_url, webhook_secret } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json({ error: 'fixture_id is required' }, { status: 400 })
@@ -90,7 +90,10 @@ export async function POST(request: Request) {
       console.log(`Calling analysis webhook: ${webhookUrl}`)
       const webhookResponse = await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(webhook_secret && { 'X-Webhook-Secret': webhook_secret }),
+        },
         body: JSON.stringify(webhookPayload),
         signal: controller.signal
       })

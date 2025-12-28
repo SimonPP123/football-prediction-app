@@ -60,8 +60,9 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
         })
       }
 
-      // Get custom webhook URL from localStorage if available
+      // Get custom settings from localStorage if available
       const customWebhookUrl = localStorage.getItem('analysis_webhook_url')
+      const webhookSecret = localStorage.getItem('webhook_secret')
 
       // Generate new analysis
       const response = await fetch('/api/match-analysis/generate', {
@@ -70,7 +71,8 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
         body: JSON.stringify({
           fixture_id: fixtureId,
           force_regenerate: true,
-          webhook_url: customWebhookUrl || undefined
+          webhook_url: customWebhookUrl || undefined,
+          webhook_secret: webhookSecret || undefined
         })
       })
 

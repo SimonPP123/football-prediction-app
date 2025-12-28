@@ -55,6 +55,10 @@ export default function PredictionsPage() {
   const [showPromptEditor, setShowPromptEditor] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
   const [tempPrompt, setTempPrompt] = useState('')
+  // Webhook secret state
+  const [webhookSecret, setWebhookSecret] = useState('')
+  const [editingWebhookSecret, setEditingWebhookSecret] = useState(false)
+  const [tempWebhookSecret, setTempWebhookSecret] = useState('')
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -74,6 +78,10 @@ export default function PredictionsPage() {
     if (savedPrompt) {
       setCustomPrompt(savedPrompt)
     }
+    const savedSecret = localStorage.getItem('webhook_secret')
+    if (savedSecret) {
+      setWebhookSecret(savedSecret)
+    }
   }, [])
 
   useEffect(() => {
@@ -90,6 +98,7 @@ export default function PredictionsPage() {
         setShowSettingsDropdown(false)
         setEditingPredictionWebhook(false)
         setEditingAnalysisWebhook(false)
+        setEditingWebhookSecret(false)
       }
     }
     document.addEventListener('click', handleClickOutside)
@@ -186,6 +195,7 @@ export default function PredictionsPage() {
           webhook_url: webhookUrl,
           model: selectedModel,
           custom_prompt: customPrompt || DEFAULT_PREDICTION_PROMPT,
+          webhook_secret: webhookSecret || undefined,
         }),
       })
 
@@ -258,6 +268,27 @@ export default function PredictionsPage() {
     setTempAnalysisWebhook(DEFAULT_ANALYSIS_WEBHOOK)
     localStorage.removeItem('analysis_webhook_url')
     setEditingAnalysisWebhook(false)
+  }
+
+  // Webhook secret handlers
+  const startEditingWebhookSecret = () => {
+    setTempWebhookSecret(webhookSecret)
+    setEditingWebhookSecret(true)
+    setEditingPredictionWebhook(false)
+    setEditingAnalysisWebhook(false)
+  }
+
+  const saveWebhookSecret = () => {
+    setWebhookSecret(tempWebhookSecret)
+    localStorage.setItem('webhook_secret', tempWebhookSecret)
+    setEditingWebhookSecret(false)
+  }
+
+  const clearWebhookSecret = () => {
+    setWebhookSecret('')
+    setTempWebhookSecret('')
+    localStorage.removeItem('webhook_secret')
+    setEditingWebhookSecret(false)
   }
 
   // Prompt editor handlers
@@ -483,6 +514,62 @@ export default function PredictionsPage() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Webhook Secret Section */}
+                    <div className="p-3 border-b">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Webhook Secret</span>
+                        {!editingWebhookSecret && (
+                          <button
+                            onClick={startEditingWebhookSecret}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {webhookSecret ? 'Edit' : 'Set'}
+                          </button>
+                        )}
+                      </div>
+                      {editingWebhookSecret ? (
+                        <div className="space-y-2">
+                          <input
+                            type="password"
+                            value={tempWebhookSecret}
+                            onChange={(e) => setTempWebhookSecret(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="Enter webhook secret..."
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={saveWebhookSecret}
+                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                            >
+                              <Save className="w-3 h-3" />
+                              Save
+                            </button>
+                            {webhookSecret && (
+                              <button
+                                onClick={clearWebhookSecret}
+                                className="text-xs text-red-500 hover:text-red-600"
+                              >
+                                Clear
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setEditingWebhookSecret(false)}
+                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-foreground">
+                          {webhookSecret ? '••••••••' : <span className="text-muted-foreground">Not set</span>}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground mt-2">
+                        Sent as X-Webhook-Secret header for n8n authentication
+                      </p>
                     </div>
 
                     {/* Documentation & Prompt Links */}

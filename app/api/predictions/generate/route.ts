@@ -5,7 +5,7 @@ const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.an
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, webhook_url, model, custom_prompt } = await request.json()
+    const { fixture_id, webhook_url, model, custom_prompt, webhook_secret } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json(
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(webhook_secret && { 'X-Webhook-Secret': webhook_secret }),
         },
         body: JSON.stringify(webhookPayload),
         signal: controller.signal,
