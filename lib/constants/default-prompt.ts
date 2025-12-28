@@ -55,7 +55,7 @@ DATA SOURCE: team_season_stats.home_stats, standings.home_record
 
 Analysis:
 - Home team's home record (W/D/L, goals for/against at home)
-- Away team's away record (W/D/L, goals for/against away)
+- Away team's away record (W/D/L, goals for/againt away)
 - Venue capacity and typical atmosphere
 
 Scoring:
@@ -491,8 +491,10 @@ ANALYSIS INSTRUCTIONS
 7. **CONFIDENCE ADJUSTMENTS**:
    - Missing lineup data: reduce confidence by 10%
    - Conflicting data: reduce confidence by 5%
-   - Extreme weather: adjust confidence based on uncertainty
+   - Extreme weather: adjust confidence based on uncertainty`
 
+// Output format template (appended by n8n, not editable)
+export const OUTPUT_FORMAT_TEMPLATE = `
 ===============================================================================
 OUTPUT FORMAT (JSON)
 ===============================================================================
