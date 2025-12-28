@@ -1041,6 +1041,46 @@ export default function PredictionsPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Response Schema */}
+                  <div className="mt-6 pt-4 border-t">
+                    <h4 className="font-medium text-sm mb-2 text-primary">Expected Response Schema</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      The n8n workflow should return a JSON response with this structure (saved to predictions table):
+                    </p>
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "prediction": "1",              // "1" | "X" | "2" | "1X" | "X2" | "12"
+  "confidence_pct": 68,           // 0-100
+  "overall_index": 62,            // 1-100 (weighted sum of factors)
+  "home_win_pct": 55,             // 0-100
+  "draw_pct": 25,                 // 0-100
+  "away_win_pct": 20,             // 0-100 (must sum to 100)
+  "factors": {
+    "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "..." },
+    "B_form": { "score": 72, "weighted": 15.8, "notes": "..." },
+    "C_key_players": { "score": 50, "weighted": 5.5, "notes": "..." },
+    "D_tactical": { "score": 58, "weighted": 11.6, "notes": "..." },
+    "E_table_position": { "score": 60, "weighted": 7.8, "notes": "..." },
+    "F_h2h": { "score": 65, "weighted": 6.5, "notes": "..." }
+  },
+  "over_under_2_5": "Over",       // "Over" | "Under"
+  "btts": "Yes",                  // "Yes" | "No"
+  "value_bet": "Home Win @ 2.10 (edge: +5%)",
+  "key_factors": ["Home xG advantage", "H2H dominance"],
+  "risk_factors": ["Weather concerns", "Away recent form"],
+  "analysis": "Detailed 200-word analysis...",
+  "score_predictions": [
+    { "score": "2-1", "probability": 18 },
+    { "score": "1-0", "probability": 14 },
+    { "score": "1-1", "probability": 12 }
+  ],
+  "most_likely_score": "2-1"
+}`}
+                      </pre>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1170,6 +1210,74 @@ export default function PredictionsPage() {
                         <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">odds</code>
                         <span className="text-muted-foreground">Pre-match betting odds from various bookmakers</span>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Response Schema */}
+                  <div className="mt-6 pt-4 border-t">
+                    <h4 className="font-medium text-sm mb-2 text-primary">Expected Response Schema</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      The n8n workflow should return a JSON response with this structure (saved to match_analysis table):
+                    </p>
+                    <div className="bg-muted/50 rounded-lg p-4">
+                      <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "fixture_id": "uuid",
+  "home_team_id": "uuid",
+  "away_team_id": "uuid",
+  "predicted_result": "1",        // "1" | "X" | "2" | null
+  "actual_result": "1",           // "1" | "X" | "2"
+  "prediction_correct": true,     // boolean
+  "predicted_score": "2-1",
+  "actual_score": "2-1",
+  "score_correct": true,          // boolean
+  "predicted_over_under": "Over",
+  "actual_over_under": "Over",
+  "over_under_correct": true,
+  "predicted_btts": "Yes",
+  "actual_btts": "Yes",
+  "btts_correct": true,
+  "overall_index": 62,
+  "confidence_pct": 68,
+  "accuracy_score": 85,           // 0-100 (overall prediction accuracy)
+  "factors": {                    // Original prediction factors
+    "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "..." },
+    ...
+  },
+  "factor_accuracy": {            // Per-factor accuracy assessment
+    "A_base_strength": { "accurate": true, "notes": "xG prediction matched" },
+    "B_form": { "accurate": true, "notes": "Form analysis correct" },
+    "C_key_players": { "accurate": false, "notes": "Key player underperformed" },
+    ...
+  },
+  "home_team_performance": {
+    "xg": 1.8,
+    "shots": 15,
+    "possession": 52,
+    "key_stats": ["Strong pressing", "Set piece threat"]
+  },
+  "away_team_performance": {
+    "xg": 0.9,
+    "shots": 8,
+    "possession": 48,
+    "key_stats": ["Counter-attacks limited"]
+  },
+  "post_match_analysis": "Detailed analysis of how the match unfolded...",
+  "key_insights": [
+    "Home team dominated possession as predicted",
+    "Set pieces proved decisive"
+  ],
+  "learning_points": [
+    "xG model accurately predicted goal threat",
+    "Form indicators reliable for this matchup"
+  ],
+  "surprises": [
+    "Away keeper made unexpected saves",
+    "Red card changed game dynamics"
+  ],
+  "model_version": "openai/gpt-5-mini"
+}`}
+                      </pre>
                     </div>
                   </div>
                 </div>
