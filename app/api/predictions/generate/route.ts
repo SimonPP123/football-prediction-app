@@ -43,16 +43,43 @@ export async function POST(request: Request) {
     const fixtureData = fixture as any
 
     // Fetch recent match analyses for memory context (last 5 for each team)
+    // Include comprehensive learning data for AI to use in predictions
     const { data: homeAnalyses } = await supabase
       .from('match_analysis')
-      .select('learning_points, key_insights, created_at, fixture_id')
+      .select(`
+        learning_points,
+        key_insights,
+        surprises,
+        factor_accuracy,
+        accuracy_score,
+        predicted_result,
+        actual_result,
+        prediction_correct,
+        home_team_performance,
+        away_team_performance,
+        created_at,
+        fixture_id
+      `)
       .or(`home_team_id.eq.${fixtureData.home_team_id},away_team_id.eq.${fixtureData.home_team_id}`)
       .order('created_at', { ascending: false })
       .limit(5)
 
     const { data: awayAnalyses } = await supabase
       .from('match_analysis')
-      .select('learning_points, key_insights, created_at, fixture_id')
+      .select(`
+        learning_points,
+        key_insights,
+        surprises,
+        factor_accuracy,
+        accuracy_score,
+        predicted_result,
+        actual_result,
+        prediction_correct,
+        home_team_performance,
+        away_team_performance,
+        created_at,
+        fixture_id
+      `)
       .or(`home_team_id.eq.${fixtureData.away_team_id},away_team_id.eq.${fixtureData.away_team_id}`)
       .order('created_at', { ascending: false })
       .limit(5)

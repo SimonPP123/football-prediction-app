@@ -1,0 +1,261 @@
+{
+  "name": "Post-Match Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "post-match-analysis",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        -480,
+        0
+      ],
+      "webhookId": "post-match-analysis",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ooP1FUXwZppEfMfy",
+          "name": "[Predictions] Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I want you to research post-match coverage for the {{ $('Webhook').item.json.body.home_team }} vs {{ $('Webhook').item.json.body.away_team }} match that ended {{ $('Webhook').item.json.body.actual_score }} on {{ $('Webhook').item.json.body.match_date }}.\n\nSearch for and compile information under these headings:\n\n**MATCH REPORTS**\n- Summary of match events and key moments\n- How the goals were scored\n- Turning points in the game\n- Dominant periods for each team\n\n**MANAGER REACTIONS**\n- Post-match press conference quotes from both managers\n- Tactical assessments from managers\n- Any criticism or praise of players\n- Forward-looking comments about upcoming matches\n\n**PLAYER REACTIONS**\n- Key player interviews after the match\n- Man of the match comments\n- Any notable celebrations or controversies\n\n**MEDIA ANALYSIS**\n- Pundit opinions on the match\n- Tactical breakdowns from analysts\n- Player ratings from major outlets\n- Social media sentiment highlights\n\n**INJURY UPDATES**\n- Any injuries sustained during the match\n- Updates on players who missed the game\n- Expected return dates mentioned\n\n**STANDOUT PERFORMANCES**\n- Which players exceeded expectations\n- Which players underperformed\n- Surprise tactical decisions that worked/failed\n\nProvide factual, sourced information where possible. Focus on insights that explain WHY the match unfolded as it did.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -80,
+        0
+      ],
+      "id": "search-agent",
+      "name": "Search Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-search-api",
+          "mode": "list",
+          "cachedResultName": "gpt-5-search-api"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -80,
+        200
+      ],
+      "id": "openai-search-model",
+      "name": "OpenAI Search Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "JRI2IKH0Wb8uUXml",
+          "name": "OpenAi personal account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an elite football analyst conducting a post-match analysis. Your task is to evaluate prediction accuracy and extract learning points for future predictions.\n\n===============================================================================\nMATCH INFORMATION\n===============================================================================\n\n**MATCH DETAILS**\n- **Home Team**: {{ $('Webhook').item.json.body.home_team }}\n- **Away Team**: {{ $('Webhook').item.json.body.away_team }}\n- **Final Score**: {{ $('Webhook').item.json.body.actual_score }}\n- **Match Date**: {{ $('Webhook').item.json.body.match_date }}\n\n**ORIGINAL PREDICTION**\n{{ JSON.stringify($('Webhook').item.json.body.prediction) }}\n\n**MATCH STATISTICS**\n{{ JSON.stringify($('Webhook').item.json.body.statistics) }}\n\n**MATCH EVENTS** (Goals, Cards, Substitutions)\n{{ JSON.stringify($('Webhook').item.json.body.events) }}\n\n**PRE-MATCH ODDS**\n{{ JSON.stringify($('Webhook').item.json.body.odds) }}\n\n**POST-MATCH NEWS & ANALYSIS**\n{{ $('Search Agent').item.json.output }}\n\n===============================================================================\nANALYSIS INSTRUCTIONS\n===============================================================================\n\n### STEP 1: DETERMINE ACTUAL OUTCOMES\n\nCalculate from the actual_score (e.g., \"2-1\"):\n- **actual_result**: \"1\" if home goals > away goals, \"2\" if away > home, \"X\" if equal\n- **actual_over_under**: \"Over\" if total goals > 2.5, \"Under\" if <= 2.5\n- **actual_btts**: \"Yes\" if both teams scored, \"No\" otherwise\n\n### STEP 2: EVALUATE PREDICTION ACCURACY\n\nCompare predicted vs actual:\n- Was the result prediction correct?\n- Was the exact score prediction correct?\n- Was Over/Under 2.5 correct?\n- Was BTTS correct?\n\n### STEP 3: FACTOR-BY-FACTOR ACCURACY REVIEW\n\nFor each factor (A-F) from the original prediction, evaluate:\n\n**A. Base Strength** - Did xG and team quality analysis prove accurate?\n- Compare predicted xG advantage vs actual match xG\n- Was home advantage assessment correct?\n\n**B. Recent Form** - Did form analysis hold true?\n- Did the team in better form perform as expected?\n- Any surprises in momentum?\n\n**C. Key Players** - Were key player assessments accurate?\n- Did star players perform as predicted?\n- Were injury impacts assessed correctly?\n\n**D. Tactical Matchup** - Did tactical predictions play out?\n- Did pressing/build-up dynamics match expectations?\n- Were set-piece predictions accurate?\n\n**E. Table Position & Context** - Did motivation factors matter?\n- Did the team needing points more perform as expected?\n- Any morale/context factors that surprised?\n\n**F. Head-to-Head** - Did historical patterns hold?\n- Did H2H trends continue or break?\n\nFor each factor, determine:\n- `accurate`: true/false\n- `notes`: Brief explanation of what happened vs prediction\n\n### STEP 4: CALCULATE ACCURACY SCORE (0-100)\n\nWeight the accuracy assessment:\n- Result correct: 40 points\n- Score correct (if applicable): 15 points\n- Over/Under correct: 15 points\n- BTTS correct: 10 points\n- Factor accuracy average: 20 points\n\n### STEP 5: GENERATE INSIGHTS\n\nBased on match data and post-match news:\n\n**Key Insights**: What were the decisive factors in this match?\n**Learning Points**: What can improve future predictions?\n**Surprises**: What unexpected events occurred?\n\n### STEP 6: WRITE POST-MATCH NARRATIVE\n\nWrite a 200-300 word analysis explaining:\n- How the match unfolded\n- Why the prediction was right/wrong\n- Key tactical and individual performances\n- What the result means for both teams\n\n===============================================================================\nOUTPUT FORMAT (JSON)\n===============================================================================\n\nReturn ONLY valid JSON (no markdown, no code blocks):\n\n{\n  \"fixture_id\": \"{{ $('Webhook').item.json.body.fixture_id }}\",\n  \"home_team_id\": \"{{ $('Webhook').item.json.body.home_team_id }}\",\n  \"away_team_id\": \"{{ $('Webhook').item.json.body.away_team_id }}\",\n\n  \"predicted_result\": \"1\",\n  \"actual_result\": \"1\",\n  \"prediction_correct\": true,\n\n  \"predicted_score\": \"2-1\",\n  \"actual_score\": \"{{ $('Webhook').item.json.body.actual_score }}\",\n  \"score_correct\": true,\n\n  \"predicted_over_under\": \"Over\",\n  \"actual_over_under\": \"Over\",\n  \"over_under_correct\": true,\n\n  \"predicted_btts\": \"Yes\",\n  \"actual_btts\": \"Yes\",\n  \"btts_correct\": true,\n\n  \"overall_index\": 62,\n  \"confidence_pct\": 68,\n  \"accuracy_score\": 85,\n\n  \"factors\": {\n    \"A_base_strength\": { \"score\": 65, \"weighted\": 15.6, \"notes\": \"...\" },\n    \"B_form\": { \"score\": 72, \"weighted\": 15.8, \"notes\": \"...\" },\n    \"C_key_players\": { \"score\": 50, \"weighted\": 5.5, \"notes\": \"...\" },\n    \"D_tactical\": { \"score\": 58, \"weighted\": 11.6, \"notes\": \"...\" },\n    \"E_table_position\": { \"score\": 60, \"weighted\": 7.8, \"notes\": \"...\" },\n    \"F_h2h\": { \"score\": 65, \"weighted\": 6.5, \"notes\": \"...\" }\n  },\n\n  \"factor_accuracy\": {\n    \"A_base_strength\": { \"accurate\": true, \"notes\": \"xG prediction matched actual performance\" },\n    \"B_form\": { \"accurate\": true, \"notes\": \"Form indicators proved reliable\" },\n    \"C_key_players\": { \"accurate\": false, \"notes\": \"Key player underperformed expectations\" },\n    \"D_tactical\": { \"accurate\": true, \"notes\": \"Pressing dynamics played out as predicted\" },\n    \"E_table_position\": { \"accurate\": true, \"notes\": \"Motivation factors aligned with performance\" },\n    \"F_h2h\": { \"accurate\": true, \"notes\": \"Historical patterns continued\" }\n  },\n\n  \"home_team_performance\": {\n    \"xg\": 1.8,\n    \"shots\": 15,\n    \"shots_on_target\": 8,\n    \"possession\": 52,\n    \"passes\": 450,\n    \"key_stats\": [\"Strong pressing\", \"Set piece threat\", \"Clinical finishing\"]\n  },\n\n  \"away_team_performance\": {\n    \"xg\": 0.9,\n    \"shots\": 8,\n    \"shots_on_target\": 2,\n    \"possession\": 48,\n    \"passes\": 380,\n    \"key_stats\": [\"Counter-attacks limited\", \"Defensive errors costly\"]\n  },\n\n  \"post_match_analysis\": \"200-300 word narrative analysis of the match...\",\n\n  \"key_insights\": [\n    \"Home team's high press disrupted away build-up as predicted in Factor D\",\n    \"Set pieces proved decisive - 2 goals from corners\",\n    \"Away team's form dip continued despite pre-match optimism\"\n  ],\n\n  \"learning_points\": [\n    \"Factor D (tactical matchup) weight could increase for press-vs-possession clashes\",\n    \"Form indicator B2 was accurate - trust recent results over reputation\",\n    \"Injury impact in Factor C was underestimated for away team\"\n  ],\n\n  \"surprises\": [\n    \"Away goalkeeper had uncharacteristic errors despite strong season form\",\n    \"Home striker scored despite missing previous 3 matches through injury\",\n    \"Red card in 78th minute changed game dynamics\"\n  ],\n\n  \"model_version\": \"{{ $('Webhook').item.json.body.model }}\"\n}",
+        "options": {
+          "maxIterations": 50
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        320,
+        0
+      ],
+      "id": "analysis-agent",
+      "name": "Analysis Agent"
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Webhook').item.json.body.model }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        320,
+        200
+      ],
+      "id": "openrouter-model",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "fkzXPPBnNzmHoZRE",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract AI response\nconst response = $input.first().json.output || $input.first().json.message?.content || '';\nlet jsonStr = response;\n\n// Handle markdown code blocks\nconst jsonMatch = response.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1];\n}\n\n// Parse JSON\nlet analysis;\ntry {\n  analysis = JSON.parse(jsonStr.trim());\n} catch (e) {\n  // Try to find JSON object in the response\n  const jsonObjMatch = response.match(/\\{[\\s\\S]*\\}/);\n  if (jsonObjMatch) {\n    analysis = JSON.parse(jsonObjMatch[0]);\n  } else {\n    throw new Error('Could not parse AI response as JSON');\n  }\n}\n\nreturn [{\n  json: analysis\n}];"
+      },
+      "id": "parse-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/match_analysis",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "supabase-insert",
+      "name": "Save to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Analysis generated and saved\",\n  \"fixture_id\": \"{{ $('Webhook').item.json.body.fixture_id }}\",\n  \"analysis_id\": \"{{ $('Parse AI Response').item.json.fixture_id }}\"\n}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1360,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Search Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Agent": {
+      "main": [
+        [
+          {
+            "node": "Analysis Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Search Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Search Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analysis Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analysis Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Save to Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Supabase": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6ba2e537cba590f05ed8b8eac9c819bda9a9c1ea78a56a14b9e2849f77317d88"
+  }
+}
