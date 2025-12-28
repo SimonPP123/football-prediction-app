@@ -9,7 +9,7 @@ import { RecentResultsTable } from '@/components/predictions/recent-results-tabl
 import { AccuracyStatsPanel } from '@/components/predictions/accuracy-stats-panel'
 import { ModelComparison } from '@/components/predictions/model-comparison'
 import { CalibrationChart } from '@/components/predictions/calibration-chart'
-import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, Info, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
+import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/default-prompt'
@@ -17,32 +17,6 @@ import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/def
 // Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
 const DEFAULT_ANALYSIS_WEBHOOK = 'https://nn.analyserinsights.com/webhook/post-match-analysis'
-
-// Expected prediction response schema (6-factor system A-F matching NEW_AI_AGENT_PROMPT.txt)
-const EXPECTED_SCHEMA = {
-  prediction: '"1" | "X" | "2" | "1X" | "X2" | "12"',
-  confidence_pct: '0-100 (integer)',
-  overall_index: '1-100 (weighted sum of factors)',
-  home_win_pct: '0-100 (integer)',
-  draw_pct: '0-100 (integer)',
-  away_win_pct: '0-100 (integer)',
-  factors: {
-    A_base_strength: '{ score: 0-100, weighted: 0-24, notes: "..." }',
-    B_form: '{ score: 0-100, weighted: 0-22, notes: "..." }',
-    C_key_players: '{ score: 0-100, weighted: 0-11, notes: "..." }',
-    D_tactical: '{ score: 0-100, weighted: 0-20, notes: "..." }',
-    E_table_position: '{ score: 0-100, weighted: 0-13, notes: "..." }',
-    F_h2h: '{ score: 0-100, weighted: 0-10, notes: "..." }',
-  },
-  over_under_2_5: '"Over" | "Under"',
-  btts: '"Yes" | "No"',
-  value_bet: 'string | null (e.g., "Home Win @ 1.85 (edge: +5%)")',
-  key_factors: 'string[] (array of key factors)',
-  risk_factors: 'string[] (array of risk factors)',
-  analysis: 'string (detailed analysis paragraph)',
-  score_predictions: '[{ score: "1-0", probability: 15 }, ...]',
-  most_likely_score: 'string (e.g., "1-0")',
-}
 
 // Parse round number from "Regular Season - X" format
 const parseRoundNumber = (round: string | null): number | null => {
@@ -56,9 +30,7 @@ export default function PredictionsPage() {
   const [fixtures, setFixtures] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [generatingIds, setGeneratingIds] = useState<string[]>([])
-  const [showSchema, setShowSchema] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK)
-  const [copied, setCopied] = useState(false)
   const [selectedModel, setSelectedModel] = useState('openai/gpt-5.2')
   const [selectedRounds, setSelectedRounds] = useState<number[]>([])
   const [showRoundFilter, setShowRoundFilter] = useState(false)
@@ -318,13 +290,6 @@ export default function PredictionsPage() {
     setTimeout(() => setWebhookDocsCopied(false), 2000)
   }
 
-  const copySchema = () => {
-    const schemaJson = JSON.stringify(EXPECTED_SCHEMA, null, 2)
-    navigator.clipboard.writeText(schemaJson)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   // Helper to get prediction from either array or object format
   const getPrediction = (f: any) => Array.isArray(f.prediction) ? f.prediction[0] : f.prediction
 
@@ -522,17 +487,6 @@ export default function PredictionsPage() {
 
                     {/* Documentation & Prompt Links */}
                     <div className="p-3 space-y-2">
-                      <button
-                        onClick={() => {
-                          setShowSchema(true)
-                          setShowSettingsDropdown(false)
-                        }}
-                        className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
-                      >
-                        <Info className="w-3 h-3" />
-                        View Response Schema
-                        <ExternalLink className="w-3 h-3 ml-auto" />
-                      </button>
                       <button
                         onClick={() => {
                           setShowWebhookDocs(true)
@@ -773,130 +727,6 @@ export default function PredictionsPage() {
           )
         )}
       </div>
-
-      {/* Schema Modal */}
-      {showSchema && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border rounded-xl shadow-lg w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Expected Prediction Response</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={copySchema}
-                  className="flex items-center gap-1 px-3 py-1 text-sm bg-muted hover:bg-muted/80 rounded"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-                <button
-                  onClick={() => setShowSchema(false)}
-                  className="p-1 hover:bg-muted rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Your webhook should return a JSON response with the following structure (6-factor system A-F):
-              </p>
-
-              {/* Factor Weights Summary */}
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                <h4 className="text-xs font-medium text-primary mb-2">Factor Weights (Total: 100%)</h4>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  <div className="flex justify-between"><span>A - Base Strength:</span> <span className="font-medium">24%</span></div>
-                  <div className="flex justify-between"><span>B - Recent Form:</span> <span className="font-medium">22%</span></div>
-                  <div className="flex justify-between"><span>C - Key Players:</span> <span className="font-medium">11%</span></div>
-                  <div className="flex justify-between"><span>D - Tactical:</span> <span className="font-medium">20%</span></div>
-                  <div className="flex justify-between"><span>E - Table Position:</span> <span className="font-medium">13%</span></div>
-                  <div className="flex justify-between"><span>F - Head-to-Head:</span> <span className="font-medium">10%</span></div>
-                </div>
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-4">
-                <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
-{`{
-  "prediction": "1",              // "1" | "X" | "2" | "1X" | "X2" | "12"
-  "confidence_pct": 65,           // Overall confidence
-  "overall_index": 62,            // Weighted sum of all factors (1-100)
-  "home_win_pct": 55,             // Probability percentages
-  "draw_pct": 25,
-  "away_win_pct": 20,
-  "factors": {                    // A-F Factor breakdown (6 factors)
-    "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "Home xG +0.5/game" },
-    "B_form": { "score": 72, "weighted": 15.8, "notes": "Unbeaten in 7" },
-    "C_key_players": { "score": 45, "weighted": 5.0, "notes": "Key striker fit" },
-    "D_tactical": { "score": 60, "weighted": 12.0, "notes": "Press vs build-up" },
-    "E_table_position": { "score": 55, "weighted": 7.2, "notes": "3rd vs 7th" },
-    "F_h2h": { "score": 70, "weighted": 7.0, "notes": "4W-1D-0L last 5" }
-  },
-  "over_under_2_5": "Over",
-  "btts": "Yes",
-  "value_bet": "Home Win @ 2.10 (edge: +5%)",
-  "key_factors": ["Home's superior xG", "H2H dominance"],
-  "risk_factors": ["Weather impact", "Away recent form"],
-  "analysis": "Liverpool should edge this at Anfield...",
-  "score_predictions": [{"score": "2-1", "probability": 15}],
-  "most_likely_score": "2-1"
-}`}
-                </pre>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm">Field Descriptions:</h4>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">prediction</code>
-                    <span className="text-muted-foreground">Required. Match outcome: "1", "X", "2", "1X", "X2", or "12"</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">overall_index</code>
-                    <span className="text-muted-foreground">Required. Weighted sum of factors (1-100). &gt;50 favors home.</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">factors</code>
-                    <span className="text-muted-foreground">Required. A-F factor breakdown with score, weighted, notes</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">home/draw/away_pct</code>
-                    <span className="text-muted-foreground">Required. Win/draw percentages (should sum to 100)</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">over_under_2_5</code>
-                    <span className="text-muted-foreground">Required. Goals prediction: "Over" or "Under"</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">btts</code>
-                    <span className="text-muted-foreground">Required. Both teams to score: "Yes" or "No"</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">value_bet</code>
-                    <span className="text-muted-foreground">Optional. Betting tip with odds and edge</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">key_factors</code>
-                    <span className="text-muted-foreground">Required. Array of positive factors</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">risk_factors</code>
-                    <span className="text-muted-foreground">Required. Array of risk factors</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">analysis</code>
-                    <span className="text-muted-foreground">Required. Detailed analysis text</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <code className="px-2 py-0.5 bg-muted rounded text-xs">score_predictions</code>
-                    <span className="text-muted-foreground">Optional. Array of score predictions with probabilities</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Webhook Documentation Modal */}
       {showWebhookDocs && (
