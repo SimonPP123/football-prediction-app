@@ -185,7 +185,7 @@ export default function PredictionsPage() {
           fixture_id: fixtureId,
           webhook_url: webhookUrl,
           model: selectedModel,
-          custom_prompt: customPrompt || null,
+          custom_prompt: customPrompt || DEFAULT_PREDICTION_PROMPT,
         }),
       })
 
@@ -800,7 +800,7 @@ export default function PredictionsPage() {
   "venue": "Anfield",
   "round": "Regular Season - 21",
   "model": "openai/gpt-5.2",
-  "custom_prompt": null,
+  "custom_prompt": "You are an elite football analyst... (full prompt from Settings)",
   "memory_context": {
     "home_team_learnings": [
       {
@@ -834,7 +834,7 @@ export default function PredictionsPage() {
   "venue": "string",
   "round": "string",
   "model": "string",
-  "custom_prompt": "string | null",
+  "custom_prompt": "string (full AI prompt)",
   "memory_context": {
     "home_team_learnings": "array",
     "away_team_learnings": "array"
@@ -863,7 +863,7 @@ export default function PredictionsPage() {
                       </div>
                       <div className="flex gap-2">
                         <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">custom_prompt</code>
-                        <span className="text-muted-foreground">Custom prompt override (null = use default)</span>
+                        <span className="text-muted-foreground">Full AI prompt (from Settings - Edit Prediction Prompt)</span>
                       </div>
                       <div className="flex gap-2">
                         <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">memory_context</code>
