@@ -386,7 +386,10 @@ export default function PredictionsPage() {
                 </button>
 
                 {showSettingsDropdown && (
-                  <div className="absolute top-full right-0 mt-1 bg-card border rounded-lg shadow-lg z-50 w-80">
+                  <div
+                    className="absolute top-full right-0 mt-1 bg-card border rounded-lg shadow-lg z-50 w-80"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {/* Prediction Webhook Section */}
                     <div className="p-3 border-b">
                       <div className="flex items-center justify-between mb-2">
