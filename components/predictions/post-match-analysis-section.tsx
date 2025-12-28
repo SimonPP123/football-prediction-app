@@ -1,12 +1,53 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, AlertCircle, Lightbulb, Target, CheckCircle, XCircle, BarChart3 } from 'lucide-react'
+import { RefreshCw, ChevronDown, ChevronUp, TrendingUp, AlertCircle, Lightbulb, CheckCircle, XCircle, BarChart3, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { MatchAnalysis } from '@/types'
 
 interface PostMatchAnalysisSectionProps {
   fixtureId: string
+}
+
+// Tooltip explanations for each metric
+const METRIC_TOOLTIPS = {
+  result: "Compares predicted match outcome (1/X/2) vs actual result",
+  score: "Compares predicted scoreline vs actual final score",
+  overUnder: "Over/Under 2.5 goals - did the match have more or fewer than 2.5 total goals",
+  btts: "Both Teams To Score - whether both teams scored in the match",
+  postMatch: "Overall analysis accuracy score (0-100%) based on how well predictions matched the actual outcome",
+  preMatch: "Original AI confidence level before the match was played",
+  homePerf: "Post-match performance metrics and key observations for the home team",
+  awayPerf: "Post-match performance metrics and key observations for the away team"
+}
+
+// Helper component for metric boxes with help icon
+function MetricBox({
+  label,
+  tooltip,
+  children
+}: {
+  label: string
+  tooltip: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="p-2 bg-muted/50 rounded-lg text-center">
+      <div className="flex items-center justify-center gap-1">
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <HelpCircle className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="max-w-[200px]">{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      {children}
+    </div>
+  )
 }
 
 export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSectionProps) {
@@ -146,262 +187,306 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
 
   // Analysis exists - display it
   return (
-    <div className="space-y-3 mt-4 pt-4 border-t border-border/50">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-primary" />
-          Post-Match Analysis
-        </h3>
+    <TooltipProvider>
+      <div className="space-y-3 mt-4 pt-4 border-t border-border/50">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            Post-Match Analysis
+          </h3>
+          <button
+            onClick={regenerateAnalysis}
+            disabled={regenerating}
+            className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={cn("w-3 h-3", regenerating && "animate-spin")} />
+            Regenerate
+          </button>
+        </div>
+
+        {/* Accuracy Summary */}
+        <div className="grid grid-cols-3 gap-2">
+          {/* Result */}
+          <MetricBox label="Result" tooltip={METRIC_TOOLTIPS.result}>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <span className="text-xs font-medium">{analysis.predicted_result}→{analysis.actual_result}</span>
+              {analysis.prediction_correct ? (
+                <CheckCircle className="w-3 h-3 text-green-500" />
+              ) : (
+                <XCircle className="w-3 h-3 text-red-500" />
+              )}
+            </div>
+          </MetricBox>
+
+          {/* Score */}
+          {analysis.predicted_score && (
+            <MetricBox label="Score" tooltip={METRIC_TOOLTIPS.score}>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <span className="text-xs font-medium">{analysis.predicted_score}→{analysis.actual_score}</span>
+                {analysis.score_correct ? (
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                ) : (
+                  <XCircle className="w-3 h-3 text-red-500" />
+                )}
+              </div>
+            </MetricBox>
+          )}
+
+          {/* O/U 2.5 */}
+          {analysis.predicted_over_under && (
+            <MetricBox label="O/U 2.5" tooltip={METRIC_TOOLTIPS.overUnder}>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <span className="text-xs font-medium">{analysis.predicted_over_under}</span>
+                {analysis.over_under_correct ? (
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                ) : (
+                  <XCircle className="w-3 h-3 text-red-500" />
+                )}
+              </div>
+            </MetricBox>
+          )}
+
+          {/* BTTS */}
+          {analysis.predicted_btts && (
+            <MetricBox label="BTTS" tooltip={METRIC_TOOLTIPS.btts}>
+              <div className="flex items-center justify-center gap-1 mt-1">
+                <span className="text-xs font-medium">{analysis.predicted_btts}</span>
+                {analysis.btts_correct ? (
+                  <CheckCircle className="w-3 h-3 text-green-500" />
+                ) : (
+                  <XCircle className="w-3 h-3 text-red-500" />
+                )}
+              </div>
+            </MetricBox>
+          )}
+
+          {/* Post-Match Score (renamed from Accuracy) */}
+          <MetricBox label="Post-Match" tooltip={METRIC_TOOLTIPS.postMatch}>
+            <span className={cn(
+              "text-lg font-bold",
+              (analysis.accuracy_score || 0) >= 70 ? "text-green-500" :
+              (analysis.accuracy_score || 0) >= 50 ? "text-yellow-500" : "text-red-500"
+            )}>
+              {Math.round(analysis.accuracy_score || 0)}%
+            </span>
+          </MetricBox>
+
+          {/* Original Confidence */}
+          {analysis.confidence_pct && (
+            <MetricBox label="Pre-Match" tooltip={METRIC_TOOLTIPS.preMatch}>
+              <span className="text-lg font-medium">{analysis.confidence_pct}%</span>
+            </MetricBox>
+          )}
+        </div>
+
+        {/* Expand/Collapse Details */}
         <button
-          onClick={regenerateAnalysis}
-          disabled={regenerating}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground py-2"
         >
-          <RefreshCw className={cn("w-3 h-3", regenerating && "animate-spin")} />
-          Regenerate
+          {expanded ? 'Hide' : 'Show'} Detailed Analysis
+          {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
         </button>
-      </div>
 
-      {/* Accuracy Summary */}
-      <div className="grid grid-cols-3 gap-2">
-        {/* Result */}
-        <div className="p-2 bg-muted/50 rounded-lg text-center">
-          <span className="text-[10px] text-muted-foreground block">Result</span>
-          <div className="flex items-center justify-center gap-1 mt-1">
-            <span className="text-xs font-medium">{analysis.predicted_result}→{analysis.actual_result}</span>
-            {analysis.prediction_correct ? (
-              <CheckCircle className="w-3 h-3 text-green-500" />
-            ) : (
-              <XCircle className="w-3 h-3 text-red-500" />
+        {/* Expanded Details */}
+        {expanded && (
+          <div className="space-y-3">
+            {/* Post-Match Narrative */}
+            {analysis.post_match_analysis && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="text-xs font-medium text-muted-foreground mb-2">Analysis</h4>
+                <p className="text-sm text-foreground whitespace-pre-wrap">
+                  {analysis.post_match_analysis}
+                </p>
+              </div>
             )}
-          </div>
-        </div>
 
-        {/* Score */}
-        {analysis.predicted_score && (
-          <div className="p-2 bg-muted/50 rounded-lg text-center">
-            <span className="text-[10px] text-muted-foreground block">Score</span>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              <span className="text-xs font-medium">{analysis.predicted_score}→{analysis.actual_score}</span>
-              {analysis.score_correct ? (
-                <CheckCircle className="w-3 h-3 text-green-500" />
-              ) : (
-                <XCircle className="w-3 h-3 text-red-500" />
-              )}
-            </div>
-          </div>
-        )}
+            {/* Key Insights */}
+            {analysis.key_insights && analysis.key_insights.length > 0 && (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <h4 className="text-xs font-medium text-blue-500 mb-2 flex items-center gap-1">
+                  <Lightbulb className="w-3 h-3" />
+                  Key Insights
+                </h4>
+                <ul className="space-y-1 text-sm">
+                  {analysis.key_insights.map((insight, idx) => (
+                    <li key={idx} className="flex gap-2">
+                      <span className="text-blue-500">•</span>
+                      <span className="text-foreground">{insight}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-        {/* O/U 2.5 */}
-        {analysis.predicted_over_under && (
-          <div className="p-2 bg-muted/50 rounded-lg text-center">
-            <span className="text-[10px] text-muted-foreground block">O/U 2.5</span>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              <span className="text-xs font-medium">{analysis.predicted_over_under}</span>
-              {analysis.over_under_correct ? (
-                <CheckCircle className="w-3 h-3 text-green-500" />
-              ) : (
-                <XCircle className="w-3 h-3 text-red-500" />
-              )}
-            </div>
-          </div>
-        )}
+            {/* Learning Points */}
+            {analysis.learning_points && analysis.learning_points.length > 0 && (
+              <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                <h4 className="text-xs font-medium text-purple-500 mb-2 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Learning Points
+                </h4>
+                <ul className="space-y-1 text-sm">
+                  {analysis.learning_points.map((point, idx) => (
+                    <li key={idx} className="flex gap-2">
+                      <span className="text-purple-500">•</span>
+                      <span className="text-foreground">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-        {/* BTTS */}
-        {analysis.predicted_btts && (
-          <div className="p-2 bg-muted/50 rounded-lg text-center">
-            <span className="text-[10px] text-muted-foreground block">BTTS</span>
-            <div className="flex items-center justify-center gap-1 mt-1">
-              <span className="text-xs font-medium">{analysis.predicted_btts}</span>
-              {analysis.btts_correct ? (
-                <CheckCircle className="w-3 h-3 text-green-500" />
-              ) : (
-                <XCircle className="w-3 h-3 text-red-500" />
-              )}
-            </div>
-          </div>
-        )}
+            {/* Surprises */}
+            {analysis.surprises && analysis.surprises.length > 0 && (
+              <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                <h4 className="text-xs font-medium text-orange-500 mb-2 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Surprises
+                </h4>
+                <ul className="space-y-1 text-sm">
+                  {analysis.surprises.map((surprise, idx) => (
+                    <li key={idx} className="flex gap-2">
+                      <span className="text-orange-500">•</span>
+                      <span className="text-foreground">{surprise}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-        {/* Accuracy Score */}
-        <div className="p-2 bg-muted/50 rounded-lg text-center">
-          <span className="text-[10px] text-muted-foreground block">Accuracy</span>
-          <span className={cn(
-            "text-lg font-bold",
-            (analysis.accuracy_score || 0) >= 70 ? "text-green-500" :
-            (analysis.accuracy_score || 0) >= 50 ? "text-yellow-500" : "text-red-500"
-          )}>
-            {Math.round(analysis.accuracy_score || 0)}%
-          </span>
-        </div>
+            {/* Factor Accuracy Analysis */}
+            {analysis.factor_accuracy && Object.keys(analysis.factor_accuracy).length > 0 && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                  <BarChart3 className="w-3 h-3" />
+                  Factor Accuracy
+                </h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(analysis.factor_accuracy).map(([factorKey, factorData]: [string, any]) => {
+                    const isAccurate = factorData?.accurate ?? factorData?.correct ?? false
+                    const notes = factorData?.notes || factorData?.reasoning || ''
 
-        {/* Original Confidence */}
-        {analysis.confidence_pct && (
-          <div className="p-2 bg-muted/50 rounded-lg text-center">
-            <span className="text-[10px] text-muted-foreground block">Pre-Match</span>
-            <span className="text-lg font-medium">{analysis.confidence_pct}%</span>
-          </div>
-        )}
-      </div>
-
-      {/* Expand/Collapse Details */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground py-2"
-      >
-        {expanded ? 'Hide' : 'Show'} Detailed Analysis
-        {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-      </button>
-
-      {/* Expanded Details */}
-      {expanded && (
-        <div className="space-y-3">
-          {/* Post-Match Narrative */}
-          {analysis.post_match_analysis && (
-            <div className="p-3 bg-muted/30 rounded-lg">
-              <h4 className="text-xs font-medium text-muted-foreground mb-2">Analysis</h4>
-              <p className="text-sm text-foreground whitespace-pre-wrap">
-                {analysis.post_match_analysis}
-              </p>
-            </div>
-          )}
-
-          {/* Key Insights */}
-          {analysis.key_insights && analysis.key_insights.length > 0 && (
-            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <h4 className="text-xs font-medium text-blue-500 mb-2 flex items-center gap-1">
-                <Lightbulb className="w-3 h-3" />
-                Key Insights
-              </h4>
-              <ul className="space-y-1 text-sm">
-                {analysis.key_insights.map((insight, idx) => (
-                  <li key={idx} className="flex gap-2">
-                    <span className="text-blue-500">•</span>
-                    <span className="text-foreground">{insight}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Learning Points */}
-          {analysis.learning_points && analysis.learning_points.length > 0 && (
-            <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
-              <h4 className="text-xs font-medium text-purple-500 mb-2 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                Learning Points
-              </h4>
-              <ul className="space-y-1 text-sm">
-                {analysis.learning_points.map((point, idx) => (
-                  <li key={idx} className="flex gap-2">
-                    <span className="text-purple-500">•</span>
-                    <span className="text-foreground">{point}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Surprises */}
-          {analysis.surprises && analysis.surprises.length > 0 && (
-            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-              <h4 className="text-xs font-medium text-orange-500 mb-2 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Surprises
-              </h4>
-              <ul className="space-y-1 text-sm">
-                {analysis.surprises.map((surprise, idx) => (
-                  <li key={idx} className="flex gap-2">
-                    <span className="text-orange-500">•</span>
-                    <span className="text-foreground">{surprise}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Factor Accuracy Analysis */}
-          {analysis.factor_accuracy && Object.keys(analysis.factor_accuracy).length > 0 && (
-            <div className="p-3 bg-muted/30 rounded-lg">
-              <h4 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                <BarChart3 className="w-3 h-3" />
-                Factor Accuracy
-              </h4>
-              <div className="grid grid-cols-3 gap-2">
-                {Object.entries(analysis.factor_accuracy).map(([factorKey, factorData]: [string, any]) => {
-                  const isAccurate = factorData?.accurate ?? factorData?.correct ?? false
-                  const notes = factorData?.notes || factorData?.reasoning || ''
-
-                  return (
-                    <div
-                      key={factorKey}
-                      className={cn(
-                        "p-2 rounded border text-xs",
-                        isAccurate ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{factorKey.charAt(0)}</span>
-                        {isAccurate ? (
-                          <CheckCircle className="w-3 h-3 text-green-500" />
-                        ) : (
-                          <XCircle className="w-3 h-3 text-red-500" />
+                    return (
+                      <div
+                        key={factorKey}
+                        className={cn(
+                          "p-2 rounded border text-xs",
+                          isAccurate ? "bg-green-500/10 border-green-500/20" : "bg-red-500/10 border-red-500/20"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium">{factorKey.charAt(0)}</span>
+                          {isAccurate ? (
+                            <CheckCircle className="w-3 h-3 text-green-500" />
+                          ) : (
+                            <XCircle className="w-3 h-3 text-red-500" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {factorKey.replace(/_/g, ' ').replace(/^[A-Z]_/, '')}
+                        </p>
+                        {notes && (
+                          <p className="text-[10px] text-foreground/70 mt-1 line-clamp-2">
+                            {notes}
+                          </p>
                         )}
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        {factorKey.replace(/_/g, ' ').replace(/^[A-Z]_/, '')}
-                      </p>
-                      {notes && (
-                        <p className="text-[10px] text-foreground/70 mt-1 line-clamp-2">
-                          {notes}
-                        </p>
-                      )}
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Team Performance Summaries */}
-          {(analysis.home_team_performance || analysis.away_team_performance) && (
-            <div className="grid grid-cols-2 gap-2">
-              {analysis.home_team_performance && (
-                <div className="p-3 bg-home/10 border border-home/20 rounded-lg">
-                  <h4 className="text-xs font-medium text-home mb-2">Home Performance</h4>
-                  <div className="text-xs space-y-1">
-                    {Object.entries(analysis.home_team_performance).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
-                        <span className="text-foreground font-medium">{String(value)}</span>
+            {/* Team Performance Summaries */}
+            {(analysis.home_team_performance || analysis.away_team_performance) && (
+              <div className="grid grid-cols-2 gap-2">
+                {analysis.home_team_performance && (
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <h4 className="text-xs font-medium text-green-600 mb-2 flex items-center gap-1">
+                      Home Performance
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-3 h-3 text-green-600/50 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-[200px]">{METRIC_TOOLTIPS.homePerf}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </h4>
+
+                    {/* Numeric stats in grid */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mb-2">
+                      {Object.entries(analysis.home_team_performance).map(([key, value]) => {
+                        // Skip key_stats - we'll display it separately
+                        if (key === 'key_stats') return null
+                        return (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
+                            <span className="text-foreground font-medium">{String(value)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Key stats as separate block */}
+                    {analysis.home_team_performance.key_stats && (
+                      <div className="text-[10px] text-muted-foreground border-t border-green-500/20 pt-2 mt-2">
+                        <span className="font-medium text-green-600">Key:</span>{' '}
+                        {String(analysis.home_team_performance.key_stats)}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {analysis.away_team_performance && (
-                <div className="p-3 bg-away/10 border border-away/20 rounded-lg">
-                  <h4 className="text-xs font-medium text-away mb-2">Away Performance</h4>
-                  <div className="text-xs space-y-1">
-                    {Object.entries(analysis.away_team_performance).map(([key, value]) => (
-                      <div key={key} className="flex justify-between">
-                        <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
-                        <span className="text-foreground font-medium">{String(value)}</span>
+                {analysis.away_team_performance && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <h4 className="text-xs font-medium text-red-600 mb-2 flex items-center gap-1">
+                      Away Performance
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-3 h-3 text-red-600/50 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-[200px]">{METRIC_TOOLTIPS.awayPerf}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </h4>
+
+                    {/* Numeric stats in grid */}
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mb-2">
+                      {Object.entries(analysis.away_team_performance).map(([key, value]) => {
+                        // Skip key_stats - we'll display it separately
+                        if (key === 'key_stats') return null
+                        return (
+                          <div key={key} className="flex justify-between">
+                            <span className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}:</span>
+                            <span className="text-foreground font-medium">{String(value)}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Key stats as separate block */}
+                    {analysis.away_team_performance.key_stats && (
+                      <div className="text-[10px] text-muted-foreground border-t border-red-500/20 pt-2 mt-2">
+                        <span className="font-medium text-red-600">Key:</span>{' '}
+                        {String(analysis.away_team_performance.key_stats)}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
-          {/* Model Info */}
-          <div className="text-xs text-muted-foreground text-center pt-2">
-            Analyzed with {analysis.model_version || 'AI'} • {new Date(analysis.created_at).toLocaleDateString()}
+            {/* Model Info */}
+            <div className="text-xs text-muted-foreground text-center pt-2">
+              Analyzed with {analysis.model_version || 'AI'} • {new Date(analysis.created_at).toLocaleDateString()}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </TooltipProvider>
   )
 }
