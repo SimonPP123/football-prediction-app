@@ -393,7 +393,7 @@ export default function PredictionsPage() {
                         <span className="text-xs font-medium text-muted-foreground">Prediction Webhook</span>
                         {!editingPredictionWebhook && (
                           <button
-                            onClick={startEditingPredictionWebhook}
+                            onClick={(e) => { e.stopPropagation(); startEditingPredictionWebhook() }}
                             className="text-xs text-primary hover:underline"
                           >
                             Edit
@@ -411,20 +411,20 @@ export default function PredictionsPage() {
                           />
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={savePredictionWebhook}
+                              onClick={(e) => { e.stopPropagation(); savePredictionWebhook() }}
                               className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             >
                               <Save className="w-3 h-3" />
                               Save
                             </button>
                             <button
-                              onClick={resetPredictionWebhook}
+                              onClick={(e) => { e.stopPropagation(); resetPredictionWebhook() }}
                               className="text-xs text-muted-foreground hover:text-foreground"
                             >
                               Reset
                             </button>
                             <button
-                              onClick={() => setEditingPredictionWebhook(false)}
+                              onClick={(e) => { e.stopPropagation(); setEditingPredictionWebhook(false) }}
                               className="text-xs text-muted-foreground hover:text-foreground ml-auto"
                             >
                               Cancel
@@ -444,7 +444,7 @@ export default function PredictionsPage() {
                         <span className="text-xs font-medium text-muted-foreground">Analysis Webhook</span>
                         {!editingAnalysisWebhook && (
                           <button
-                            onClick={startEditingAnalysisWebhook}
+                            onClick={(e) => { e.stopPropagation(); startEditingAnalysisWebhook() }}
                             className="text-xs text-primary hover:underline"
                           >
                             Edit
@@ -462,20 +462,20 @@ export default function PredictionsPage() {
                           />
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={saveAnalysisWebhook}
+                              onClick={(e) => { e.stopPropagation(); saveAnalysisWebhook() }}
                               className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             >
                               <Save className="w-3 h-3" />
                               Save
                             </button>
                             <button
-                              onClick={resetAnalysisWebhook}
+                              onClick={(e) => { e.stopPropagation(); resetAnalysisWebhook() }}
                               className="text-xs text-muted-foreground hover:text-foreground"
                             >
                               Reset
                             </button>
                             <button
-                              onClick={() => setEditingAnalysisWebhook(false)}
+                              onClick={(e) => { e.stopPropagation(); setEditingAnalysisWebhook(false) }}
                               className="text-xs text-muted-foreground hover:text-foreground ml-auto"
                             >
                               Cancel
@@ -522,7 +522,7 @@ export default function PredictionsPage() {
                         <span className="text-xs font-medium text-muted-foreground">Webhook Secret</span>
                         {!editingWebhookSecret && (
                           <button
-                            onClick={startEditingWebhookSecret}
+                            onClick={(e) => { e.stopPropagation(); startEditingWebhookSecret() }}
                             className="text-xs text-primary hover:underline"
                           >
                             {webhookSecret ? 'Edit' : 'Set'}
@@ -540,7 +540,7 @@ export default function PredictionsPage() {
                           />
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={saveWebhookSecret}
+                              onClick={(e) => { e.stopPropagation(); saveWebhookSecret() }}
                               className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             >
                               <Save className="w-3 h-3" />
@@ -548,14 +548,14 @@ export default function PredictionsPage() {
                             </button>
                             {webhookSecret && (
                               <button
-                                onClick={clearWebhookSecret}
+                                onClick={(e) => { e.stopPropagation(); clearWebhookSecret() }}
                                 className="text-xs text-red-500 hover:text-red-600"
                               >
                                 Clear
                               </button>
                             )}
                             <button
-                              onClick={() => setEditingWebhookSecret(false)}
+                              onClick={(e) => { e.stopPropagation(); setEditingWebhookSecret(false) }}
                               className="text-xs text-muted-foreground hover:text-foreground ml-auto"
                             >
                               Cancel
