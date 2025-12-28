@@ -10,8 +10,9 @@ import { LayoutGrid, List, RefreshCw, Loader2, Settings, X, Copy, Check, Info, C
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 
-// Default webhook URL
+// Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
+const DEFAULT_ANALYSIS_WEBHOOK = 'https://nn.analyserinsights.com/webhook/post-match-analysis'
 
 // Expected prediction response schema
 const EXPECTED_SCHEMA = {
@@ -68,6 +69,9 @@ export default function PredictionsPage() {
   const [recentResults, setRecentResults] = useState<any[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
+  // Analysis webhook settings
+  const [showAnalysisSettings, setShowAnalysisSettings] = useState(false)
+  const [analysisWebhookUrl, setAnalysisWebhookUrl] = useState(DEFAULT_ANALYSIS_WEBHOOK)
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -78,6 +82,10 @@ export default function PredictionsPage() {
     const savedModel = localStorage.getItem('prediction_model')
     if (savedModel) {
       setSelectedModel(savedModel)
+    }
+    const savedAnalysisUrl = localStorage.getItem('analysis_webhook_url')
+    if (savedAnalysisUrl) {
+      setAnalysisWebhookUrl(savedAnalysisUrl)
     }
   }, [])
 
@@ -234,6 +242,16 @@ export default function PredictionsPage() {
   const handleResetWebhook = () => {
     setWebhookUrl(DEFAULT_WEBHOOK)
     localStorage.removeItem('prediction_webhook_url')
+  }
+
+  const handleSaveAnalysisWebhook = () => {
+    localStorage.setItem('analysis_webhook_url', analysisWebhookUrl)
+    setShowAnalysisSettings(false)
+  }
+
+  const handleResetAnalysisWebhook = () => {
+    setAnalysisWebhookUrl(DEFAULT_ANALYSIS_WEBHOOK)
+    localStorage.removeItem('analysis_webhook_url')
   }
 
   const copySchema = () => {
@@ -486,7 +504,7 @@ export default function PredictionsPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-border mb-6">
+        <div className="flex items-center border-b border-border mb-6">
           <button
             onClick={() => setActiveTab('upcoming')}
             className={cn(
@@ -509,6 +527,17 @@ export default function PredictionsPage() {
           >
             Recent Results ({filteredRecentResults.length})
           </button>
+          {/* Analysis Settings Button - visible on Results tab */}
+          {activeTab === 'results' && (
+            <button
+              onClick={() => setShowAnalysisSettings(true)}
+              className="ml-auto flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+              title="Configure post-match analysis webhook"
+            >
+              <Settings className="w-4 h-4" />
+              Analysis Settings
+            </button>
+          )}
         </div>
 
         {/* Loading State */}
@@ -752,6 +781,86 @@ export default function PredictionsPage() {
                     <code className="px-2 py-0.5 bg-muted rounded text-xs">score_predictions</code>
                     <span className="text-muted-foreground">Optional. Array of score predictions with probabilities</span>
                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Analysis Settings Modal */}
+      {showAnalysisSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card border rounded-xl shadow-lg w-full max-w-lg mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Post-Match Analysis Settings</h3>
+              <button
+                onClick={() => setShowAnalysisSettings(false)}
+                className="p-1 hover:bg-muted rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Analysis Webhook URL
+                </label>
+                <input
+                  type="url"
+                  value={analysisWebhookUrl}
+                  onChange={(e) => setAnalysisWebhookUrl(e.target.value)}
+                  placeholder="https://your-webhook-url.com/analysis"
+                  className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  The n8n webhook endpoint for generating post-match analysis.
+                </p>
+              </div>
+
+              <div className="bg-muted/50 rounded-lg p-3">
+                <p className="text-xs font-medium mb-2">Webhook receives:</p>
+                <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+{`{
+  "fixture_id": "uuid",
+  "home_team": "Liverpool",
+  "away_team": "Arsenal",
+  "actual_score": "2-1",
+  "match_date": "2025-12-26T15:00:00Z",
+  "prediction": { ... },
+  "statistics": [ ... ],
+  "events": [ ... ]
+}`}
+                </pre>
+              </div>
+
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                <p className="text-xs text-blue-400">
+                  <strong>Auto-trigger:</strong> Analysis is automatically generated 4 hours after match completion to ensure all statistics are available.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t">
+                <button
+                  onClick={handleResetAnalysisWebhook}
+                  className="text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Reset to default
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowAnalysisSettings(false)}
+                    className="px-4 py-2 text-sm hover:bg-muted rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveAnalysisWebhook}
+                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                  >
+                    Save
+                  </button>
                 </div>
               </div>
             </div>

@@ -6,13 +6,15 @@ const DEFAULT_WEBHOOK_URL = process.env.N8N_ANALYSIS_WEBHOOK ||
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, force_regenerate, model } = await request.json()
+    const { fixture_id, force_regenerate, model, webhook_url } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json({ error: 'fixture_id is required' }, { status: 400 })
     }
 
     const selectedModel = model || 'openai/gpt-5-mini'
+    // Use custom webhook URL if provided, otherwise fall back to default
+    const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
 
     // 1. Fetch fixture with FULL details (prediction, stats, events, odds)
     const { data: fixture, error: fixtureError } = await supabase
@@ -85,8 +87,8 @@ export async function POST(request: Request) {
     const timeoutId = setTimeout(() => controller.abort(), 300000)
 
     try {
-      console.log(`Calling analysis webhook: ${DEFAULT_WEBHOOK_URL}`)
-      const webhookResponse = await fetch(DEFAULT_WEBHOOK_URL, {
+      console.log(`Calling analysis webhook: ${webhookUrl}`)
+      const webhookResponse = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(webhookPayload),

@@ -1,9 +1,37 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target } from 'lucide-react'
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
+
+// Factor metadata for display
+const FACTOR_INFO: Record<string, { name: string; weight: string }> = {
+  A_base_strength: { name: 'Base Strength', weight: '22%' },
+  B_form: { name: 'Recent Form', weight: '20%' },
+  C_squad: { name: 'Key Players', weight: '10%' },
+  D_load: { name: 'Load & Calendar', weight: '10%' },
+  E_tactical: { name: 'Tactical Matchup', weight: '18%' },
+  F_motivation: { name: 'Motivation/Context', weight: '12%' },
+  G_referee: { name: 'Referee', weight: '5%' },
+  H_stadium_weather: { name: 'Stadium & Weather', weight: '8%' },
+  I_h2h: { name: 'Head-to-Head', weight: '7%' },
+}
+
+// Get score color based on value
+const getScoreColor = (score: number) => {
+  if (score >= 70) return 'text-green-500'
+  if (score >= 50) return 'text-yellow-500'
+  if (score >= 30) return 'text-orange-500'
+  return 'text-red-500'
+}
+
+const getScoreBgColor = (score: number) => {
+  if (score >= 70) return 'bg-green-500/10 border-green-500/20'
+  if (score >= 50) return 'bg-yellow-500/10 border-yellow-500/20'
+  if (score >= 30) return 'bg-orange-500/10 border-orange-500/20'
+  return 'bg-red-500/10 border-red-500/20'
+}
 
 interface RecentResultCardProps {
   fixture: any
@@ -11,6 +39,7 @@ interface RecentResultCardProps {
 
 export function RecentResultCard({ fixture }: RecentResultCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showFactors, setShowFactors] = useState(false)
 
   // Handle both array and object formats from Supabase
   const prediction = Array.isArray(fixture.prediction)
@@ -221,6 +250,65 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
               <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
                 {prediction.analysis_text}
               </div>
+            )}
+
+            {/* Pre-Match Factor Breakdown */}
+            {prediction.factors && Object.keys(prediction.factors).some(k => k.match(/^[A-I]_/)) && (
+              <>
+                <button
+                  onClick={() => setShowFactors(!showFactors)}
+                  className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground py-2 border-t border-border/50"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                  {showFactors ? 'Hide' : 'Show'} Pre-Match Factors
+                  {showFactors ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+
+                {showFactors && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Factor breakdown used for this prediction:
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(prediction.factors)
+                        .filter(([key]) => key.match(/^[A-I]_/))
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([key, value]: [string, any]) => {
+                          const factorInfo = FACTOR_INFO[key]
+                          const score = typeof value === 'object' ? (value.score || value.weighted || 0) : 0
+                          const notes = typeof value === 'object' ? (value.notes || value.reasoning || '') : ''
+
+                          return (
+                            <div
+                              key={key}
+                              className={cn(
+                                "p-2 rounded-lg border text-xs",
+                                getScoreBgColor(score)
+                              )}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="font-medium text-foreground">
+                                  {key.charAt(0)}
+                                </span>
+                                <span className={cn("font-bold", getScoreColor(score))}>
+                                  {Math.round(score)}
+                                </span>
+                              </div>
+                              <p className="text-muted-foreground text-[10px] leading-tight">
+                                {factorInfo?.name || key.replace(/_/g, ' ')}
+                              </p>
+                              {notes && (
+                                <p className="text-foreground/70 text-[10px] mt-1 line-clamp-2">
+                                  {notes}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Post-Match Analysis */}
