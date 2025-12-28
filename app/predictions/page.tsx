@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Header } from '@/components/layout/header'
 import { PredictionCard } from '@/components/predictions/prediction-card'
 import { PredictionTable } from '@/components/predictions/prediction-table'
 import { RecentResultCard } from '@/components/predictions/recent-result-card'
 import { RecentResultsTable } from '@/components/predictions/recent-results-table'
-import { LayoutGrid, List, RefreshCw, Loader2, Settings, X, Copy, Check, Info, ChevronDown, Filter } from 'lucide-react'
+import { LayoutGrid, List, RefreshCw, Loader2, Settings, X, Copy, Check, Info, ChevronDown, Filter, ExternalLink, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 
@@ -14,7 +14,7 @@ import { AI_MODELS } from '@/types'
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
 const DEFAULT_ANALYSIS_WEBHOOK = 'https://nn.analyserinsights.com/webhook/post-match-analysis'
 
-// Expected prediction response schema
+// Expected prediction response schema (6-factor system A-F matching NEW_AI_AGENT_PROMPT.txt)
 const EXPECTED_SCHEMA = {
   prediction: '"1" | "X" | "2" | "1X" | "X2" | "12"',
   confidence_pct: '0-100 (integer)',
@@ -23,15 +23,12 @@ const EXPECTED_SCHEMA = {
   draw_pct: '0-100 (integer)',
   away_win_pct: '0-100 (integer)',
   factors: {
-    A_base_strength: '{ score: 0-100, weighted: 0-18, notes: "..." }',
-    B_form: '{ score: 0-100, weighted: 0-16, notes: "..." }',
-    C_squad: '{ score: 0-100, weighted: 0-14, notes: "..." }',
-    D_load: '{ score: 0-100, weighted: 0-10, notes: "..." }',
-    E_tactical: '{ score: 0-100, weighted: 0-12, notes: "..." }',
-    F_motivation: '{ score: 0-100, weighted: 0-10, notes: "..." }',
-    G_referee: '{ score: 0-100, weighted: 0-5, notes: "..." }',
-    H_stadium_weather: '{ score: 0-100, weighted: 0-8, notes: "..." }',
-    I_h2h: '{ score: 0-100, weighted: 0-7, notes: "..." }',
+    A_base_strength: '{ score: 0-100, weighted: 0-24, notes: "..." }',
+    B_form: '{ score: 0-100, weighted: 0-22, notes: "..." }',
+    C_key_players: '{ score: 0-100, weighted: 0-11, notes: "..." }',
+    D_tactical: '{ score: 0-100, weighted: 0-20, notes: "..." }',
+    E_table_position: '{ score: 0-100, weighted: 0-13, notes: "..." }',
+    F_h2h: '{ score: 0-100, weighted: 0-10, notes: "..." }',
   },
   over_under_2_5: '"Over" | "Under"',
   btts: '"Yes" | "No"',
@@ -56,7 +53,6 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(true)
   const [generatingIds, setGeneratingIds] = useState<string[]>([])
   const [generatingAll, setGeneratingAll] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
   const [showSchema, setShowSchema] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK)
   const [copied, setCopied] = useState(false)
@@ -69,9 +65,14 @@ export default function PredictionsPage() {
   const [recentResults, setRecentResults] = useState<any[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
-  // Analysis webhook settings
-  const [showAnalysisSettings, setShowAnalysisSettings] = useState(false)
+  // Settings dropdown state
+  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
+  const [editingPredictionWebhook, setEditingPredictionWebhook] = useState(false)
+  const [editingAnalysisWebhook, setEditingAnalysisWebhook] = useState(false)
+  const [tempPredictionWebhook, setTempPredictionWebhook] = useState('')
+  const [tempAnalysisWebhook, setTempAnalysisWebhook] = useState('')
   const [analysisWebhookUrl, setAnalysisWebhookUrl] = useState(DEFAULT_ANALYSIS_WEBHOOK)
+  const settingsDropdownRef = useRef<HTMLDivElement>(null)
 
   // Load saved settings from localStorage on mount
   useEffect(() => {
@@ -100,6 +101,9 @@ export default function PredictionsPage() {
       if (!target.closest('[data-dropdown]')) {
         setShowRoundFilter(false)
         setShowModelDropdown(false)
+        setShowSettingsDropdown(false)
+        setEditingPredictionWebhook(false)
+        setEditingAnalysisWebhook(false)
       }
     }
     document.addEventListener('click', handleClickOutside)
@@ -234,24 +238,43 @@ export default function PredictionsPage() {
     })
   }
 
-  const handleSaveWebhook = () => {
-    localStorage.setItem('prediction_webhook_url', webhookUrl)
-    setShowSettings(false)
+  // Settings dropdown handlers
+  const startEditingPredictionWebhook = () => {
+    setTempPredictionWebhook(webhookUrl)
+    setEditingPredictionWebhook(true)
+    setEditingAnalysisWebhook(false)
   }
 
-  const handleResetWebhook = () => {
+  const savePredictionWebhook = () => {
+    setWebhookUrl(tempPredictionWebhook)
+    localStorage.setItem('prediction_webhook_url', tempPredictionWebhook)
+    setEditingPredictionWebhook(false)
+  }
+
+  const resetPredictionWebhook = () => {
     setWebhookUrl(DEFAULT_WEBHOOK)
+    setTempPredictionWebhook(DEFAULT_WEBHOOK)
     localStorage.removeItem('prediction_webhook_url')
+    setEditingPredictionWebhook(false)
   }
 
-  const handleSaveAnalysisWebhook = () => {
-    localStorage.setItem('analysis_webhook_url', analysisWebhookUrl)
-    setShowAnalysisSettings(false)
+  const startEditingAnalysisWebhook = () => {
+    setTempAnalysisWebhook(analysisWebhookUrl)
+    setEditingAnalysisWebhook(true)
+    setEditingPredictionWebhook(false)
   }
 
-  const handleResetAnalysisWebhook = () => {
+  const saveAnalysisWebhook = () => {
+    setAnalysisWebhookUrl(tempAnalysisWebhook)
+    localStorage.setItem('analysis_webhook_url', tempAnalysisWebhook)
+    setEditingAnalysisWebhook(false)
+  }
+
+  const resetAnalysisWebhook = () => {
     setAnalysisWebhookUrl(DEFAULT_ANALYSIS_WEBHOOK)
+    setTempAnalysisWebhook(DEFAULT_ANALYSIS_WEBHOOK)
     localStorage.removeItem('analysis_webhook_url')
+    setEditingAnalysisWebhook(false)
   }
 
   const copySchema = () => {
@@ -335,22 +358,171 @@ export default function PredictionsPage() {
               <span className="text-sm text-muted-foreground">
                 {fixturesWithPredictions.length} / {filteredFixtures.length} predicted
               </span>
-              <button
-                onClick={() => setShowSchema(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm"
-                title="View expected response schema"
-              >
-                <Info className="w-4 h-4" />
-                <span className="hidden sm:inline">Schema</span>
-              </button>
-              <button
-                onClick={() => setShowSettings(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm"
-                title="Configure webhook URL"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">Settings</span>
-              </button>
+              {/* Unified Settings Dropdown */}
+              <div className="relative" data-dropdown ref={settingsDropdownRef}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowSettingsDropdown(!showSettingsDropdown)
+                    setShowRoundFilter(false)
+                    setShowModelDropdown(false)
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm"
+                  title="Settings"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden sm:inline">Settings</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+
+                {showSettingsDropdown && (
+                  <div className="absolute top-full right-0 mt-1 bg-card border rounded-lg shadow-lg z-50 w-80">
+                    {/* Prediction Webhook Section */}
+                    <div className="p-3 border-b">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Prediction Webhook</span>
+                        {!editingPredictionWebhook && (
+                          <button
+                            onClick={startEditingPredictionWebhook}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                      {editingPredictionWebhook ? (
+                        <div className="space-y-2">
+                          <input
+                            type="url"
+                            value={tempPredictionWebhook}
+                            onChange={(e) => setTempPredictionWebhook(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="https://..."
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={savePredictionWebhook}
+                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                            >
+                              <Save className="w-3 h-3" />
+                              Save
+                            </button>
+                            <button
+                              onClick={resetPredictionWebhook}
+                              className="text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              onClick={() => setEditingPredictionWebhook(false)}
+                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-foreground truncate" title={webhookUrl}>
+                          {webhookUrl}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Analysis Webhook Section */}
+                    <div className="p-3 border-b">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Analysis Webhook</span>
+                        {!editingAnalysisWebhook && (
+                          <button
+                            onClick={startEditingAnalysisWebhook}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
+                      {editingAnalysisWebhook ? (
+                        <div className="space-y-2">
+                          <input
+                            type="url"
+                            value={tempAnalysisWebhook}
+                            onChange={(e) => setTempAnalysisWebhook(e.target.value)}
+                            className="w-full px-2 py-1.5 bg-background border rounded text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                            placeholder="https://..."
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={saveAnalysisWebhook}
+                              className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                            >
+                              <Save className="w-3 h-3" />
+                              Save
+                            </button>
+                            <button
+                              onClick={resetAnalysisWebhook}
+                              className="text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Reset
+                            </button>
+                            <button
+                              onClick={() => setEditingAnalysisWebhook(false)}
+                              className="text-xs text-muted-foreground hover:text-foreground ml-auto"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-foreground truncate" title={analysisWebhookUrl}>
+                          {analysisWebhookUrl}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* AI Model Section */}
+                    <div className="p-3 border-b">
+                      <span className="text-xs font-medium text-muted-foreground block mb-2">AI Model</span>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {AI_MODELS.map(model => (
+                          <button
+                            key={model.id}
+                            onClick={() => handleModelChange(model.id)}
+                            className={cn(
+                              "w-full text-left px-2 py-1.5 rounded text-xs transition-colors flex items-center justify-between",
+                              selectedModel === model.id
+                                ? "bg-primary text-primary-foreground"
+                                : "hover:bg-muted"
+                            )}
+                          >
+                            <span>{model.name}</span>
+                            <span className={cn(
+                              "text-[10px]",
+                              selectedModel === model.id ? "text-primary-foreground/70" : "text-muted-foreground"
+                            )}>
+                              {model.provider}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Schema Documentation Link */}
+                    <div className="p-3">
+                      <button
+                        onClick={() => {
+                          setShowSchema(true)
+                          setShowSettingsDropdown(false)
+                        }}
+                        className="flex items-center gap-2 text-xs text-primary hover:underline w-full"
+                      >
+                        <Info className="w-3 h-3" />
+                        View Schema Documentation
+                        <ExternalLink className="w-3 h-3 ml-auto" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleGenerateAll}
                 disabled={generatingAll || fixturesWithoutPredictions.length === 0}
@@ -527,17 +699,6 @@ export default function PredictionsPage() {
           >
             Recent Results ({filteredRecentResults.length})
           </button>
-          {/* Analysis Settings Button - visible on Results tab */}
-          {activeTab === 'results' && (
-            <button
-              onClick={() => setShowAnalysisSettings(true)}
-              className="ml-auto flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-              title="Configure post-match analysis webhook"
-            >
-              <Settings className="w-4 h-4" />
-              Analysis Settings
-            </button>
-          )}
         </div>
 
         {/* Loading State */}
@@ -600,80 +761,6 @@ export default function PredictionsPage() {
         )}
       </div>
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border rounded-xl shadow-lg w-full max-w-lg mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Webhook Settings</h3>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-1 hover:bg-muted rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Prediction Webhook URL
-                </label>
-                <input
-                  type="url"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://your-webhook-url.com/predict"
-                  className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  The webhook will receive POST requests with fixture data and should return predictions.
-                </p>
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs font-medium mb-2">Webhook receives:</p>
-                <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-{`{
-  "fixture_id": "uuid",
-  "home_team": "Liverpool",
-  "home_team_id": "uuid",
-  "away_team": "Arsenal",
-  "away_team_id": "uuid",
-  "match_date": "2025-12-26T15:00:00Z",
-  "venue": "Anfield",
-  "round": "Regular Season - 19"
-}`}
-                </pre>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t">
-                <button
-                  onClick={handleResetWebhook}
-                  className="text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Reset to default
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowSettings(false)}
-                    className="px-4 py-2 text-sm hover:bg-muted rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveWebhook}
-                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Schema Modal */}
       {showSchema && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -699,8 +786,21 @@ export default function PredictionsPage() {
 
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Your webhook should return a JSON response with the following structure:
+                Your webhook should return a JSON response with the following structure (6-factor system A-F):
               </p>
+
+              {/* Factor Weights Summary */}
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                <h4 className="text-xs font-medium text-primary mb-2">Factor Weights (Total: 100%)</h4>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <div className="flex justify-between"><span>A - Base Strength:</span> <span className="font-medium">24%</span></div>
+                  <div className="flex justify-between"><span>B - Recent Form:</span> <span className="font-medium">22%</span></div>
+                  <div className="flex justify-between"><span>C - Key Players:</span> <span className="font-medium">11%</span></div>
+                  <div className="flex justify-between"><span>D - Tactical:</span> <span className="font-medium">20%</span></div>
+                  <div className="flex justify-between"><span>E - Table Position:</span> <span className="font-medium">13%</span></div>
+                  <div className="flex justify-between"><span>F - Head-to-Head:</span> <span className="font-medium">10%</span></div>
+                </div>
+              </div>
 
               <div className="bg-muted/50 rounded-lg p-4">
                 <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
@@ -711,16 +811,13 @@ export default function PredictionsPage() {
   "home_win_pct": 55,             // Probability percentages
   "draw_pct": 25,
   "away_win_pct": 20,
-  "factors": {                    // A-I Factor breakdown
-    "A_base_strength": { "score": 65, "weighted": 11.7, "notes": "Home xG +0.5/game" },
-    "B_form": { "score": 72, "weighted": 11.5, "notes": "Unbeaten in 7" },
-    "C_squad": { "score": 45, "weighted": 6.3, "notes": "2 key players out" },
-    "D_load": { "score": 55, "weighted": 5.5, "notes": "5 days rest" },
-    "E_tactical": { "score": 60, "weighted": 7.2, "notes": "Press vs build-up" },
-    "F_motivation": { "score": 50, "weighted": 5.0, "notes": "Mid-table" },
-    "G_referee": { "score": 52, "weighted": 2.6, "notes": "Avg 3.2 cards/game" },
-    "H_stadium_weather": { "score": 48, "weighted": 3.8, "notes": "Light rain" },
-    "I_h2h": { "score": 70, "weighted": 4.9, "notes": "4W-1D-0L last 5" }
+  "factors": {                    // A-F Factor breakdown (6 factors)
+    "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "Home xG +0.5/game" },
+    "B_form": { "score": 72, "weighted": 15.8, "notes": "Unbeaten in 7" },
+    "C_key_players": { "score": 45, "weighted": 5.0, "notes": "Key striker fit" },
+    "D_tactical": { "score": 60, "weighted": 12.0, "notes": "Press vs build-up" },
+    "E_table_position": { "score": 55, "weighted": 7.2, "notes": "3rd vs 7th" },
+    "F_h2h": { "score": 70, "weighted": 7.0, "notes": "4W-1D-0L last 5" }
   },
   "over_under_2_5": "Over",
   "btts": "Yes",
@@ -747,7 +844,7 @@ export default function PredictionsPage() {
                   </div>
                   <div className="flex gap-2">
                     <code className="px-2 py-0.5 bg-muted rounded text-xs">factors</code>
-                    <span className="text-muted-foreground">Required. A-I factor breakdown with score, weighted, notes</span>
+                    <span className="text-muted-foreground">Required. A-F factor breakdown with score, weighted, notes</span>
                   </div>
                   <div className="flex gap-2">
                     <code className="px-2 py-0.5 bg-muted rounded text-xs">home/draw/away_pct</code>
@@ -788,85 +885,6 @@ export default function PredictionsPage() {
         </div>
       )}
 
-      {/* Analysis Settings Modal */}
-      {showAnalysisSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card border rounded-xl shadow-lg w-full max-w-lg mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Post-Match Analysis Settings</h3>
-              <button
-                onClick={() => setShowAnalysisSettings(false)}
-                className="p-1 hover:bg-muted rounded"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Analysis Webhook URL
-                </label>
-                <input
-                  type="url"
-                  value={analysisWebhookUrl}
-                  onChange={(e) => setAnalysisWebhookUrl(e.target.value)}
-                  placeholder="https://your-webhook-url.com/analysis"
-                  className="w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  The n8n webhook endpoint for generating post-match analysis.
-                </p>
-              </div>
-
-              <div className="bg-muted/50 rounded-lg p-3">
-                <p className="text-xs font-medium mb-2">Webhook receives:</p>
-                <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-{`{
-  "fixture_id": "uuid",
-  "home_team": "Liverpool",
-  "away_team": "Arsenal",
-  "actual_score": "2-1",
-  "match_date": "2025-12-26T15:00:00Z",
-  "prediction": { ... },
-  "statistics": [ ... ],
-  "events": [ ... ]
-}`}
-                </pre>
-              </div>
-
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-                <p className="text-xs text-blue-400">
-                  <strong>Auto-trigger:</strong> Analysis is automatically generated 4 hours after match completion to ensure all statistics are available.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between pt-4 border-t">
-                <button
-                  onClick={handleResetAnalysisWebhook}
-                  className="text-sm text-muted-foreground hover:text-foreground"
-                >
-                  Reset to default
-                </button>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowAnalysisSettings(false)}
-                    className="px-4 py-2 text-sm hover:bg-muted rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveAnalysisWebhook}
-                    className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

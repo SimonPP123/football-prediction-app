@@ -90,29 +90,34 @@ This file provides guidance to Claude Code when working with this Football Predi
 
 ---
 
-## Factor System (A-G)
+## Factor System (A-F)
 
-**Updated: December 2024** - Simplified from 9 to 7 factors based on available data.
+**Updated: December 2024** - Simplified to 6 factors matching NEW_AI_AGENT_PROMPT.txt.
 
-The prediction model uses 7 factor groups:
+The prediction model uses 6 factor groups (totaling 100%):
 
 | Group | Weight | Description |
 |-------|--------|-------------|
-| A | 22% | Base Strength (xG balance, home advantage, defense & offense) |
-| B | 20% | Recent Form (xG trends, results, opponent quality, consistency) |
-| C | 10% | Key Players (penalty takers, top performers, injury impact from news) |
-| D | 18% | Tactical Matchup (press vs build-up, high line, aerial duels) |
-| E | 12% | Table Position & Context (league standing, club context from news) |
-| F | 8% | Weather Conditions (precipitation, temperature, wind) |
-| G | 10% | Head-to-Head (historical results & quality patterns) |
+| A | 24% | Base Strength (xG balance, home advantage, defense & offense) |
+| B | 22% | Recent Form (xG trends, results, opponent quality, consistency) |
+| C | 11% | Key Players (penalty takers, top performers, injuries) |
+| D | 20% | Tactical Matchup (press vs build-up, high line, aerial duels) |
+| E | 13% | Table Position & Context (league standing, club context) |
+| F | 10% | Head-to-Head (historical results & patterns) |
 
 Each factor is scored 1-100, producing an overall_index that favors home (>50) or away (<50).
 
-**Key Changes from Old 9-Factor System:**
-- Removed Factor D (Load & Calendar) - no fixture congestion data
-- Removed Factor G (Referee) - referee_stats not fetched in workflow
-- Injuries now extracted from AI Agent live news search (Factor C)
-- Club context extracted from AI Agent live news search (Factor E)
+**Factor JSON Structure:**
+```json
+{
+  "A_base_strength": { "score": 65, "weighted": 15.6, "notes": "..." },
+  "B_form": { "score": 72, "weighted": 15.8, "notes": "..." },
+  "C_key_players": { "score": 45, "weighted": 5.0, "notes": "..." },
+  "D_tactical": { "score": 60, "weighted": 12.0, "notes": "..." },
+  "E_table_position": { "score": 55, "weighted": 7.2, "notes": "..." },
+  "F_h2h": { "score": 70, "weighted": 7.0, "notes": "..." }
+}
+```
 
 See `/n8n-workflows/prediction/NEW_AI_AGENT_PROMPT.txt` for full prompt.
 

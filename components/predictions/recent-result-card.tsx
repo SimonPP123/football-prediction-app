@@ -5,17 +5,23 @@ import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3 } from 
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
 
-// Factor metadata for display
+// Factor metadata for display (6-factor system A-F matching NEW_AI_AGENT_PROMPT.txt)
 const FACTOR_INFO: Record<string, { name: string; weight: string }> = {
-  A_base_strength: { name: 'Base Strength', weight: '22%' },
-  B_form: { name: 'Recent Form', weight: '20%' },
-  C_squad: { name: 'Key Players', weight: '10%' },
+  // Current 6-factor system (totals 100%)
+  A_base_strength: { name: 'Base Strength', weight: '24%' },
+  B_form: { name: 'Recent Form', weight: '22%' },
+  C_key_players: { name: 'Key Players', weight: '11%' },
+  D_tactical: { name: 'Tactical Matchup', weight: '20%' },
+  E_table_position: { name: 'Table Position', weight: '13%' },
+  F_h2h: { name: 'Head-to-Head', weight: '10%' },
+  // Legacy factors for backward compatibility with older predictions
+  C_squad: { name: 'Squad', weight: '14%' },
   D_load: { name: 'Load & Calendar', weight: '10%' },
-  E_tactical: { name: 'Tactical Matchup', weight: '18%' },
-  F_motivation: { name: 'Motivation/Context', weight: '12%' },
+  E_tactical: { name: 'Tactical', weight: '12%' },
+  F_motivation: { name: 'Motivation', weight: '10%' },
   G_referee: { name: 'Referee', weight: '5%' },
-  H_stadium_weather: { name: 'Stadium & Weather', weight: '8%' },
-  I_h2h: { name: 'Head-to-Head', weight: '7%' },
+  H_stadium_weather: { name: 'Stadium/Weather', weight: '8%' },
+  I_h2h: { name: 'H2H', weight: '7%' },
 }
 
 // Get score color based on value
