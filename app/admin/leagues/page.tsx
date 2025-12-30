@@ -91,7 +91,7 @@ export default function AdminLeaguesPage() {
   const fetchLeagues = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/leagues')
+      const res = await fetch('/api/admin/leagues', { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to fetch leagues')
       const data = await res.json()
       setLeagues(data.leagues || [])
@@ -112,6 +112,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch('/api/admin/leagues', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: league.id, isActive: !league.is_active }),
       })
@@ -153,6 +154,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch('/api/admin/leagues', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: leagueId, isActive: true }),
       })
@@ -179,6 +181,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch('/api/admin/leagues', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           apiId: parseInt(newLeague.apiId),
@@ -254,6 +257,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch('/api/admin/leagues', {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: league.id,
@@ -340,6 +344,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch(`/api/data/refresh/season-setup?league_id=${league.id}`, {
         method: 'POST',
+        credentials: 'include',
       })
 
       if (!res.body) {
@@ -440,6 +445,7 @@ export default function AdminLeaguesPage() {
     try {
       const res = await fetch(`/api/data/refresh/${stepKey}?league_id=${setupLeague.id}`, {
         method: 'POST',
+        credentials: 'include',
       })
 
       if (!res.body) {

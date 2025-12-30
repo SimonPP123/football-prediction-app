@@ -74,7 +74,7 @@ export default function StatsPage() {
   const fetchPlayerStats = async (statType: PlayerStatType) => {
     try {
       const params = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/stats/players?type=${statType}${params}`)
+      const res = await fetch(`/api/stats/players?type=${statType}${params}`, { credentials: 'include' })
       const data = await res.json()
       setPlayerStats(data)
     } catch (error) {

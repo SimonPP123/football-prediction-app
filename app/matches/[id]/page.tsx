@@ -63,7 +63,7 @@ export default function MatchDetailPage() {
   const fetchFixture = async (signal?: AbortSignal) => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/fixtures/${params.id}`, { signal })
+      const res = await fetch(`/api/fixtures/${params.id}`, { credentials: 'include', signal })
       if (!res.ok) throw new Error('Failed to fetch fixture')
 
       if (signal?.aborted) return

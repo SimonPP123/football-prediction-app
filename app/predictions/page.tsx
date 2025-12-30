@@ -221,6 +221,7 @@ export default function PredictionsPage() {
     try {
       const res = await fetch('/api/predictions/generate', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fixture_id: fixtureId,

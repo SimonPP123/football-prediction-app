@@ -56,7 +56,7 @@ export default function TeamsPage() {
       setStandings(standingsData)
 
       // Fetch injury counts per team
-      const injuryRes = await fetch(`/api/injuries${params}`, { signal })
+      const injuryRes = await fetch(`/api/injuries${params}`, { credentials: 'include', signal })
       if (signal?.aborted) return
 
       const injuryData = await injuryRes.json()

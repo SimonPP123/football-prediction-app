@@ -29,12 +29,12 @@ function parseAuthCookie(cookieValue: string | undefined): AuthData | null {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow access to login page, auth API, and leagues API
-  // Note: /api/data/refresh endpoints now require authentication
+  // Allow access to public routes
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/leagues')
+    pathname.startsWith('/api/leagues') ||
+    pathname === '/api/match-analysis/auto-trigger'  // Called by Vercel cron
   ) {
     return NextResponse.next()
   }

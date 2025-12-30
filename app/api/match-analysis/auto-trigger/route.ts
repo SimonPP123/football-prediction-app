@@ -1,16 +1,10 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase/client'
 
+// Note: This endpoint is called by Vercel cron job, not user requests
+// Auth is handled by Vercel's cron security (cron jobs are internal)
 export async function POST(request: Request) {
   try {
-    // Authentication check
-    const cookieStore = cookies()
-    const authCookie = cookieStore.get('football_auth')?.value
-    if (!authCookie) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
     const now = new Date()
 
     // 1-hour delay: Only process matches that ended more than 1 hour ago

@@ -60,6 +60,7 @@ export async function POST(request: Request) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Cookie': request.headers.get('cookie') || '',
             },
             signal: controller.signal,
           })

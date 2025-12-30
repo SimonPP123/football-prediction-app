@@ -34,7 +34,7 @@ export default function StandingsPage() {
     try {
       setLoading(true)
       const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/standings${params}`, { signal })
+      const res = await fetch(`/api/standings${params}`, { credentials: 'include', signal })
 
       if (signal?.aborted) return
 

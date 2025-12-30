@@ -36,7 +36,7 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/users')
+      const res = await fetch('/api/admin/users', { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to fetch users')
       const data = await res.json()
       setUsers(data.users || [])
@@ -61,6 +61,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: newUsername,
@@ -93,6 +94,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isAdmin: !user.is_admin })
       })
@@ -115,6 +117,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !user.is_active })
       })
@@ -141,6 +144,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch(`/api/admin/users/${editingPasswordId}`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPasswordForEdit })
       })
@@ -170,7 +174,8 @@ export default function AdminUsersPage() {
 
     try {
       const res = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
 
       const data = await res.json()
