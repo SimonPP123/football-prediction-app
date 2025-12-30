@@ -112,7 +112,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="p-4 h-full flex flex-col">
-          {/* Logo */}
+          {/* Logo and Collapse Toggle */}
           <div className="flex items-center justify-between mb-6">
             <div className={cn(
               "flex items-center gap-3 transition-all duration-300",
@@ -129,6 +129,21 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
                 <p className="text-xs text-muted-foreground">Premier League 2025</p>
               </div>
             </div>
+            {/* Collapse button - Desktop only */}
+            <button
+              onClick={toggleCollapsed}
+              className={cn(
+                "hidden md:flex items-center justify-center p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors",
+                mounted && collapsed ? "md:absolute md:right-2 md:top-4" : ""
+              )}
+              title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <ChevronLeft className="w-5 h-5" />
+              )}
+            </button>
             {/* Close button - mobile only */}
             <button
               onClick={() => setSidebarOpen(false)}
@@ -171,18 +186,6 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          {/* Collapse Toggle - Desktop only */}
-          <button
-            onClick={toggleCollapsed}
-            className="hidden md:flex items-center justify-center p-2 mt-4 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? (
-              <ChevronRight className="w-5 h-5" />
-            ) : (
-              <ChevronLeft className="w-5 h-5" />
-            )}
-          </button>
         </div>
       </aside>
 
