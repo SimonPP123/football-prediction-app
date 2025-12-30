@@ -304,6 +304,7 @@ export type DataCategory =
   | 'player-stats'
   | 'lineups'
   | 'match-analysis'
+  | 'top-performers'
 
 export interface RefreshEvent {
   id: string

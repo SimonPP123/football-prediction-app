@@ -20,6 +20,7 @@ import {
 import { UpdateProvider } from '@/components/updates/update-provider'
 import { GlobalStatusBar } from '@/components/updates/global-status-bar'
 import { ToastNotificationContainer } from '@/components/updates/toast-notification'
+import { UpdatePoller } from '@/components/updates/update-poller'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -140,6 +141,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
       {/* Toast Notifications */}
       <ToastNotificationContainer />
+
+      {/* Background Poller */}
+      <UpdatePoller />
     </div>
     </UpdateProvider>
   )

@@ -35,6 +35,7 @@ const CATEGORY_ICONS: Record<DataCategory, typeof Activity> = {
   'player-stats': Users,
   lineups: Users,
   'match-analysis': Activity,
+  'top-performers': Trophy,
 }
 
 const CATEGORY_LABELS: Record<DataCategory, string> = {
@@ -48,6 +49,7 @@ const CATEGORY_LABELS: Record<DataCategory, string> = {
   'player-stats': 'Player Stats',
   lineups: 'Lineups',
   'match-analysis': 'Match Analysis',
+  'top-performers': 'Top Performers',
 }
 
 const STATUS_ICONS = {

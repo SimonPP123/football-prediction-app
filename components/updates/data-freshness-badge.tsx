@@ -58,6 +58,11 @@ const CATEGORY_INFO: Record<DataCategory, { name: string; description: string; r
     description: 'Post-match AI analysis comparing predictions to results',
     refreshFrequency: 'Generated after match completion',
   },
+  'top-performers': {
+    name: 'Top Performers',
+    description: 'Top scorers, assists, and cards statistics',
+    refreshFrequency: 'Updated weekly',
+  },
 }
 
 // Color legend for freshness

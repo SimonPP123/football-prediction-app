@@ -19,7 +19,9 @@ import {
   RefreshCw,
   Info,
   HelpCircle,
+  Settings,
 } from 'lucide-react'
+import { usePollerSettings, PollerSettingsPanel } from './update-poller'
 
 const CATEGORY_CONFIG: Record<DataCategory, {
   label: string
@@ -97,6 +99,13 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-emerald-500',
     description: 'Post-match AI analysis of predictions',
     refreshFrequency: 'After match completion',
+  },
+  'top-performers': {
+    label: 'Top Performers',
+    icon: Trophy,
+    color: 'text-amber-500',
+    description: 'Top scorers, assists, and cards',
+    refreshFrequency: 'Weekly',
   },
 }
 
@@ -213,7 +222,9 @@ function StatusItem({ category }: { category: DataCategory }) {
 
 export function GlobalStatusBar() {
   const [showLegend, setShowLegend] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const { isRefreshing } = useUpdates()
+  const { settings } = usePollerSettings()
   const anyRefreshing = Object.values(isRefreshing).some(Boolean)
 
   return (
@@ -230,44 +241,75 @@ export function GlobalStatusBar() {
           ))}
         </div>
 
-        {/* Legend button */}
-        <div className="relative ml-auto shrink-0">
-          <button
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted/50 transition-colors"
-            onMouseEnter={() => setShowLegend(true)}
-            onMouseLeave={() => setShowLegend(false)}
-            onClick={() => setShowLegend(!showLegend)}
-          >
-            <HelpCircle className="w-3 h-3" />
-            <span className="hidden sm:inline">Legend</span>
-          </button>
+        <div className="flex items-center gap-1 ml-auto shrink-0">
+          {/* Auto-refresh settings button */}
+          <div className="relative">
+            <button
+              className={cn(
+                "flex items-center gap-1 text-xs px-2 py-0.5 rounded hover:bg-muted/50 transition-colors",
+                settings.enabled ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+              onClick={() => setShowSettings(!showSettings)}
+            >
+              <Settings className="w-3 h-3" />
+              <span className="hidden sm:inline">Auto</span>
+              {settings.enabled && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              )}
+            </button>
 
-          {showLegend && (
-            <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-card border rounded-lg shadow-lg p-3 text-xs">
-              <div className="font-medium mb-2">Color Legend</div>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-muted-foreground">Fresh (&lt;1 hour)</span>
+            {showSettings && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowSettings(false)}
+                />
+                <div className="absolute top-full right-0 mt-1 z-50 w-72 bg-card border rounded-lg shadow-lg p-4">
+                  <PollerSettingsPanel />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span className="text-muted-foreground">Recent (1-4 hours)</span>
+              </>
+            )}
+          </div>
+
+          {/* Legend button */}
+          <div className="relative">
+            <button
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted/50 transition-colors"
+              onMouseEnter={() => setShowLegend(true)}
+              onMouseLeave={() => setShowLegend(false)}
+              onClick={() => setShowLegend(!showLegend)}
+            >
+              <HelpCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">Legend</span>
+            </button>
+
+            {showLegend && (
+              <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-card border rounded-lg shadow-lg p-3 text-xs">
+                <div className="font-medium mb-2">Color Legend</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-muted-foreground">Fresh (&lt;1 hour)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-muted-foreground">Recent (1-4 hours)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-orange-500" />
+                    <span className="text-muted-foreground">Aging (4-24 hours)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-muted-foreground">Stale (&gt;24 hours)</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-orange-500" />
-                  <span className="text-muted-foreground">Aging (4-24 hours)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                  <span className="text-muted-foreground">Stale (&gt;24 hours)</span>
+                <div className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
+                  Click any badge to refresh that data category
                 </div>
               </div>
-              <div className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
-                Click any badge to refresh that data category
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
