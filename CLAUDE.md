@@ -212,6 +212,101 @@ football.analyserinsights.com {
 
 ---
 
+## Security & Troubleshooting
+
+**Updated: December 2024** - Full security audit completed.
+
+### Security Features Implemented
+
+| Phase | Status | Features |
+|-------|--------|----------|
+| 1 - Critical | ✅ Done | Auth on 22 refresh routes, security headers, cookie signing (HMAC-SHA256), rate limiting |
+| 2 - High | ✅ Done | Input validation, API retry logic (exponential backoff), env validation at startup |
+| 3 - Medium | ✅ Done | XSS protection (rehype-sanitize), middleware fixes, error boundary |
+| 4 - Low | ✅ Done | Magic number extraction, code cleanup |
+
+### Required Environment Variables
+
+| Variable | Required | Prod Only | Description |
+|----------|----------|-----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | No | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | No | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | No | Supabase service role key |
+| `API_FOOTBALL_KEY` | Yes | No | API-Football API key |
+| `COOKIE_SECRET` | Yes | **Yes** | Min 32 chars, signs auth cookies |
+| `N8N_WEBHOOK_URL` | No | No | n8n webhook for predictions |
+| `ODDS_API_KEY` | No | No | The Odds API key |
+
+**Generate COOKIE_SECRET**: `openssl rand -base64 32`
+
+### HTTP Status Codes
+
+| Code | Meaning | Common Causes |
+|------|---------|---------------|
+| 400 | Bad Request | Invalid UUID, limit out of range (1-100), malformed JSON |
+| 401 | Unauthorized | Missing auth cookie, expired session |
+| 403 | Forbidden | Not admin (for `/api/data/refresh/*` routes) |
+| 429 | Too Many Requests | Rate limited (5+ failed logins in 15 min) |
+| 500 | Server Error | Database error, API failure, missing env vars |
+
+### Common Issues & Fixes
+
+**"Internal Server Error" on startup**
+```bash
+# Check logs
+pm2 logs football-prediction --lines 50
+# Common cause: Missing COOKIE_SECRET
+# Fix: Add to .env.local
+echo "COOKIE_SECRET=$(openssl rand -base64 32)" >> .env.local
+pm2 restart football-prediction
+```
+
+**"Unauthorized" (403) on data refresh**
+- Cause: Not logged in as admin
+- Fix: Login with admin account first
+
+**"Too many login attempts" (429)**
+- Cause: Rate limiting (5 attempts per IP / 15 min)
+- Fix: Wait 15 minutes, or restart app to clear in-memory limits
+
+**"Invalid fixture_id format" (400)**
+- Cause: ID is not a valid UUID
+- Fix: Use proper UUID format (e.g., `123e4567-e89b-12d3-a456-426614174000`)
+
+**Cookie not persisting after login**
+- Cause: Different `COOKIE_SECRET` between deployments
+- Fix: Use same secret, or users must re-login
+
+### Security File Locations
+
+| File | Purpose |
+|------|---------|
+| `lib/auth/cookie-sign.ts` | HMAC-SHA256 cookie signing |
+| `lib/auth/rate-limit.ts` | Login brute force protection |
+| `lib/auth/verify-admin.ts` | Admin verification helper |
+| `lib/validation.ts` | Input validation (UUID, range, etc.) |
+| `lib/config/validate-env.ts` | Startup environment validation |
+| `middleware.ts` | Route protection & auth |
+| `components/error-boundary.tsx` | React error catching |
+
+### Health Check Commands
+
+```bash
+# Check app status
+pm2 status football-prediction
+
+# View logs
+pm2 logs football-prediction --lines 50
+
+# Check env validation passed
+pm2 logs football-prediction | grep "Env Validation"
+
+# Test site responds (307 = redirect to login, expected)
+curl -s -o /dev/null -w "%{http_code}" https://football.analyserinsights.com/
+```
+
+---
+
 ## MCP Servers
 
 This project uses two MCP servers configured in `.claude/settings.local.json`:
