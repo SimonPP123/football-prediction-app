@@ -87,6 +87,7 @@ export async function POST(request: Request) {
     // Trigger n8n webhook for AI prediction
     const webhookPayload = {
       fixture_id: fixtureData.id,
+      league_id: fixtureData.league_id,  // Include league_id for predictions table
       home_team: fixtureData.home_team?.name,
       home_team_id: fixtureData.home_team_id,
       away_team: fixtureData.away_team?.name,
