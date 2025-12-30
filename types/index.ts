@@ -80,6 +80,7 @@ export interface Prediction {
   prediction_result: '1' | 'X' | '2' | '1X' | 'X2' | '12' | null
   confidence_level: 'high' | 'medium' | 'low' | null
   confidence_pct: number | null
+  certainty_score: number | null  // AI's independent certainty assessment (1-100%)
   factors: Record<string, any>
   analysis_text: string | null
   key_factors: string[] | null
@@ -116,6 +117,7 @@ export interface PredictionHistory {
   over_under_2_5: string | null
   btts: string | null
   confidence_pct: number | null
+  certainty_score: number | null  // AI's independent certainty assessment (1-100%)
   created_at: string
 }
 

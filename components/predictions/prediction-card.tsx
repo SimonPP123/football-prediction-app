@@ -242,9 +242,9 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                 )}>
                   {prediction.prediction_result || '?'}
                 </div>
-                {/* Confidence percentage - prioritize confidence_pct over overall_index */}
-                <span className={cn('text-xs mt-1 font-medium', getConfidenceColor(prediction.confidence_pct || prediction.overall_index || 0))}>
-                  {prediction.confidence_pct || prediction.overall_index}% confident
+                {/* Certainty score - AI's independent assessment (prioritize over confidence_pct) */}
+                <span className={cn('text-xs mt-1 font-medium', getConfidenceColor(prediction.certainty_score || prediction.confidence_pct || prediction.overall_index || 0))}>
+                  {prediction.certainty_score || prediction.confidence_pct || prediction.overall_index}% certain
                 </span>
               </>
             ) : (
@@ -717,7 +717,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                             {h.prediction_result || '?'}
                           </span>
                           <span className="font-medium text-sm">
-                            {h.confidence_pct || h.overall_index}% confident
+                            {h.certainty_score || h.confidence_pct || h.overall_index}% certain
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {new Date(h.created_at).toLocaleDateString('en-GB', {

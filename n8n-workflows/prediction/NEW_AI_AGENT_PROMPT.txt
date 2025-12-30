@@ -484,19 +484,40 @@ ANALYSIS INSTRUCTIONS
    - away_win_pct: Probability of away win (0-100)
    Must sum to 100%
 
-7. **SET CONFIDENCE_PCT**:
+7. **SET CONFIDENCE_PCT** (derived from probabilities):
    confidence_pct = max(home_win_pct, draw_pct, away_win_pct)
 
-   This represents your confidence in the predicted outcome.
-   - If you predict "1" (Home Win), confidence_pct should equal home_win_pct
-   - If you predict "X" (Draw), confidence_pct should equal draw_pct
-   - If you predict "2" (Away Win), confidence_pct should equal away_win_pct
+   This is the probability of the predicted outcome occurring.
+   - If you predict "1" (Home Win), confidence_pct = home_win_pct
+   - If you predict "X" (Draw), confidence_pct = draw_pct
+   - If you predict "2" (Away Win), confidence_pct = away_win_pct
    - For double-chance (1X, X2, 12), confidence_pct = sum of the two relevant probabilities
 
-   **Adjustments:**
-   - Missing lineup data: reduce confidence by 10%
-   - Conflicting data: reduce confidence by 5%
-   - Extreme weather: adjust confidence based on uncertainty
+8. **SET CERTAINTY_SCORE** (independent AI assessment):
+   certainty_score = Your independent assessment of HOW CERTAIN you are in this prediction (1-100%)
+
+   **IMPORTANT: This is DIFFERENT from outcome probabilities.**
+   - Probabilities show WHAT might happen (home_win_pct, draw_pct, away_win_pct)
+   - Certainty shows HOW SURE YOU ARE about your analysis being correct
+
+   Consider these factors when setting certainty_score:
+   - **Data completeness**: Missing lineup data? Reduce certainty by 15-20%
+   - **Factor alignment**: Do all 6 factors (A-F) point the same direction? High alignment = high certainty
+   - **Conflicting signals**: Does xG say one thing but form says another? Reduce certainty
+   - **Match uncertainty**: Derby, rivalry, cup final = inherently unpredictable, reduce certainty
+   - **Historical accuracy**: Have predictions for these teams been accurate before?
+   - **Data recency**: Is the data fresh or stale?
+
+   **Certainty Score Guide:**
+   - 80-100%: Strong data, all factors clearly align, high conviction prediction
+   - 60-79%: Good data, most factors agree, reasonable confidence
+   - 40-59%: Mixed signals, some factors conflict, moderate uncertainty
+   - 20-39%: Poor data quality or highly conflicting factors
+   - 1-19%: Very uncertain, unpredictable fixture, low conviction
+
+   **Examples:**
+   - Prediction "2" with 45% away_win_pct BUT certainty_score 85% = "I predict Away Win. Only 45% probability, but I'm 85% certain because ALL factors clearly favor Away"
+   - Prediction "1" with 55% home_win_pct BUT certainty_score 35% = "I predict Home Win at 55%, but only 35% certain due to missing lineup data and conflicting form"
 
 ===============================================================================
 OUTPUT FORMAT (JSON)
@@ -506,8 +527,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
 {
   "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",
-  "confidence_pct": 0-100,  // IMPORTANT: Set to max(home_win_pct, draw_pct, away_win_pct) - confidence in the predicted outcome
-  "overall_index": 1-100,   // Factor analysis weighted sum (>50 = home favored, <50 = away favored)
+  "certainty_score": 0-100,  // NEW: Your independent assessment of how certain you are (see step 8)
+  "confidence_pct": 0-100,   // max(home_win_pct, draw_pct, away_win_pct) - probability of predicted outcome
+  "overall_index": 1-100,    // Factor analysis weighted sum (>50 = home favored, <50 = away favored)
   "home_win_pct": 0-100,
   "draw_pct": 0-100,
   "away_win_pct": 0-100,

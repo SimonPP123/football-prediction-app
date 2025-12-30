@@ -241,15 +241,15 @@ export default function MatchDetailPage() {
                      prediction.prediction_result === 'X2' ? 'Draw or Away' :
                      'Home or Away'}
                   </p>
-                  {/* Confidence percentage - shows how confident the AI is in this prediction */}
-                  {prediction.confidence_pct && (
+                  {/* Certainty score - AI's independent assessment of prediction certainty */}
+                  {(prediction.certainty_score || prediction.confidence_pct) && (
                     <p className={cn(
                       "text-sm font-semibold mt-1",
-                      prediction.confidence_pct >= 70 ? 'text-green-500' :
-                      prediction.confidence_pct >= 50 ? 'text-amber-500' :
+                      (prediction.certainty_score || prediction.confidence_pct) >= 70 ? 'text-green-500' :
+                      (prediction.certainty_score || prediction.confidence_pct) >= 50 ? 'text-amber-500' :
                       'text-red-500'
                     )}>
-                      {prediction.confidence_pct}% confident
+                      {prediction.certainty_score || prediction.confidence_pct}% certain
                     </p>
                   )}
                 </div>
