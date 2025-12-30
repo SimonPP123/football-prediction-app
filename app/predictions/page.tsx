@@ -305,23 +305,23 @@ export default function PredictionsPage() {
       />
 
       {/* Data Freshness Indicators */}
-      <div className="px-6 pt-4 flex items-center gap-3 flex-wrap">
+      <div className="px-6 pt-4 flex items-center gap-4 flex-wrap">
         <span className="text-xs text-muted-foreground">Data Status:</span>
         <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Fixtures</span>
-          <DataFreshnessBadge category="fixtures" size="sm" />
+          <DataFreshnessBadge category="fixtures" size="sm" showInfo />
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Predictions</span>
-          <DataFreshnessBadge category="predictions" size="sm" />
+          <DataFreshnessBadge category="predictions" size="sm" showInfo />
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Analysis</span>
-          <DataFreshnessBadge category="match-analysis" size="sm" />
+          <DataFreshnessBadge category="match-analysis" size="sm" showInfo />
         </div>
         <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Odds</span>
-          <DataFreshnessBadge category="odds" size="sm" />
+          <DataFreshnessBadge category="odds" size="sm" showInfo />
         </div>
       </div>
 

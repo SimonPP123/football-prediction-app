@@ -61,7 +61,7 @@ export default function StandingsPage() {
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Last updated:</span>
-            <DataFreshnessBadge category="standings" size="md" />
+            <DataFreshnessBadge category="standings" size="md" showInfo />
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1">

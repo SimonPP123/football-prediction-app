@@ -40,7 +40,7 @@ export default async function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold text-lg">Upcoming Matches</h2>
-                <DataFreshnessBadge category="fixtures" size="sm" />
+                <DataFreshnessBadge category="fixtures" size="sm" showInfo />
               </div>
               <Link href="/predictions" className="text-sm text-primary hover:underline">
                 View All
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
               <div className="p-4 border-b flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <h2 className="font-semibold">League Table</h2>
-                  <DataFreshnessBadge category="standings" size="sm" />
+                  <DataFreshnessBadge category="standings" size="sm" showInfo />
                 </div>
                 <Link href="/standings" className="text-sm text-primary hover:underline">
                   Full Table
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h2 className="font-semibold text-lg">Recent Results</h2>
-              <DataFreshnessBadge category="match-analysis" size="sm" />
+              <DataFreshnessBadge category="match-analysis" size="sm" showInfo />
             </div>
             <Link href="/matches" className="text-sm text-primary hover:underline">
               View All
