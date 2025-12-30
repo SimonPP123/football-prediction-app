@@ -5,18 +5,17 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const today = new Date().toISOString().split('T')[0]
+    // Get recent injuries (created within last 30 days, or no fixture yet completed)
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    // Get current injuries only:
-    // - No return date (still injured) OR return date is in the future
     const { data, error } = await supabase
       .from('injuries')
       .select(`
         *,
-        team:teams(id, name, logo),
-        player:players(id, name, photo)
+        team:teams(id, name, logo)
       `)
-      .or(`expected_return.is.null,expected_return.gte.${today}`)
+      .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
 
     if (error) throw error
