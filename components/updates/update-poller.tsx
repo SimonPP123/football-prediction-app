@@ -36,57 +36,6 @@ const POLLABLE_CATEGORIES: DataCategory[] = [
   'top-performers',
 ]
 
-// Endpoint-specific interval options with recommended defaults
-interface IntervalOption {
-  label: string
-  value: number
-  recommended?: boolean
-}
-
-const CATEGORY_INTERVALS: Record<string, IntervalOption[]> = {
-  fixtures: [
-    { label: '1 hour', value: 60 },
-    { label: '2 hours', value: 120, recommended: true },
-    { label: '4 hours', value: 240 },
-    { label: '6 hours', value: 360 },
-  ],
-  standings: [
-    { label: '2 hours', value: 120 },
-    { label: '4 hours', value: 240 },
-    { label: '6 hours', value: 360, recommended: true },
-    { label: '12 hours', value: 720 },
-  ],
-  injuries: [
-    { label: '4 hours', value: 240 },
-    { label: '6 hours', value: 360 },
-    { label: '12 hours', value: 720, recommended: true },
-    { label: '24 hours', value: 1440 },
-  ],
-  odds: [
-    { label: '1 hour', value: 60 },
-    { label: '2 hours', value: 120, recommended: true },
-    { label: '4 hours', value: 240 },
-    { label: '6 hours', value: 360 },
-  ],
-  lineups: [
-    { label: '30 min', value: 30 },
-    { label: '1 hour', value: 60, recommended: true },
-    { label: '2 hours', value: 120 },
-    { label: '4 hours', value: 240 },
-  ],
-  'team-stats': [
-    { label: '6 hours', value: 360 },
-    { label: '12 hours', value: 720 },
-    { label: '24 hours', value: 1440, recommended: true },
-    { label: '48 hours', value: 2880 },
-  ],
-  'top-performers': [
-    { label: '12 hours', value: 720 },
-    { label: '24 hours', value: 1440, recommended: true },
-    { label: '48 hours', value: 2880 },
-    { label: '72 hours', value: 4320 },
-  ],
-}
 
 export function usePollerSettings() {
   const [settings, setSettings] = useState<PollerSettings>(DEFAULT_SETTINGS)
@@ -228,19 +177,51 @@ interface PollerSettingsProps {
   className?: string
 }
 
+// Recommended intervals for each category (in minutes)
+const RECOMMENDED_INTERVALS: Record<string, number> = {
+  fixtures: 120,
+  standings: 360,
+  injuries: 720,
+  odds: 120,
+  lineups: 60,
+  'team-stats': 1440,
+  'top-performers': 1440,
+}
+
+// Format minutes to human-readable string
+function formatInterval(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`
+  if (minutes < 1440) return `${minutes / 60}h`
+  return `${minutes / 1440}d`
+}
+
 export function PollerSettingsPanel({ className }: PollerSettingsProps) {
   const { settings, isLoaded, setEnabled, setInterval } = usePollerSettings()
 
   if (!isLoaded) return null
 
-  const categoryLabels: Record<string, string> = {
-    fixtures: 'Fixtures',
-    standings: 'Standings',
-    injuries: 'Injuries',
-    odds: 'Odds',
-    lineups: 'Lineups',
-    'team-stats': 'Team Stats',
-    'top-performers': 'Top Performers',
+  const categoryConfig: Record<string, { label: string; description: string }> = {
+    fixtures: { label: 'Fixtures', description: 'Match schedules & scores' },
+    standings: { label: 'Standings', description: 'League table' },
+    injuries: { label: 'Injuries', description: 'Player injuries' },
+    odds: { label: 'Odds', description: 'Betting odds' },
+    lineups: { label: 'Lineups', description: 'Starting XI' },
+    'team-stats': { label: 'Team Stats', description: 'Team metrics' },
+    'top-performers': { label: 'Top Performers', description: 'Scorers & assists' },
+  }
+
+  const handleIntervalChange = (category: string, value: number, unit: 'minutes' | 'hours') => {
+    const minutes = unit === 'hours' ? value * 60 : value
+    // Minimum 10 minutes, maximum 7 days
+    const clamped = Math.max(10, Math.min(minutes, 10080))
+    setInterval(category, clamped)
+  }
+
+  const getDisplayValue = (minutes: number): { value: number; unit: 'minutes' | 'hours' } => {
+    if (minutes >= 60 && minutes % 60 === 0) {
+      return { value: minutes / 60, unit: 'hours' }
+    }
+    return { value: minutes, unit: 'minutes' }
   }
 
   return (
@@ -267,25 +248,48 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
       </div>
 
       {settings.enabled && (
-        <div className="space-y-3 pt-3 border-t border-border">
+        <div className="space-y-4 pt-3 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            Enter custom intervals (min: 10 minutes, max: 7 days)
+          </p>
           {POLLABLE_CATEGORIES.map(category => {
-            const options = CATEGORY_INTERVALS[category] || []
-            const currentValue = settings.intervals[category] || DEFAULT_SETTINGS.intervals[category]
+            const config = categoryConfig[category]
+            const currentMinutes = settings.intervals[category] || DEFAULT_SETTINGS.intervals[category]
+            const recommended = RECOMMENDED_INTERVALS[category]
+            const { value, unit } = getDisplayValue(currentMinutes)
 
             return (
-              <div key={category} className="flex items-center justify-between">
-                <span className="text-sm">{categoryLabels[category] || category}</span>
-                <select
-                  value={currentValue}
-                  onChange={e => setInterval(category, parseInt(e.target.value))}
-                  className="text-sm bg-muted border border-border rounded px-2 py-1"
-                >
-                  {options.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}{opt.recommended ? ' (Recommended)' : ''}
-                    </option>
-                  ))}
-                </select>
+              <div key={category} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">{config?.label || category}</span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      (rec: {formatInterval(recommended)})
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={unit === 'hours' ? 1 : 10}
+                    max={unit === 'hours' ? 168 : 10080}
+                    value={value}
+                    onChange={e => handleIntervalChange(category, parseInt(e.target.value) || 1, unit)}
+                    className="w-20 text-sm bg-muted border border-border rounded px-2 py-1 text-center"
+                  />
+                  <select
+                    value={unit}
+                    onChange={e => {
+                      const newUnit = e.target.value as 'minutes' | 'hours'
+                      const newValue = newUnit === 'hours' ? Math.max(1, Math.floor(value / 60)) : value * 60
+                      handleIntervalChange(category, newValue, newUnit)
+                    }}
+                    className="text-sm bg-muted border border-border rounded px-2 py-1"
+                  >
+                    <option value="minutes">minutes</option>
+                    <option value="hours">hours</option>
+                  </select>
+                </div>
               </div>
             )
           })}
