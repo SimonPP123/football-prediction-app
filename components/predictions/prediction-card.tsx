@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
@@ -804,6 +804,17 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                           BTTS: {h.btts || h.factors?.btts}
                         </span>
                       )}
+                      {/* Overall Index */}
+                      {h.overall_index != null && (
+                        <span className={cn(
+                          "px-2 py-0.5 rounded",
+                          h.overall_index >= 60 && "bg-green-500/20 text-green-600",
+                          h.overall_index <= 40 && "bg-red-500/20 text-red-600",
+                          h.overall_index > 40 && h.overall_index < 60 && "bg-muted text-muted-foreground"
+                        )}>
+                          Index: {h.overall_index.toFixed(1)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Row 3: Probability Bar */}
@@ -857,6 +868,21 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                           </div>
                         </div>
                       </div>
+
+                      {/* Factor Analysis */}
+                      {h.factors && (h.factors.A_base_strength || h.factors.B_form) && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-2 flex items-center gap-1">
+                            <BarChart3 className="w-3 h-3 text-primary" />
+                            Factor Analysis
+                          </h5>
+                          <FactorBreakdown
+                            factors={h.factors}
+                            overallIndex={h.overall_index}
+                            compact={true}
+                          />
+                        </div>
+                      )}
 
                       {/* Score Predictions */}
                       {h.score_predictions && h.score_predictions.length > 0 && (
