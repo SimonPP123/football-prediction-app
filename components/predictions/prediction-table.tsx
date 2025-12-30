@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { OddsMarket, OddsOutcome } from '@/types'
+import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
 interface PredictionTableProps {
@@ -68,10 +68,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
               <th className="text-left p-3">Date</th>
               <th className="text-left p-3">Home</th>
               <th className="text-center p-3">Pred</th>
+              <th className="text-center p-3">Score</th>
               <th className="text-left p-3">Away</th>
-              <th className="text-center p-3">Conf</th>
+              <th className="text-center p-3">Certainty</th>
               <th className="text-center p-3">O/U</th>
               <th className="text-center p-3">BTTS</th>
+              <th className="text-center p-3">Value</th>
               <th className="text-center p-3">Odds</th>
               <th className="text-center p-3">Action</th>
             </tr>
@@ -79,8 +81,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
           <tbody>
             {fixtures.map((fixture) => {
               // Handle both array and object formats from Supabase
+              // Sort by updated_at DESC to ensure we always show the most recent prediction
               const prediction = Array.isArray(fixture.prediction)
-                ? fixture.prediction[0]
+                ? fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
+                    new Date(b.updated_at || b.created_at || 0).getTime() -
+                    new Date(a.updated_at || a.created_at || 0).getTime()
+                  )[0]
                 : fixture.prediction
               const isExpanded = expandedId === fixture.id
               const isGenerating = generatingIds.includes(fixture.id)
@@ -137,6 +143,9 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                         <span className="text-muted-foreground">-</span>
                       )}
                     </td>
+                    <td className="p-3 text-center text-sm font-medium">
+                      {prediction?.most_likely_score || '-'}
+                    </td>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
                         {fixture.away_team?.logo && (
@@ -152,12 +161,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                       </div>
                     </td>
                     <td className="p-3 text-center">
-                      {prediction?.overall_index ? (
+                      {(prediction?.certainty_score || prediction?.confidence_pct || prediction?.overall_index) ? (
                         <span className={cn(
                           'inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium',
-                          getConfidenceBadge(prediction.overall_index)
+                          getConfidenceBadge(prediction.certainty_score || prediction.confidence_pct || prediction.overall_index)
                         )}>
-                          {prediction.overall_index}%
+                          {prediction.certainty_score || prediction.confidence_pct || prediction.overall_index}%
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -169,15 +178,58 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                     <td className="p-3 text-center text-sm">
                       {prediction?.btts || prediction?.factors?.btts || '-'}
                     </td>
+                    <td className="p-3 text-center text-sm">
+                      {prediction?.value_bet ? (
+                        <span className="text-primary font-medium">{prediction.value_bet}</span>
+                      ) : '-'}
+                    </td>
                     <td className="p-3 text-center">
                       {hasOdds ? (
-                        <div className="flex items-center justify-center gap-1 text-xs">
-                          <DollarSign className="w-3 h-3 text-green-500" />
-                          <span className="font-medium">{bestHome.price.toFixed(2)}</span>
-                          <span className="text-muted-foreground">/</span>
-                          <span className="font-medium">{bestDraw.price.toFixed(2)}</span>
-                          <span className="text-muted-foreground">/</span>
-                          <span className="font-medium">{bestAway.price.toFixed(2)}</span>
+                        <div className="group relative">
+                          <div className="flex items-center justify-center gap-1 text-xs cursor-help">
+                            <DollarSign className="w-3 h-3 text-green-500" />
+                            <span className="font-medium">{bestHome.price.toFixed(2)}</span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="font-medium">{bestDraw.price.toFixed(2)}</span>
+                            <span className="text-muted-foreground">/</span>
+                            <span className="font-medium">{bestAway.price.toFixed(2)}</span>
+                          </div>
+                          {/* Tooltip with all bookmakers */}
+                          <div className="hidden group-hover:block absolute z-50 bg-popover border border-border rounded-lg shadow-lg p-3 min-w-[280px] right-0 top-full mt-1">
+                            <div className="text-xs font-medium mb-2 text-foreground">
+                              All Bookmakers ({odds.filter(o => o.bet_type === 'h2h').length})
+                            </div>
+                            <div className="grid grid-cols-4 gap-1 text-xs mb-2 text-muted-foreground font-medium">
+                              <span>Bookmaker</span>
+                              <span className="text-center">1</span>
+                              <span className="text-center">X</span>
+                              <span className="text-center">2</span>
+                            </div>
+                            <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                              {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
+                                const homePrice = o.values?.[0]?.price || 0
+                                const drawPrice = o.values?.[1]?.price || 0
+                                const awayPrice = o.values?.[2]?.price || 0
+                                return (
+                                  <div key={i} className="grid grid-cols-4 gap-1 text-xs">
+                                    <span className="text-muted-foreground truncate">{o.bookmaker}</span>
+                                    <span className={cn(
+                                      'text-center',
+                                      homePrice === bestHome.price && 'text-green-500 font-bold'
+                                    )}>{homePrice.toFixed(2)}</span>
+                                    <span className={cn(
+                                      'text-center',
+                                      drawPrice === bestDraw.price && 'text-green-500 font-bold'
+                                    )}>{drawPrice.toFixed(2)}</span>
+                                    <span className={cn(
+                                      'text-center',
+                                      awayPrice === bestAway.price && 'text-green-500 font-bold'
+                                    )}>{awayPrice.toFixed(2)}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -230,7 +282,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                   {/* Expanded Row */}
                   {isExpanded && prediction && (
                     <tr key={`${fixture.id}-expanded`}>
-                      <td colSpan={9} className="bg-muted/20 p-4">
+                      <td colSpan={11} className="bg-muted/20 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           {/* Factor Analysis - New Section */}
                           {prediction.factors && (prediction.factors.A_base_strength || prediction.factors.B_form) && (
@@ -292,31 +344,45 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                             </div>
                           )}
 
-                          {/* Betting Odds */}
+                          {/* Betting Odds - All Bookmakers */}
                           <div>
                             <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
                               <DollarSign className="w-4 h-4 text-green-500" />
-                              Best Odds
+                              All Bookmakers ({odds.filter(o => o.bet_type === 'h2h').length})
                             </h4>
                             {hasOdds ? (
-                              <div className="space-y-2">
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="w-6 font-medium">1</span>
-                                  <span className="flex-1 text-green-500 font-medium">{bestHome.price.toFixed(2)}</span>
-                                  <span className="text-xs text-muted-foreground">{(bestHome as any).bookmaker}</span>
+                              <div className="space-y-1">
+                                {/* Header row */}
+                                <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground font-medium pb-1 border-b border-border">
+                                  <span>Bookmaker</span>
+                                  <span className="text-center">1</span>
+                                  <span className="text-center">X</span>
+                                  <span className="text-center">2</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="w-6 font-medium">X</span>
-                                  <span className="flex-1 text-green-500 font-medium">{bestDraw.price.toFixed(2)}</span>
-                                  <span className="text-xs text-muted-foreground">{(bestDraw as any).bookmaker}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <span className="w-6 font-medium">2</span>
-                                  <span className="flex-1 text-green-500 font-medium">{bestAway.price.toFixed(2)}</span>
-                                  <span className="text-xs text-muted-foreground">{(bestAway as any).bookmaker}</span>
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-2">
-                                  {odds.filter(o => o.bet_type === 'h2h').length} bookmakers
+                                {/* Bookmaker rows */}
+                                <div className="max-h-[150px] overflow-y-auto space-y-1">
+                                  {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
+                                    const homePrice = o.values?.[0]?.price || 0
+                                    const drawPrice = o.values?.[1]?.price || 0
+                                    const awayPrice = o.values?.[2]?.price || 0
+                                    return (
+                                      <div key={i} className="grid grid-cols-4 gap-2 text-sm">
+                                        <span className="text-muted-foreground truncate text-xs">{o.bookmaker}</span>
+                                        <span className={cn(
+                                          'text-center',
+                                          homePrice === bestHome.price && 'text-green-500 font-bold'
+                                        )}>{homePrice.toFixed(2)}</span>
+                                        <span className={cn(
+                                          'text-center',
+                                          drawPrice === bestDraw.price && 'text-green-500 font-bold'
+                                        )}>{drawPrice.toFixed(2)}</span>
+                                        <span className={cn(
+                                          'text-center',
+                                          awayPrice === bestAway.price && 'text-green-500 font-bold'
+                                        )}>{awayPrice.toFixed(2)}</span>
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             ) : (
