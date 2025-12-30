@@ -293,7 +293,7 @@ export default function DataManagementPage() {
   const fetchStats = async () => {
     try {
       const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/stats${leagueParam}`)
+      const res = await fetch(`/api/data/stats${leagueParam}`, { credentials: 'include' })
       const data = await res.json()
       const { _summary, ...tableStats } = data
       setStats(tableStats)
@@ -372,6 +372,7 @@ export default function DataManagementPage() {
       const leagueParam = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
       const res = await fetch(`${source.refreshEndpoint}?stream=true${leagueParam}`, {
         method: 'POST',
+        credentials: 'include',
         signal: abortController.signal
       })
 
@@ -492,6 +493,7 @@ export default function DataManagementPage() {
       const leagueParam = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
       const res = await fetch(`/api/data/refresh/odds?stream=true${leagueParam}`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fixture_ids: fixtureIds }),
       })
@@ -648,6 +650,7 @@ export default function DataManagementPage() {
     try {
       const res = await fetch(`${endpoint}?league_id=${leagueId}`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
       })
