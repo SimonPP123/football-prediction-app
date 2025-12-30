@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { MatchHeader } from '@/components/matches/match-header'
@@ -42,39 +42,65 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('prediction')
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    fetchFixture()
+    // Cancel any pending request when fixture changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    fetchFixture(abortControllerRef.current.signal)
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [params.id, currentLeague?.id])
 
-  const fetchFixture = async () => {
+  const fetchFixture = async (signal?: AbortSignal) => {
     try {
       setLoading(true)
-      const res = await fetch(`/api/fixtures/${params.id}`)
+      const res = await fetch(`/api/fixtures/${params.id}`, { signal })
       if (!res.ok) throw new Error('Failed to fetch fixture')
+
+      if (signal?.aborted) return
+
       const data = await res.json()
+
+      if (signal?.aborted) return
+
       setFixture(data)
 
       // Fetch injuries for both teams if we have team IDs
       if (data.home_team_id && data.away_team_id) {
         const [homeRes, awayRes] = await Promise.all([
-          fetch(`/api/injuries?team_id=${data.home_team_id}`),
-          fetch(`/api/injuries?team_id=${data.away_team_id}`)
+          fetch(`/api/injuries?team_id=${data.home_team_id}`, { signal }),
+          fetch(`/api/injuries?team_id=${data.away_team_id}`, { signal })
         ])
+
+        if (signal?.aborted) return
+
         if (homeRes.ok) {
           const homeData = await homeRes.json()
-          setHomeInjuries(homeData)
+          if (!signal?.aborted) setHomeInjuries(homeData)
         }
         if (awayRes.ok) {
           const awayData = await awayRes.json()
-          setAwayInjuries(awayData)
+          if (!signal?.aborted) setAwayInjuries(awayData)
         }
       }
-    } catch (err) {
-      setError('Failed to load match details')
-      console.error(err)
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        setError('Failed to load match details')
+        console.error(err)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
@@ -162,14 +188,15 @@ export default function MatchDetailPage() {
     { id: 'analysis', label: 'Analysis', icon: Brain, available: isCompleted },
   ]
 
-  const availableTabs = tabs.filter(t => t.available)
+  const availableTabs = useMemo(() => tabs.filter(t => t.available), [tabs])
 
-  // Set default tab to first available - using useEffect to avoid state update during render
+  // Set default tab to first available when tabs change (not when activeTab changes to avoid loop)
   useEffect(() => {
-    if (!availableTabs.find(t => t.id === activeTab) && availableTabs.length > 0) {
+    if (availableTabs.length > 0 && !availableTabs.find(t => t.id === activeTab)) {
       setActiveTab(availableTabs[0].id)
     }
-  }, [availableTabs, activeTab])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTabs])
 
   return (
     <div className="min-h-screen">

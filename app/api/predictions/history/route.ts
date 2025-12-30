@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { getPredictionHistory, deletePredictionHistoryRecord, deleteAllPredictionHistory } from '@/lib/supabase/queries'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +33,13 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Authentication check
+    const cookieStore = cookies()
+    const authCookie = cookieStore.get('football_auth')?.value
+    if (!authCookie) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const { searchParams } = new URL(request.url)
     const historyId = searchParams.get('history_id')
     const fixtureId = searchParams.get('fixture_id')
@@ -62,7 +70,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error: any) {
     console.error('Error deleting prediction history:', error)
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to delete prediction history' },
       { status: 500 }
     )
   }

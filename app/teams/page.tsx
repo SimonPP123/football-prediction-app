@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { TeamCard } from '@/components/teams/team-card'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
@@ -18,28 +18,50 @@ export default function TeamsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('rank')
   const { currentLeague } = useLeague()
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    fetchData()
+    // Cancel any pending request when league changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    fetchData(abortControllerRef.current.signal)
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [currentLeague?.id])
 
-  const fetchData = async () => {
+  const fetchData = async (signal?: AbortSignal) => {
     try {
+      setLoading(true)
       const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
       const [teamsRes, standingsRes] = await Promise.all([
-        fetch(`/api/teams${params}`),
-        fetch(`/api/standings${params}`),
+        fetch(`/api/teams${params}`, { signal }),
+        fetch(`/api/standings${params}`, { signal }),
       ])
+
+      if (signal?.aborted) return
 
       const teamsData = await teamsRes.json()
       const standingsData = await standingsRes.json()
+
+      if (signal?.aborted) return
 
       setTeams(teamsData)
       setStandings(standingsData)
 
       // Fetch injury counts per team
-      const injuryRes = await fetch(`/api/injuries${params}`)
+      const injuryRes = await fetch(`/api/injuries${params}`, { signal })
+      if (signal?.aborted) return
+
       const injuryData = await injuryRes.json()
+
+      if (signal?.aborted) return
 
       const injuryCounts: Record<string, number> = {}
       injuryData.forEach((injury: any) => {
@@ -47,50 +69,62 @@ export default function TeamsPage() {
         injuryCounts[teamId] = (injuryCounts[teamId] || 0) + 1
       })
       setInjuries(injuryCounts)
-    } catch (error) {
-      console.error('Failed to fetch teams data:', error)
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('Failed to fetch teams data:', error)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
-  // Create standings map
-  const standingsMap = new Map(standings.map((s: any) => [s.team_id, s]))
+  // Memoize standings map
+  const standingsMap = useMemo(() =>
+    new Map(standings.map((s: any) => [s.team_id, s])),
+    [standings]
+  )
 
-  // Filter and sort teams
-  const filteredTeams = teams
-    .filter((team: any) =>
-      team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (team.code && team.code.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
-    .sort((a: any, b: any) => {
-      const standingA = standingsMap.get(a.id)
-      const standingB = standingsMap.get(b.id)
+  // Memoize filtered and sorted teams
+  const filteredTeams = useMemo(() => {
+    return teams
+      .filter((team: any) =>
+        team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (team.code && team.code.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+      .sort((a: any, b: any) => {
+        const standingA = standingsMap.get(a.id)
+        const standingB = standingsMap.get(b.id)
 
-      switch (sortBy) {
-        case 'rank':
-          return (standingA?.rank || 99) - (standingB?.rank || 99)
-        case 'goals':
-          return (standingB?.goals_for || 0) - (standingA?.goals_for || 0)
-        case 'defense':
-          return (standingA?.goals_against || 0) - (standingB?.goals_against || 0)
-        case 'name':
-          return a.name.localeCompare(b.name)
-        case 'form':
-          // Count wins in last 5 matches
-          const formA = standingA?.form?.slice(0, 5).split('').filter((r: string) => r === 'W').length || 0
-          const formB = standingB?.form?.slice(0, 5).split('').filter((r: string) => r === 'W').length || 0
-          return formB - formA
-        default:
-          return 0
-      }
-    })
+        switch (sortBy) {
+          case 'rank':
+            return (standingA?.rank || 99) - (standingB?.rank || 99)
+          case 'goals':
+            return (standingB?.goals_for || 0) - (standingA?.goals_for || 0)
+          case 'defense':
+            return (standingA?.goals_against || 0) - (standingB?.goals_against || 0)
+          case 'name':
+            return a.name.localeCompare(b.name)
+          case 'form':
+            // Count wins in last 5 matches
+            const formA = standingA?.form?.slice(0, 5).split('').filter((r: string) => r === 'W').length || 0
+            const formB = standingB?.form?.slice(0, 5).split('').filter((r: string) => r === 'W').length || 0
+            return formB - formA
+          default:
+            return 0
+        }
+      })
+  }, [teams, searchQuery, sortBy, standingsMap])
 
-  // Calculate league stats
-  const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
-  const avgGoalsPerTeam = teams.length > 0 ? (totalGoals / teams.length).toFixed(1) : '0'
-  const topScorer = standings.sort((a, b) => (b.goals_for || 0) - (a.goals_for || 0))[0]
-  const bestDefense = standings.sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]
+  // Memoize league stats calculations
+  const { totalGoals, avgGoalsPerTeam, topScorer, bestDefense } = useMemo(() => {
+    const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
+    const avgGoalsPerTeam = teams.length > 0 ? (totalGoals / teams.length).toFixed(1) : '0'
+    const topScorer = [...standings].sort((a, b) => (b.goals_for || 0) - (a.goals_for || 0))[0]
+    const bestDefense = [...standings].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))[0]
+    return { totalGoals, avgGoalsPerTeam, topScorer, bestDefense }
+  }, [standings, teams.length])
 
   if (loading) {
     return (

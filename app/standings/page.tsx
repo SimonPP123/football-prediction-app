@@ -82,6 +82,34 @@ export default function StandingsPage() {
     return { totalGoals, totalMatches, avgGoalsPerMatch, topScorer, bestDefense }
   }, [standings])
 
+  // Memoize home form standings
+  const homeFormStandings = useMemo(() => {
+    return standings
+      .filter((s: any) => s.home_record)
+      .sort((a: any, b: any) => {
+        const aHome = a.home_record || {}
+        const bHome = b.home_record || {}
+        const aPts = (aHome.win || 0) * 3 + (aHome.draw || 0)
+        const bPts = (bHome.win || 0) * 3 + (bHome.draw || 0)
+        return bPts - aPts
+      })
+      .slice(0, 10)
+  }, [standings])
+
+  // Memoize away form standings
+  const awayFormStandings = useMemo(() => {
+    return standings
+      .filter((s: any) => s.away_record)
+      .sort((a: any, b: any) => {
+        const aAway = a.away_record || {}
+        const bAway = b.away_record || {}
+        const aPts = (aAway.win || 0) * 3 + (aAway.draw || 0)
+        const bPts = (bAway.win || 0) * 3 + (bAway.draw || 0)
+        return bPts - aPts
+      })
+      .slice(0, 10)
+  }, [standings])
+
   return (
     <div className="min-h-screen">
       <Header title="Standings" />
@@ -217,38 +245,28 @@ export default function StandingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {standings
-                    .filter((s: any) => s.home_record)
-                    .sort((a: any, b: any) => {
-                      const aHome = a.home_record || {}
-                      const bHome = b.home_record || {}
-                      const aPts = (aHome.win || 0) * 3 + (aHome.draw || 0)
-                      const bPts = (bHome.win || 0) * 3 + (bHome.draw || 0)
-                      return bPts - aPts
-                    })
-                    .slice(0, 10)
-                    .map((standing: any, idx: number) => {
-                      const home = standing.home_record || {}
-                      const pts = (home.win || 0) * 3 + (home.draw || 0)
-                      return (
-                        <tr key={standing.id} className="border-t border-border">
-                          <td className="p-2">{idx + 1}</td>
-                          <td className="p-2">
-                            <div className="flex items-center gap-2">
-                              {standing.team?.logo && (
-                                <img src={standing.team.logo} alt="" className="w-4 h-4" />
-                              )}
-                              <span className="text-sm">{standing.team?.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-2 text-center">{home.played || 0}</td>
-                          <td className="p-2 text-center text-green-500">{home.win || 0}</td>
-                          <td className="p-2 text-center">{home.draw || 0}</td>
-                          <td className="p-2 text-center text-red-500">{home.lose || 0}</td>
-                          <td className="p-2 text-center font-bold">{pts}</td>
-                        </tr>
-                      )
-                    })}
+                  {homeFormStandings.map((standing: any, idx: number) => {
+                    const home = standing.home_record || {}
+                    const pts = (home.win || 0) * 3 + (home.draw || 0)
+                    return (
+                      <tr key={standing.id} className="border-t border-border">
+                        <td className="p-2">{idx + 1}</td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            {standing.team?.logo && (
+                              <img src={standing.team.logo} alt="" className="w-4 h-4" />
+                            )}
+                            <span className="text-sm">{standing.team?.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-2 text-center">{home.played || 0}</td>
+                        <td className="p-2 text-center text-green-500">{home.win || 0}</td>
+                        <td className="p-2 text-center">{home.draw || 0}</td>
+                        <td className="p-2 text-center text-red-500">{home.lose || 0}</td>
+                        <td className="p-2 text-center font-bold">{pts}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -273,38 +291,28 @@ export default function StandingsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {standings
-                    .filter((s: any) => s.away_record)
-                    .sort((a: any, b: any) => {
-                      const aAway = a.away_record || {}
-                      const bAway = b.away_record || {}
-                      const aPts = (aAway.win || 0) * 3 + (aAway.draw || 0)
-                      const bPts = (bAway.win || 0) * 3 + (bAway.draw || 0)
-                      return bPts - aPts
-                    })
-                    .slice(0, 10)
-                    .map((standing: any, idx: number) => {
-                      const away = standing.away_record || {}
-                      const pts = (away.win || 0) * 3 + (away.draw || 0)
-                      return (
-                        <tr key={standing.id} className="border-t border-border">
-                          <td className="p-2">{idx + 1}</td>
-                          <td className="p-2">
-                            <div className="flex items-center gap-2">
-                              {standing.team?.logo && (
-                                <img src={standing.team.logo} alt="" className="w-4 h-4" />
-                              )}
-                              <span className="text-sm">{standing.team?.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-2 text-center">{away.played || 0}</td>
-                          <td className="p-2 text-center text-green-500">{away.win || 0}</td>
-                          <td className="p-2 text-center">{away.draw || 0}</td>
-                          <td className="p-2 text-center text-red-500">{away.lose || 0}</td>
-                          <td className="p-2 text-center font-bold">{pts}</td>
-                        </tr>
-                      )
-                    })}
+                  {awayFormStandings.map((standing: any, idx: number) => {
+                    const away = standing.away_record || {}
+                    const pts = (away.win || 0) * 3 + (away.draw || 0)
+                    return (
+                      <tr key={standing.id} className="border-t border-border">
+                        <td className="p-2">{idx + 1}</td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-2">
+                            {standing.team?.logo && (
+                              <img src={standing.team.logo} alt="" className="w-4 h-4" />
+                            )}
+                            <span className="text-sm">{standing.team?.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-2 text-center">{away.played || 0}</td>
+                        <td className="p-2 text-center text-green-500">{away.win || 0}</td>
+                        <td className="p-2 text-center">{away.draw || 0}</td>
+                        <td className="p-2 text-center text-red-500">{away.lose || 0}</td>
+                        <td className="p-2 text-center font-bold">{pts}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

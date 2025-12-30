@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabase, createServerClient } from '@/lib/supabase/client'
 
 export async function GET(
@@ -6,6 +7,13 @@ export async function GET(
   { params }: { params: { fixture_id: string } }
 ) {
   try {
+    // Authentication check
+    const cookieStore = cookies()
+    const authCookie = cookieStore.get('football_auth')?.value
+    if (!authCookie) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const { data, error } = await supabase
       .from('match_analysis')
       .select('*')
@@ -30,6 +38,13 @@ export async function DELETE(
   { params }: { params: { fixture_id: string } }
 ) {
   try {
+    // Authentication check
+    const cookieStore = cookies()
+    const authCookie = cookieStore.get('football_auth')?.value
+    if (!authCookie) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const serverSupabase = createServerClient()
 
     const { error } = await serverSupabase

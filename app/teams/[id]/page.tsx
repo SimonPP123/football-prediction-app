@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { TeamStatsDashboard } from '@/components/teams/team-stats-dashboard'
@@ -38,26 +38,43 @@ export default function TeamDetailPage() {
   const [predictions, setPredictions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    fetchTeamData()
+    // Cancel any pending request when team changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    fetchTeamData(abortControllerRef.current.signal)
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [params.id])
 
-  const fetchTeamData = async () => {
+  const fetchTeamData = async (signal?: AbortSignal) => {
     try {
       setLoading(true)
       const teamId = params.id as string
 
       // Fetch all team data in parallel
       const [teamRes, standingsRes, injuriesRes] = await Promise.all([
-        fetch(`/api/teams/${teamId}`),
-        fetch('/api/standings'),
-        fetch(`/api/injuries?team_id=${teamId}`),  // Filter by team_id server-side
+        fetch(`/api/teams/${teamId}`, { signal }),
+        fetch('/api/standings', { signal }),
+        fetch(`/api/injuries?team_id=${teamId}`, { signal }),
       ])
+
+      if (signal?.aborted) return
 
       const teamData = await teamRes.json()
       const standingsData = await standingsRes.json()
       const injuriesData = await injuriesRes.json()
+
+      if (signal?.aborted) return
 
       setTeam(teamData)
       setStats(teamData.season_stats?.[0] || null)
@@ -88,10 +105,14 @@ export default function TeamDetailPage() {
       if (teamData.predictions) {
         setPredictions(teamData.predictions)
       }
-    } catch (error) {
-      console.error('Failed to fetch team data:', error)
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('Failed to fetch team data:', error)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
