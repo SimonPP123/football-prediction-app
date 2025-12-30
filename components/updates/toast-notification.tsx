@@ -13,16 +13,50 @@ interface Toast {
 }
 
 const TOAST_DURATION = 5000 // 5 seconds
+const DISMISSED_IDS_KEY = 'football-ai-dismissed-toasts'
+
+// Helper to load dismissed IDs from sessionStorage
+function loadDismissedIds(): Set<string> {
+  try {
+    const stored = sessionStorage.getItem(DISMISSED_IDS_KEY)
+    if (stored) {
+      return new Set(JSON.parse(stored))
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+  return new Set()
+}
+
+// Helper to save dismissed IDs to sessionStorage
+function saveDismissedIds(ids: Set<string>) {
+  try {
+    // Keep only last 50 IDs to prevent storage bloat
+    const entries = Array.from(ids)
+    const trimmed = entries.slice(-50)
+    sessionStorage.setItem(DISMISSED_IDS_KEY, JSON.stringify(trimmed))
+  } catch (e) {
+    // Ignore errors
+  }
+}
 
 export function ToastNotificationContainer() {
   const { refreshHistory } = useUpdates()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null)
-  // Track dismissed toast IDs to prevent them from reappearing
+  // Track dismissed toast IDs to prevent them from reappearing (persisted to sessionStorage)
   const dismissedIdsRef = useRef<Set<string>>(new Set())
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Load dismissed IDs from sessionStorage on mount
+  useEffect(() => {
+    dismissedIdsRef.current = loadDismissedIds()
+    setIsInitialized(true)
+  }, [])
 
   // Watch for new events in refresh history
   useEffect(() => {
+    if (!isInitialized) return
     if (refreshHistory.length === 0) return
 
     const latestEvent = refreshHistory[0]
@@ -45,17 +79,14 @@ export function ToastNotificationContainer() {
     }, TOAST_DURATION)
 
     return () => clearTimeout(timer)
-  }, [refreshHistory, lastProcessedId])
+  }, [refreshHistory, lastProcessedId, isInitialized])
 
   const dismissToast = useCallback((id: string) => {
     // Track this ID as dismissed so it won't reappear
     dismissedIdsRef.current.add(id)
 
-    // Keep the set from growing too large (max 100 entries)
-    if (dismissedIdsRef.current.size > 100) {
-      const entries = Array.from(dismissedIdsRef.current)
-      dismissedIdsRef.current = new Set(entries.slice(-50))
-    }
+    // Persist to sessionStorage
+    saveDismissedIds(dismissedIdsRef.current)
 
     setToasts(prev =>
       prev.map(t => t.id === id ? { ...t, visible: false } : t)
