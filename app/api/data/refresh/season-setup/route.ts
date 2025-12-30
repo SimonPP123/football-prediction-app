@@ -5,13 +5,14 @@ export const dynamic = 'force-dynamic'
 
 // Season setup endpoints - run once at start of season or first-time setup
 // Order matters: teams must be first (foundation), then dependent data
+// timeout: in ms (default 2 min, player-squads needs 10 min due to rate limiting)
 const SEASON_SETUP_ENDPOINTS = [
-  { key: 'teams', name: 'Teams & Venues', description: 'Foundation data for all teams and stadiums' },
-  { key: 'fixtures', name: 'Season Fixtures', description: 'Full fixture list for the season' },
-  { key: 'standings', name: 'League Table', description: 'Initial standings and positions' },
-  { key: 'team-stats', name: 'Team Statistics', description: 'Season-to-date team stats' },
-  { key: 'coaches', name: 'Managers', description: 'Coach/manager information' },
-  { key: 'player-squads', name: 'Squad Rosters', description: 'Current squad assignments' },
+  { key: 'teams', name: 'Teams & Venues', description: 'Foundation data for all teams and stadiums', timeout: 120000 },
+  { key: 'fixtures', name: 'Season Fixtures', description: 'Full fixture list for the season', timeout: 120000 },
+  { key: 'standings', name: 'League Table', description: 'Initial standings and positions', timeout: 120000 },
+  { key: 'team-stats', name: 'Team Statistics', description: 'Season-to-date team stats', timeout: 300000 },
+  { key: 'coaches', name: 'Managers', description: 'Coach/manager information', timeout: 120000 },
+  { key: 'player-squads', name: 'Squad Rosters', description: 'Current squad assignments', timeout: 600000 },
 ]
 
 export async function POST(request: Request) {
@@ -51,12 +52,19 @@ export async function POST(request: Request) {
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
           // Pass league_id to each refresh endpoint
+          // Use AbortController for timeout (player-squads needs longer due to rate limiting)
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), endpoint.timeout)
+
           const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}?league_id=${league.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
 
           const data = await response.json()
           const endpointDuration = Date.now() - endpointStart

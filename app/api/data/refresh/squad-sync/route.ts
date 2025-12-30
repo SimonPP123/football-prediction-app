@@ -4,11 +4,12 @@ export const dynamic = 'force-dynamic'
 
 // Squad sync endpoints - run during transfer windows or when squad changes occur
 // Updates player-related data that may change due to transfers, injuries, etc.
+// timeout: in ms (player-squads needs 10 min due to rate limiting)
 const SQUAD_SYNC_ENDPOINTS = [
-  { key: 'player-squads', name: 'Squad Rosters', description: 'Current squad assignments for all teams' },
-  { key: 'transfers', name: 'Transfers', description: 'Recent transfer activity' },
-  { key: 'injuries', name: 'Injuries', description: 'Updated injury list for all teams' },
-  { key: 'coaches', name: 'Managers', description: 'Manager/coach changes' },
+  { key: 'player-squads', name: 'Squad Rosters', description: 'Current squad assignments for all teams', timeout: 600000 },
+  { key: 'transfers', name: 'Transfers', description: 'Recent transfer activity', timeout: 120000 },
+  { key: 'injuries', name: 'Injuries', description: 'Updated injury list for all teams', timeout: 120000 },
+  { key: 'coaches', name: 'Managers', description: 'Manager/coach changes', timeout: 120000 },
 ]
 
 export async function POST(request: Request) {
@@ -44,12 +45,19 @@ export async function POST(request: Request) {
 
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+          // Use AbortController for timeout (player-squads needs longer due to rate limiting)
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), endpoint.timeout)
+
           const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
+            signal: controller.signal,
           })
+
+          clearTimeout(timeoutId)
 
           const data = await response.json()
           const endpointDuration = Date.now() - endpointStart

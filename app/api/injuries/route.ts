@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const leagueId = searchParams.get('league_id')
+    const teamId = searchParams.get('team_id')
 
     // Get recent injuries (created within last 30 days, or no fixture yet completed)
     const thirtyDaysAgo = new Date()
@@ -21,6 +22,11 @@ export async function GET(request: Request) {
       .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
 
+    // Filter by team_id if specified (direct filter, most efficient)
+    if (teamId) {
+      query = query.eq('team_id', teamId)
+    }
+
     // Filter by league via team's league_id if specified
     // Note: This requires a join filter which Supabase supports
     if (leagueId) {
@@ -32,11 +38,12 @@ export async function GET(request: Request) {
     if (error) throw error
 
     // Filter out results where team doesn't match league (for the join filter)
-    const filteredData = leagueId
-      ? data?.filter((injury: any) => injury.team?.league_id === leagueId)
-      : data
+    let filteredData = data
+    if (leagueId && !teamId) {
+      filteredData = data?.filter((injury: any) => injury.team?.league_id === leagueId)
+    }
 
-    console.log(`[Injuries API] Returning ${filteredData?.length || 0} current injuries${leagueId ? ` for league ${leagueId}` : ''}`)
+    console.log(`[Injuries API] Returning ${filteredData?.length || 0} current injuries${teamId ? ` for team ${teamId}` : leagueId ? ` for league ${leagueId}` : ''}`)
 
     return NextResponse.json(filteredData || [])
   } catch (error) {

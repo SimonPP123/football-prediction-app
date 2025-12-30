@@ -26,7 +26,8 @@ interface SquadTableProps {
   squad: SquadMember[]
   injuries?: Array<{
     player_name: string
-    reason: string
+    injury_reason?: string | null
+    reason?: string | null  // Legacy field
   }>
   className?: string
 }
@@ -176,7 +177,7 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
                         </div>
                         {isInjured && injury && (
                           <p className="text-xs text-red-500 mt-0.5">
-                            {injury.reason}
+                            {injury.injury_reason || injury.reason || 'Injured'}
                           </p>
                         )}
                       </div>

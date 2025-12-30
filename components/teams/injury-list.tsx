@@ -2,14 +2,29 @@
 
 import { cn } from '@/lib/utils'
 import { AlertTriangle, Calendar, User } from 'lucide-react'
+import type { Injury } from '@/types'
 
-interface Injury {
-  id: string
-  player_name: string
-  reason: string
-  type?: string
-  return_date?: string
-  player_photo?: string
+// Status color mapping based on API-Football values
+const STATUS_COLORS: Record<string, string> = {
+  'Missing Fixture': 'bg-red-500/10 text-red-600 border border-red-500/20',
+  'Doubtful': 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+  'Questionable': 'bg-yellow-500/10 text-yellow-600 border border-yellow-500/20',
+}
+
+// Get color for status badge
+function getStatusColor(status: string | null | undefined): string {
+  if (!status) return 'bg-red-500/10 text-red-600 border border-red-500/20'
+  return STATUS_COLORS[status] || 'bg-red-500/10 text-red-600 border border-red-500/20'
+}
+
+// Get the injury reason - handles both new and legacy field names
+function getInjuryReason(injury: Injury): string {
+  return injury.injury_reason || injury.reason || 'Unknown'
+}
+
+// Get the injury status - handles both new and legacy field names
+function getInjuryStatus(injury: Injury): string | null {
+  return injury.injury_type || injury.type || null
 }
 
 interface InjuryListProps {
@@ -34,7 +49,7 @@ export function InjuryList({ injuries, className, compact = false }: InjuryListP
         {injuries.slice(0, 3).map((injury) => (
           <div key={injury.id} className="flex items-center justify-between text-sm">
             <span className="truncate">{injury.player_name}</span>
-            <span className="text-red-500 text-xs truncate ml-2">{injury.reason}</span>
+            <span className="text-red-500 text-xs truncate ml-2">{getInjuryReason(injury)}</span>
           </div>
         ))}
         {injuries.length > 3 && (
@@ -57,43 +72,44 @@ export function InjuryList({ injuries, className, compact = false }: InjuryListP
       </div>
 
       <div className="space-y-2">
-        {injuries.map((injury) => (
-          <div
-            key={injury.id}
-            className="flex items-start gap-3 p-2 bg-red-500/5 border border-red-500/10 rounded-lg"
-          >
-            {injury.player_photo ? (
-              <img
-                src={injury.player_photo}
-                alt=""
-                className="w-10 h-10 rounded-full object-cover border border-border"
-              />
-            ) : (
+        {injuries.map((injury) => {
+          const reason = getInjuryReason(injury)
+          const status = getInjuryStatus(injury)
+
+          return (
+            <div
+              key={injury.id}
+              className="flex items-start gap-3 p-2 bg-red-500/5 border border-red-500/10 rounded-lg"
+            >
+              {/* Player photo placeholder */}
               <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
                 <User className="w-5 h-5 text-muted-foreground" />
               </div>
-            )}
 
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm">{injury.player_name}</p>
-              <p className="text-xs text-red-500">{injury.reason}</p>
-              {injury.type && (
-                <span className="inline-block mt-1 px-1.5 py-0.5 bg-red-500/10 text-red-600 text-[10px] rounded">
-                  {injury.type}
-                </span>
-              )}
-              {injury.return_date && (
-                <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  Expected return: {new Date(injury.return_date).toLocaleDateString('en-GB', {
-                    day: 'numeric',
-                    month: 'short'
-                  })}
-                </p>
-              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm">{injury.player_name}</p>
+                <p className="text-xs text-red-500">{reason}</p>
+                {status && (
+                  <span className={cn(
+                    "inline-block mt-1 px-1.5 py-0.5 text-[10px] rounded",
+                    getStatusColor(status)
+                  )}>
+                    {status}
+                  </span>
+                )}
+                {injury.reported_date && (
+                  <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    Reported: {new Date(injury.reported_date).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short'
+                    })}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

@@ -12,7 +12,9 @@ import { PostMatchAnalysis } from '@/components/matches/post-match-analysis'
 import { FactorBreakdown } from '@/components/predictions/factor-breakdown'
 import { ConfidenceBreakdown } from '@/components/stats/confidence-breakdown'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { InjuryList } from '@/components/teams/injury-list'
 import { useLeague } from '@/contexts/league-context'
+import type { Injury } from '@/types'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
@@ -29,12 +31,14 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-type TabType = 'prediction' | 'statistics' | 'events' | 'odds' | 'weather' | 'h2h' | 'analysis'
+type TabType = 'prediction' | 'injuries' | 'statistics' | 'events' | 'odds' | 'weather' | 'h2h' | 'analysis'
 
 export default function MatchDetailPage() {
   const params = useParams()
   const { currentLeague } = useLeague()
   const [fixture, setFixture] = useState<any>(null)
+  const [homeInjuries, setHomeInjuries] = useState<Injury[]>([])
+  const [awayInjuries, setAwayInjuries] = useState<Injury[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('prediction')
@@ -50,6 +54,22 @@ export default function MatchDetailPage() {
       if (!res.ok) throw new Error('Failed to fetch fixture')
       const data = await res.json()
       setFixture(data)
+
+      // Fetch injuries for both teams if we have team IDs
+      if (data.home_team_id && data.away_team_id) {
+        const [homeRes, awayRes] = await Promise.all([
+          fetch(`/api/injuries?team_id=${data.home_team_id}`),
+          fetch(`/api/injuries?team_id=${data.away_team_id}`)
+        ])
+        if (homeRes.ok) {
+          const homeData = await homeRes.json()
+          setHomeInjuries(homeData)
+        }
+        if (awayRes.ok) {
+          const awayData = await awayRes.json()
+          setAwayInjuries(awayData)
+        }
+      }
     } catch (err) {
       setError('Failed to load match details')
       console.error(err)
@@ -127,9 +147,13 @@ export default function MatchDetailPage() {
   // Get H2H
   const h2h = fixture.head_to_head
 
+  // Check if there are any injuries for either team
+  const hasInjuries = homeInjuries.length > 0 || awayInjuries.length > 0
+
   // Define available tabs based on data
   const tabs: { id: TabType; label: string; icon: typeof Target; available: boolean }[] = [
     { id: 'prediction', label: 'Prediction', icon: Target, available: !!prediction },
+    { id: 'injuries', label: 'Injuries', icon: AlertTriangle, available: hasInjuries },
     { id: 'statistics', label: 'Statistics', icon: BarChart3, available: isCompleted && Object.keys(homeStats).length > 0 },
     { id: 'events', label: 'Events', icon: Calendar, available: events.length > 0 },
     { id: 'odds', label: 'Odds', icon: DollarSign, available: odds.length > 0 },
@@ -331,6 +355,60 @@ export default function MatchDetailPage() {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Injuries Tab */}
+          {activeTab === 'injuries' && (
+            <div className="space-y-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                Team Injuries & Unavailable Players
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Home Team Injuries */}
+                <div className="bg-muted/20 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                    {fixture.home_team?.logo && (
+                      <img
+                        src={fixture.home_team.logo}
+                        alt={fixture.home_team.name}
+                        className="w-6 h-6 object-contain"
+                      />
+                    )}
+                    <h4 className="font-medium">{fixture.home_team?.name || 'Home'}</h4>
+                    {homeInjuries.length > 0 && (
+                      <span className="ml-auto text-xs bg-red-500/10 text-red-600 px-2 py-0.5 rounded">
+                        {homeInjuries.length} out
+                      </span>
+                    )}
+                  </div>
+                  <InjuryList injuries={homeInjuries} />
+                </div>
+
+                {/* Away Team Injuries */}
+                <div className="bg-muted/20 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border">
+                    {fixture.away_team?.logo && (
+                      <img
+                        src={fixture.away_team.logo}
+                        alt={fixture.away_team.name}
+                        className="w-6 h-6 object-contain"
+                      />
+                    )}
+                    <h4 className="font-medium">{fixture.away_team?.name || 'Away'}</h4>
+                    {awayInjuries.length > 0 && (
+                      <span className="ml-auto text-xs bg-red-500/10 text-red-600 px-2 py-0.5 rounded">
+                        {awayInjuries.length} out
+                      </span>
+                    )}
+                  </div>
+                  <InjuryList injuries={awayInjuries} />
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground text-center pt-2">
+                <DataFreshnessBadge category="injuries" size="sm" showInfo />
+              </div>
             </div>
           )}
 

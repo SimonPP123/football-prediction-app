@@ -52,7 +52,7 @@ export default function TeamDetailPage() {
       const [teamRes, standingsRes, injuriesRes] = await Promise.all([
         fetch(`/api/teams/${teamId}`),
         fetch('/api/standings'),
-        fetch('/api/injuries'),
+        fetch(`/api/injuries?team_id=${teamId}`),  // Filter by team_id server-side
       ])
 
       const teamData = await teamRes.json()
@@ -66,9 +66,8 @@ export default function TeamDetailPage() {
       const teamStanding = standingsData.find((s: any) => s.team_id === teamId)
       setStandings(teamStanding)
 
-      // Filter injuries for this team
-      const teamInjuries = injuriesData.filter((i: any) => i.team_id === teamId)
-      setInjuries(teamInjuries)
+      // Set injuries (already filtered by team_id from API)
+      setInjuries(injuriesData)
 
       // Get squad
       if (teamData.squad) {

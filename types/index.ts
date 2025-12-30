@@ -201,6 +201,33 @@ export interface Player {
   injured: boolean
 }
 
+// Injury status values from API-Football
+export type InjuryStatus = 'Missing Fixture' | 'Doubtful' | 'Questionable' | string
+
+export interface Injury {
+  id: string
+  team_id: string
+  player_id?: string | null
+  player_api_id?: number | null
+  player_name: string
+  // Status: "Missing Fixture", "Doubtful", "Questionable"
+  injury_type?: string | null
+  // Reason: "Knee Injury", "Suspended", "Illness", etc.
+  injury_reason?: string | null
+  reported_date?: string | null
+  created_at: string
+  // Joined data from teams table
+  team?: {
+    id: string
+    name: string
+    logo?: string | null
+    league_id?: string | null
+  }
+  // Legacy fields (may be present in old data)
+  type?: string | null
+  reason?: string | null
+}
+
 export interface Coach {
   id: string
   api_id: number
