@@ -104,23 +104,26 @@ export default function MatchDetailPage() {
     }
   }
 
-  // Derive values from fixture (safe for null fixture)
+  // Derive values from fixture (safe for null fixture) - use stable references
   const isCompleted = fixture ? ['FT', 'AET', 'PEN'].includes(fixture.status) : false
   const prediction = fixture ? (Array.isArray(fixture.prediction) ? fixture.prediction[0] : fixture.prediction) : null
   const analysis = fixture ? (Array.isArray(fixture.match_analysis) ? fixture.match_analysis[0] : fixture.match_analysis) : null
-  const stats = fixture?.statistics || []
-  const homeStats = fixture ? (stats.find((s: any) => s.team_id === fixture.home_team_id)?.statistics || {}) : {}
-  const awayStats = fixture ? (stats.find((s: any) => s.team_id === fixture.away_team_id)?.statistics || {}) : {}
-  const events = fixture?.events || []
-  const weather = fixture?.weather
-  const h2h = fixture?.head_to_head
-  const hasInjuries = homeInjuries.length > 0 || awayInjuries.length > 0
 
-  // Transform odds (safe for null fixture)
-  const odds = useMemo(() => {
-    if (!fixture) return []
+  // Memoize derived data to ensure stable references
+  const { stats, homeStats, awayStats, events, weather, h2h, odds } = useMemo(() => {
+    if (!fixture) {
+      return { stats: [], homeStats: {}, awayStats: {}, events: [], weather: null, h2h: null, odds: [] }
+    }
+    const fixtureStats = fixture.statistics || []
+    const homeStatsData = fixtureStats.find((s: any) => s.team_id === fixture.home_team_id)?.statistics || {}
+    const awayStatsData = fixtureStats.find((s: any) => s.team_id === fixture.away_team_id)?.statistics || {}
+    const fixtureEvents = fixture.events || []
+    const fixtureWeather = fixture.weather || null
+    const fixtureH2h = fixture.head_to_head || null
+
+    // Transform odds
     const rawOdds = fixture.odds || []
-    return rawOdds.map((o: any) => {
+    const transformedOdds = rawOdds.map((o: any) => {
       const values = o.values || []
       const homeValue = values.find((v: any) =>
         v.name === fixture.home_team?.name || v.name?.toLowerCase().includes('home')
@@ -139,19 +142,38 @@ export default function MatchDetailPage() {
         updated_at: o.updated_at,
       }
     })
+
+    return {
+      stats: fixtureStats,
+      homeStats: homeStatsData,
+      awayStats: awayStatsData,
+      events: fixtureEvents,
+      weather: fixtureWeather,
+      h2h: fixtureH2h,
+      odds: transformedOdds,
+    }
   }, [fixture])
 
-  // Memoize availability flags - MUST be before early returns (React hooks rule)
+  const hasInjuries = homeInjuries.length > 0 || awayInjuries.length > 0
+
+  // Derive primitive flags for tab availability (stable values)
+  const hasStatistics = isCompleted && Object.keys(homeStats).length > 0
+  const hasEvents = events.length > 0
+  const hasOdds = odds.length > 0
+  const hasWeather = !!weather
+  const hasH2h = !!h2h
+
+  // Memoize availability flags using only primitive values - MUST be before early returns
   const tabAvailability = useMemo(() => ({
     prediction: !!prediction,
     injuries: hasInjuries,
-    statistics: isCompleted && Object.keys(homeStats).length > 0,
-    events: events.length > 0,
-    odds: odds.length > 0,
-    weather: !!weather,
-    h2h: !!h2h,
+    statistics: hasStatistics,
+    events: hasEvents,
+    odds: hasOdds,
+    weather: hasWeather,
+    h2h: hasH2h,
     analysis: isCompleted,
-  }), [prediction, hasInjuries, isCompleted, homeStats, events.length, odds.length, weather, h2h])
+  }), [prediction, hasInjuries, hasStatistics, hasEvents, hasOdds, hasWeather, hasH2h, isCompleted])
 
   // Define available tabs based on data - memoized with stable dependencies
   const tabs: { id: TabType; label: string; icon: typeof Target; available: boolean }[] = useMemo(() => [
