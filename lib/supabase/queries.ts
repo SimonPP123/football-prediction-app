@@ -94,6 +94,23 @@ export async function getNextRoundFixtures() {
   return data || []
 }
 
+// Get live/in-progress fixtures
+export async function getLiveFixtures() {
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      venue:venues(*)
+    `)
+    .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
+    .order('match_date', { ascending: true })
+
+  if (error) throw error
+  return data || []
+}
+
 // Get completed fixtures
 export async function getCompletedFixtures(limit = 20) {
   const { data, error } = await supabase

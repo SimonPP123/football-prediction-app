@@ -4,6 +4,7 @@ import {
   getUpcomingWithFactors,
   getRecentResultsWithAccuracy,
   getBestPerformingFactor,
+  getLiveFixtures,
 } from '@/lib/supabase/queries'
 import { Header } from '@/components/layout/header'
 import { SummaryStats } from '@/components/dashboard/summary-stats'
@@ -16,15 +17,29 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
-  const [stats, upcomingFixtures, standings, recentResults, bestFactor] = await Promise.all([
+  const [stats, upcomingFixtures, standings, recentResults, bestFactor, liveFixtures] = await Promise.all([
     getDashboardStats(),
     getUpcomingWithFactors(6),
     getStandings(),
     getRecentResultsWithAccuracy(5),
     getBestPerformingFactor(),
+    getLiveFixtures(),
   ])
 
   const topStandings = standings.slice(0, 6)
+
+  // Helper to get live status display
+  const getLiveStatus = (status: string) => {
+    switch (status) {
+      case '1H': return '1st Half'
+      case '2H': return '2nd Half'
+      case 'HT': return 'Half Time'
+      case 'ET': return 'Extra Time'
+      case 'BT': return 'Break'
+      case 'P': return 'Penalties'
+      default: return 'Live'
+    }
+  }
 
   return (
     <div className="min-h-screen">
@@ -33,6 +48,60 @@ export default async function DashboardPage() {
       <div className="p-6 space-y-6">
         {/* Summary Stats */}
         <SummaryStats stats={stats} />
+
+        {/* Live Matches - Only show if there are live matches */}
+        {liveFixtures.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <h2 className="font-semibold text-lg text-red-500">Live Now</h2>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {liveFixtures.length} match{liveFixtures.length > 1 ? 'es' : ''} in progress
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {liveFixtures.map((fixture: any) => (
+                <Link
+                  key={fixture.id}
+                  href={`/matches/${fixture.id}`}
+                  className="bg-card border-2 border-red-500/30 rounded-lg p-4 hover:border-red-500/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium px-2 py-1 bg-red-500/10 text-red-500 rounded">
+                      {getLiveStatus(fixture.status)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{fixture.round}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      {fixture.home_team?.logo && (
+                        <img src={fixture.home_team.logo} alt="" className="w-8 h-8 object-contain" />
+                      )}
+                      <span className="font-medium truncate">{fixture.home_team?.code || fixture.home_team?.name}</span>
+                    </div>
+                    <div className="px-4 text-center">
+                      <span className="text-2xl font-bold">
+                        {fixture.goals_home ?? 0} - {fixture.goals_away ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-1 justify-end">
+                      <span className="font-medium truncate">{fixture.away_team?.code || fixture.away_team?.name}</span>
+                      {fixture.away_team?.logo && (
+                        <img src={fixture.away_team.logo} alt="" className="w-8 h-8 object-contain" />
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Upcoming Matches */}
