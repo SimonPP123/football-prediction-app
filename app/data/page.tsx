@@ -1457,13 +1457,25 @@ export default function DataManagementPage() {
                 <span className="text-xs bg-muted px-2 py-0.5 rounded">{logs.length} entries</span>
               )}
             </h3>
-            <button
-              onClick={clearLogs}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Stop button - visible when any refresh is in progress */}
+              {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing || isSeasonSetupRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing) && (
+                <button
+                  onClick={handleStopAll}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                >
+                  <Square className="w-3 h-3 fill-current" />
+                  Stop
+                </button>
+              )}
+              <button
+                onClick={clearLogs}
+                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear
+              </button>
+            </div>
           </div>
 
           <div
