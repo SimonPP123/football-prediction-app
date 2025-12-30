@@ -94,6 +94,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
               <th className="text-center p-3">Score</th>
               <th className="text-left p-3">Away</th>
               <th className="text-center p-3">Certainty</th>
+              <th className="text-center p-3">Index</th>
               <th className="text-center p-3">O/U</th>
               <th className="text-center p-3">BTTS</th>
               <th className="text-center p-3">Value</th>
@@ -192,6 +193,20 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                           getConfidenceBadge(prediction.certainty_score || prediction.confidence_pct || prediction.overall_index)
                         )}>
                           {prediction.certainty_score || prediction.confidence_pct || prediction.overall_index}%
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="p-3 text-center">
+                      {prediction?.overall_index != null ? (
+                        <span className={cn(
+                          'text-sm font-medium',
+                          prediction.overall_index >= 60 && 'text-green-600',
+                          prediction.overall_index <= 40 && 'text-red-600',
+                          prediction.overall_index > 40 && prediction.overall_index < 60 && 'text-muted-foreground'
+                        )}>
+                          {prediction.overall_index.toFixed(1)}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -307,7 +322,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                   {/* Expanded Row */}
                   {isExpanded && prediction && (
                     <tr key={`${fixture.id}-expanded`}>
-                      <td colSpan={11} className="bg-muted/20 p-4">
+                      <td colSpan={12} className="bg-muted/20 p-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                           {/* Factor Analysis - New Section */}
                           {prediction.factors && (prediction.factors.A_base_strength || prediction.factors.B_form) && (
@@ -319,7 +334,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                               <FactorBreakdown
                                 factors={prediction.factors}
                                 overallIndex={prediction.overall_index}
-                                compact={true}
+                                alwaysExpanded={true}
                               />
                             </div>
                           )}
