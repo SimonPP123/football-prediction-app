@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
+
+// Use service role for API routes to bypass RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET() {
   try {
@@ -63,15 +69,23 @@ export async function GET() {
     analyses.forEach(a => {
       const prediction = predictionMap.get(a.fixture_id)
       const predResult = prediction?.prediction_result || a.predicted_outcome
-      if (!predResult) return
+
+      // Skip if no prediction result at all
+      if (!predResult) {
+        console.log(`[Accuracy Stats] Analysis ${a.fixture_id} has no prediction_result`)
+        return
+      }
+
+      // Normalize the prediction result
+      const normalizedResult = String(predResult).toLowerCase().trim()
 
       // Determine the predicted outcome category
       let category: string | null = null
-      if (predResult === '1' || predResult.toLowerCase().includes('home')) {
+      if (normalizedResult === '1' || normalizedResult.includes('home') || normalizedResult === 'home win') {
         category = 'home'
-      } else if (predResult === 'X' || predResult.toLowerCase().includes('draw')) {
+      } else if (normalizedResult === 'x' || normalizedResult.includes('draw') || normalizedResult === 'tie') {
         category = 'draw'
-      } else if (predResult === '2' || predResult.toLowerCase().includes('away')) {
+      } else if (normalizedResult === '2' || normalizedResult.includes('away') || normalizedResult === 'away win') {
         category = 'away'
       }
 
@@ -80,6 +94,8 @@ export async function GET() {
         if (a.prediction_correct) {
           byOutcome[category].correct++
         }
+      } else {
+        console.log(`[Accuracy Stats] Unknown prediction result format: "${predResult}" for fixture ${a.fixture_id}`)
       }
     })
 
