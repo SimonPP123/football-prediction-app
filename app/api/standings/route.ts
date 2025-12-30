@@ -14,6 +14,7 @@ export async function GET() {
       .from('standings')
       .select(`
         id,
+        team_id,
         rank,
         points,
         goal_diff,
@@ -27,7 +28,7 @@ export async function GET() {
         goals_against,
         home_record,
         away_record,
-        team:teams(id, name, logo, api_id)
+        team:teams(id, name, logo, code, api_id)
       `)
       .order('rank', { ascending: true })
 
