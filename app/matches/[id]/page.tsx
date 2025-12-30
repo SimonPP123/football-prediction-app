@@ -104,79 +104,44 @@ export default function MatchDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen">
-        <Header title="Match Details" subtitle="Loading..." />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !fixture) {
-    return (
-      <div className="min-h-screen">
-        <Header title="Match Details" subtitle="Error" />
-        <div className="p-6 text-center">
-          <AlertTriangle className="w-12 h-12 mx-auto text-amber-500 mb-4" />
-          <p className="text-muted-foreground">{error || 'Match not found'}</p>
-          <Link href="/matches" className="text-primary hover:underline mt-4 inline-block">
-            Back to Matches
-          </Link>
-        </div>
-      </div>
-    )
-  }
-
-  const isCompleted = ['FT', 'AET', 'PEN'].includes(fixture.status)
-  // Handle both array and single object responses
-  const prediction = Array.isArray(fixture.prediction) ? fixture.prediction[0] : fixture.prediction
-  const analysis = Array.isArray(fixture.match_analysis) ? fixture.match_analysis[0] : fixture.match_analysis
-
-  // Get match statistics
-  const stats = fixture.statistics || []
-  const homeStats = stats.find((s: any) => s.team_id === fixture.home_team_id)?.statistics || {}
-  const awayStats = stats.find((s: any) => s.team_id === fixture.away_team_id)?.statistics || {}
-
-  // Get events
-  const events = fixture.events || []
-
-  // Get odds and transform to expected format
-  const rawOdds = fixture.odds || []
-  const odds = rawOdds.map((o: any) => {
-    // Transform values array to flat structure
-    const values = o.values || []
-    const homeValue = values.find((v: any) =>
-      v.name === fixture.home_team?.name || v.name?.toLowerCase().includes('home')
-    )
-    const awayValue = values.find((v: any) =>
-      v.name === fixture.away_team?.name || v.name?.toLowerCase().includes('away')
-    )
-    const drawValue = values.find((v: any) =>
-      v.name?.toLowerCase() === 'draw'
-    )
-
-    return {
-      bookmaker: o.bookmaker,
-      home_win: homeValue?.price,
-      draw: drawValue?.price,
-      away_win: awayValue?.price,
-      updated_at: o.updated_at,
-    }
-  })
-
-  // Get weather
-  const weather = fixture.weather
-
-  // Get H2H
-  const h2h = fixture.head_to_head
-
-  // Check if there are any injuries for either team
+  // Derive values from fixture (safe for null fixture)
+  const isCompleted = fixture ? ['FT', 'AET', 'PEN'].includes(fixture.status) : false
+  const prediction = fixture ? (Array.isArray(fixture.prediction) ? fixture.prediction[0] : fixture.prediction) : null
+  const analysis = fixture ? (Array.isArray(fixture.match_analysis) ? fixture.match_analysis[0] : fixture.match_analysis) : null
+  const stats = fixture?.statistics || []
+  const homeStats = fixture ? (stats.find((s: any) => s.team_id === fixture.home_team_id)?.statistics || {}) : {}
+  const awayStats = fixture ? (stats.find((s: any) => s.team_id === fixture.away_team_id)?.statistics || {}) : {}
+  const events = fixture?.events || []
+  const weather = fixture?.weather
+  const h2h = fixture?.head_to_head
   const hasInjuries = homeInjuries.length > 0 || awayInjuries.length > 0
 
-  // Memoize availability flags to prevent infinite re-renders
+  // Transform odds (safe for null fixture)
+  const odds = useMemo(() => {
+    if (!fixture) return []
+    const rawOdds = fixture.odds || []
+    return rawOdds.map((o: any) => {
+      const values = o.values || []
+      const homeValue = values.find((v: any) =>
+        v.name === fixture.home_team?.name || v.name?.toLowerCase().includes('home')
+      )
+      const awayValue = values.find((v: any) =>
+        v.name === fixture.away_team?.name || v.name?.toLowerCase().includes('away')
+      )
+      const drawValue = values.find((v: any) =>
+        v.name?.toLowerCase() === 'draw'
+      )
+      return {
+        bookmaker: o.bookmaker,
+        home_win: homeValue?.price,
+        draw: drawValue?.price,
+        away_win: awayValue?.price,
+        updated_at: o.updated_at,
+      }
+    })
+  }, [fixture])
+
+  // Memoize availability flags - MUST be before early returns (React hooks rule)
   const tabAvailability = useMemo(() => ({
     prediction: !!prediction,
     injuries: hasInjuries,
@@ -209,6 +174,32 @@ export default function MatchDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTabs])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Match Details" subtitle="Loading..." />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !fixture) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Match Details" subtitle="Error" />
+        <div className="p-6 text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto text-amber-500 mb-4" />
+          <p className="text-muted-foreground">{error || 'Match not found'}</p>
+          <Link href="/matches" className="text-primary hover:underline mt-4 inline-block">
+            Back to Matches
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">

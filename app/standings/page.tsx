@@ -71,19 +71,11 @@ export default function StandingsPage() {
     return ''
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen">
-        <Header title="Standings" />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
-  }
-
-  // Memoize league stats calculations to avoid recalculating on every render
+  // Memoize league stats calculations - MUST be before any early returns (React hooks rule)
   const { totalGoals, totalMatches, avgGoalsPerMatch, topScorer, bestDefense } = useMemo(() => {
+    if (standings.length === 0) {
+      return { totalGoals: 0, totalMatches: 0, avgGoalsPerMatch: '0', topScorer: null, bestDefense: null }
+    }
     const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
     const totalMatches = standings.reduce((sum, s) => sum + (s.played || 0), 0) / 2
     const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'
@@ -119,6 +111,17 @@ export default function StandingsPage() {
       })
       .slice(0, 10)
   }, [standings])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Header title="Standings" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
