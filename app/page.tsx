@@ -4,7 +4,7 @@ import {
   getUpcomingWithFactors,
   getRecentResultsWithAccuracy,
   getBestPerformingFactor,
-  getLiveFixtures,
+  getLiveFixturesWithFactors,
 } from '@/lib/supabase/queries'
 import { getLeagueFromCookies } from '@/lib/league-context'
 import { cookies } from 'next/headers'
@@ -31,23 +31,10 @@ export default async function DashboardPage() {
     getStandings(leagueId),
     getRecentResultsWithAccuracy(5, leagueId),
     getBestPerformingFactor(leagueId),
-    getLiveFixtures(leagueId),
+    getLiveFixturesWithFactors(6, leagueId),
   ])
 
   const topStandings = standings.slice(0, 6)
-
-  // Helper to get live status display
-  const getLiveStatus = (status: string) => {
-    switch (status) {
-      case '1H': return '1st Half'
-      case '2H': return '2nd Half'
-      case 'HT': return 'Half Time'
-      case 'ET': return 'Extra Time'
-      case 'BT': return 'Break'
-      case 'P': return 'Penalties'
-      default: return 'Live'
-    }
-  }
 
   return (
     <div className="min-h-screen">
@@ -73,39 +60,13 @@ export default async function DashboardPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {liveFixtures.map((fixture: any) => (
-                <Link
+                <PredictionCard
                   key={fixture.id}
-                  href={`/matches/${fixture.id}`}
-                  className="bg-card border-2 border-red-500/30 rounded-lg p-4 hover:border-red-500/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-medium px-2 py-1 bg-red-500/10 text-red-500 rounded">
-                      {getLiveStatus(fixture.status)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{fixture.round}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1">
-                      {fixture.home_team?.logo && (
-                        <img src={fixture.home_team.logo} alt="" className="w-8 h-8 object-contain" />
-                      )}
-                      <span className="font-medium truncate">{fixture.home_team?.code || fixture.home_team?.name}</span>
-                    </div>
-                    <div className="px-4 text-center">
-                      <span className="text-2xl font-bold">
-                        {fixture.goals_home ?? 0} - {fixture.goals_away ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-1 justify-end">
-                      <span className="font-medium truncate">{fixture.away_team?.code || fixture.away_team?.name}</span>
-                      {fixture.away_team?.logo && (
-                        <img src={fixture.away_team.logo} alt="" className="w-8 h-8 object-contain" />
-                      )}
-                    </div>
-                  </div>
-                </Link>
+                  fixture={fixture}
+                  isLive={true}
+                />
               ))}
             </div>
           </div>

@@ -18,9 +18,10 @@ interface PredictionCardProps {
   isGenerating?: boolean
   error?: string
   onClearError?: () => void
+  isLive?: boolean  // Show live score instead of predicted score
 }
 
-export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, error, onClearError }: PredictionCardProps) {
+export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, error, onClearError, isLive }: PredictionCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<any[]>([])
@@ -206,23 +207,49 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     return 'text-red-500'
   }
 
+  // Helper to get live status display
+  const getLiveStatus = (status: string) => {
+    switch (status) {
+      case '1H': return '1st Half'
+      case '2H': return '2nd Half'
+      case 'HT': return 'Half Time'
+      case 'ET': return 'Extra Time'
+      case 'BT': return 'Break'
+      case 'P': return 'Penalties'
+      default: return 'Live'
+    }
+  }
+
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <div className={cn(
+      "bg-card border rounded-lg overflow-hidden",
+      isLive ? "border-2 border-red-500/50" : "border-border"
+    )}>
       {/* Match Header */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs text-muted-foreground">
             {fixture.round || 'Premier League'}
           </span>
-          <span className="text-xs text-muted-foreground">
-            {new Date(fixture.match_date).toLocaleDateString('en-GB', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </span>
+          {isLive ? (
+            <span className="text-xs font-medium px-2 py-1 bg-red-500/10 text-red-500 rounded flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              {getLiveStatus(fixture.status)}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {new Date(fixture.match_date).toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          )}
         </div>
 
         {/* Teams */}
@@ -239,9 +266,25 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             <p className="font-medium text-sm">{fixture.home_team?.name || 'TBD'}</p>
           </div>
 
-          {/* Prediction Badge */}
+          {/* Prediction Badge / Live Score */}
           <div className="flex flex-col items-center">
-            {hasPrediction ? (
+            {isLive ? (
+              <>
+                {/* Live Score Display */}
+                <div className="text-2xl font-bold">
+                  {fixture.goals_home ?? 0} - {fixture.goals_away ?? 0}
+                </div>
+                {/* Show prediction below score if available */}
+                {hasPrediction && (
+                  <span className={cn(
+                    'text-xs mt-1 px-2 py-0.5 rounded',
+                    getPredictionBadgeColor(prediction.prediction_result)
+                  )}>
+                    Predicted: {prediction.prediction_result}
+                  </span>
+                )}
+              </>
+            ) : hasPrediction ? (
               <>
                 <div className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg',

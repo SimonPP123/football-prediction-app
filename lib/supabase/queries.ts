@@ -151,6 +151,33 @@ export async function getLiveFixtures(leagueId?: string) {
   return data || []
 }
 
+// Get live fixtures with predictions and full details (for PredictionCard display)
+export async function getLiveFixturesWithFactors(limit = 6, leagueId?: string) {
+  let query = supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      venue:venues(*),
+      prediction:predictions(*),
+      odds:odds(*),
+      weather:weather(*)
+    `)
+    .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
+    .order('match_date', { ascending: true })
+    .limit(limit)
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+  return data || []
+}
+
 // Get completed fixtures (optionally filtered by league)
 export async function getCompletedFixtures(limit = 20, leagueId?: string) {
   let query = supabase
