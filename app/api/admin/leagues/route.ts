@@ -65,6 +65,30 @@ export async function POST(request: Request) {
       )
     }
 
+    // Validate apiId is a positive integer
+    if (typeof apiId !== 'number' || !Number.isInteger(apiId) || apiId <= 0) {
+      return NextResponse.json(
+        { error: 'API ID must be a positive integer' },
+        { status: 400 }
+      )
+    }
+
+    // Validate name length (2-100 characters)
+    if (typeof name !== 'string' || name.length < 2 || name.length > 100) {
+      return NextResponse.json(
+        { error: 'Name must be between 2 and 100 characters' },
+        { status: 400 }
+      )
+    }
+
+    // Validate country length
+    if (typeof country !== 'string' || country.length < 2 || country.length > 100) {
+      return NextResponse.json(
+        { error: 'Country must be between 2 and 100 characters' },
+        { status: 400 }
+      )
+    }
+
     // Check if league already exists with this API ID
     const { data: existing } = await supabase
       .from('leagues')

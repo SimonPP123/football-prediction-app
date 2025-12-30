@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getLeagueFromRequest } from '@/lib/league-context'
+import { isValidUUID } from '@/lib/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,9 +17,18 @@ export async function GET(
 ) {
   try {
     const { id } = params
+
+    // Validate team ID format
+    if (!isValidUUID(id)) {
+      return NextResponse.json(
+        { error: 'Invalid team ID format' },
+        { status: 400 }
+      )
+    }
+
     const league = await getLeagueFromRequest(request)
 
-    // Fetch team with related data
+    // Fetch team with related data first (needed to check if team exists)
     const { data: team, error: teamError } = await supabase
       .from('teams')
       .select(`
@@ -36,91 +46,112 @@ export async function GET(
       throw teamError
     }
 
-    // Fetch coach separately (reverse FK relationship)
-    const { data: coachData } = await supabase
-      .from('coaches')
-      .select('*')
-      .eq('team_id', id)
-      .single()
+    // Run remaining queries in parallel for better performance
+    const [
+      coachResult,
+      squadResult,
+      recentMatchesResult,
+      upcomingMatchesResult,
+      fixtureIdsResult,
+    ] = await Promise.all([
+      // Fetch coach (reverse FK relationship)
+      supabase
+        .from('coaches')
+        .select('*')
+        .eq('team_id', id)
+        .single(),
 
-    // Fetch squad
-    const { data: squad } = await supabase
-      .from('player_squads')
-      .select(`
-        *,
-        player:players(*)
-      `)
-      .eq('team_id', id)
-      .eq('season', 2025)
-      .order('number', { ascending: true })
+      // Fetch squad
+      supabase
+        .from('player_squads')
+        .select(`
+          *,
+          player:players(*)
+        `)
+        .eq('team_id', id)
+        .eq('season', 2025)
+        .order('number', { ascending: true }),
 
-    // Fetch recent completed matches
-    const { data: recentMatches, error: recentError } = await supabase
-      .from('fixtures')
-      .select(`
-        *,
-        home_team:teams!fixtures_home_team_id_fkey(id, name, logo, code),
-        away_team:teams!fixtures_away_team_id_fkey(id, name, logo, code)
-      `)
-      .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
-      .in('status', ['FT', 'AET', 'PEN'])
-      .order('match_date', { ascending: false })
-      .limit(10)
+      // Fetch recent completed matches
+      supabase
+        .from('fixtures')
+        .select(`
+          *,
+          home_team:teams!fixtures_home_team_id_fkey(id, name, logo, code),
+          away_team:teams!fixtures_away_team_id_fkey(id, name, logo, code)
+        `)
+        .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .in('status', ['FT', 'AET', 'PEN'])
+        .order('match_date', { ascending: false })
+        .limit(10),
 
-    if (recentError) {
-      console.error('[Team API] Recent matches error:', recentError)
-    }
-    console.log(`[Team API] Recent matches for team ${id}: ${recentMatches?.length || 0}`)
+      // Fetch upcoming matches
+      supabase
+        .from('fixtures')
+        .select(`
+          *,
+          home_team:teams!fixtures_home_team_id_fkey(id, name, logo, code),
+          away_team:teams!fixtures_away_team_id_fkey(id, name, logo, code)
+        `)
+        .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
+        .order('match_date', { ascending: true })
+        .limit(5),
 
-    // Fetch upcoming matches
-    const { data: upcomingMatches, error: upcomingError } = await supabase
-      .from('fixtures')
-      .select(`
-        *,
-        home_team:teams!fixtures_home_team_id_fkey(id, name, logo, code),
-        away_team:teams!fixtures_away_team_id_fkey(id, name, logo, code)
-      `)
-      .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
-      .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
-      .order('match_date', { ascending: true })
-      .limit(5)
+      // Get fixture IDs for this team to filter predictions efficiently
+      supabase
+        .from('fixtures')
+        .select('id')
+        .or(`home_team_id.eq.${id},away_team_id.eq.${id}`)
+        .limit(50),
+    ])
 
-    if (upcomingError) {
-      console.error('[Team API] Upcoming matches error:', upcomingError)
-    }
-    console.log(`[Team API] Upcoming matches for team ${id}: ${upcomingMatches?.length || 0}`)
+    const coachData = coachResult.data
+    const squad = squadResult.data
+    const recentMatches = recentMatchesResult.data
+    const upcomingMatches = upcomingMatchesResult.data
+    const fixtureIds = fixtureIdsResult.data?.map((f: { id: string }) => f.id) || []
 
-    // Fetch predictions involving this team, filtered by league
-    let predictionsQuery = supabase
-      .from('predictions')
-      .select(`
-        *,
-        fixture:fixtures!inner(
-          id,
-          match_date,
-          status,
-          goals_home,
-          goals_away,
-          home_team_id,
-          away_team_id,
-          league_id,
-          home_team:teams!fixtures_home_team_id_fkey(id, name, logo),
-          away_team:teams!fixtures_away_team_id_fkey(id, name, logo)
-        )
-      `)
-      .order('created_at', { ascending: false })
-
-    // Filter by league if available
-    if (league?.id) {
-      predictionsQuery = predictionsQuery.eq('fixture.league_id', league.id)
+    if (recentMatchesResult.error) {
+      console.error('[Team API] Recent matches error:', recentMatchesResult.error)
     }
 
-    const { data: predictions } = await predictionsQuery
+    if (upcomingMatchesResult.error) {
+      console.error('[Team API] Upcoming matches error:', upcomingMatchesResult.error)
+    }
 
-    // Filter predictions for this team
-    const teamPredictions = predictions?.filter((p: any) =>
-      p.fixture?.home_team_id === id || p.fixture?.away_team_id === id
-    ) || []
+    // Fetch predictions only for this team's fixtures (efficient DB-level filter)
+    let teamPredictions: any[] = []
+    if (fixtureIds.length > 0) {
+      let predictionsQuery = supabase
+        .from('predictions')
+        .select(`
+          *,
+          fixture:fixtures!inner(
+            id,
+            match_date,
+            status,
+            goals_home,
+            goals_away,
+            home_team_id,
+            away_team_id,
+            league_id,
+            home_team:teams!fixtures_home_team_id_fkey(id, name, logo),
+            away_team:teams!fixtures_away_team_id_fkey(id, name, logo)
+          )
+        `)
+        .in('fixture_id', fixtureIds)
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      // Filter by league if available
+      if (league?.id) {
+        predictionsQuery = predictionsQuery.eq('fixture.league_id', league.id)
+      }
+
+      const { data: predictions } = await predictionsQuery
+      teamPredictions = predictions || []
+    }
 
     // Transform season_stats to flatten home/away JSONB fields
     const transformedStats = team.season_stats?.map((stats: any) => ({

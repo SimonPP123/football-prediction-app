@@ -4,6 +4,11 @@
  *
  * All functions now accept league and season parameters for multi-league support.
  * Parameters are optional and default to Premier League 2025 for backward compatibility.
+ *
+ * Features:
+ * - Exponential backoff retry (1s, 2s, 4s) for 5xx errors
+ * - 30s timeout with AbortController
+ * - Rate limit tracking
  */
 
 const API_BASE = process.env.API_FOOTBALL_BASE_URL || 'https://v3.football.api-sports.io';
@@ -12,9 +17,28 @@ const API_BASE = process.env.API_FOOTBALL_BASE_URL || 'https://v3.football.api-s
 const DEFAULT_LEAGUE_ID = 39; // Premier League
 const DEFAULT_SEASON = 2025;
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000; // 1 second
+const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+
 // Export defaults for components that need them
 export const LEAGUE_ID = DEFAULT_LEAGUE_ID;
 export const SEASON = DEFAULT_SEASON;
+
+/**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Check if an error is retryable (5xx server errors)
+ */
+function isRetryableError(status: number): boolean {
+  return status >= 500 && status < 600;
+}
 
 export async function fetchFromAPI(endpoint: string): Promise<any> {
   const apiKey = process.env.API_FOOTBALL_KEY;
@@ -24,25 +48,85 @@ export async function fetchFromAPI(endpoint: string): Promise<any> {
   }
 
   const url = `${API_BASE}${endpoint}`;
-  console.log(`[API-Football] Fetching: ${url}`);
+  let lastError: Error | null = null;
 
-  const response = await fetch(url, {
-    headers: {
-      'x-apisports-key': apiKey,
-    },
-  });
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Create AbortController for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`API-Football error: ${response.status} ${response.statusText}`);
+    try {
+      console.log(`[API-Football] Fetching: ${url}${attempt > 0 ? ` (retry ${attempt})` : ''}`);
+
+      const response = await fetch(url, {
+        headers: {
+          'x-apisports-key': apiKey,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Log rate limit info
+      const remaining = response.headers.get('x-ratelimit-requests-remaining');
+      console.log(`[API-Football] Rate limit remaining: ${remaining}`);
+
+      // Check for retryable server errors
+      if (isRetryableError(response.status)) {
+        lastError = new Error(`API-Football error: ${response.status} ${response.statusText}`);
+        console.warn(`[API-Football] Server error ${response.status}, will retry...`);
+
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+          console.log(`[API-Football] Waiting ${delay}ms before retry...`);
+          await sleep(delay);
+          continue;
+        }
+        throw lastError;
+      }
+
+      // Non-retryable errors (4xx)
+      if (!response.ok) {
+        throw new Error(`API-Football error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+
+      // Handle abort (timeout)
+      if (error instanceof Error && error.name === 'AbortError') {
+        lastError = new Error(`API-Football request timed out after ${REQUEST_TIMEOUT_MS}ms`);
+        console.warn(`[API-Football] Request timed out, attempt ${attempt + 1}/${MAX_RETRIES}`);
+
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+          await sleep(delay);
+          continue;
+        }
+        throw lastError;
+      }
+
+      // Network errors - retry
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        lastError = error;
+        console.warn(`[API-Football] Network error, attempt ${attempt + 1}/${MAX_RETRIES}`);
+
+        if (attempt < MAX_RETRIES - 1) {
+          const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt);
+          await sleep(delay);
+          continue;
+        }
+      }
+
+      // Re-throw non-retryable errors
+      throw error;
+    }
   }
 
-  const data = await response.json();
-
-  // Log rate limit info
-  const remaining = response.headers.get('x-ratelimit-requests-remaining');
-  console.log(`[API-Football] Rate limit remaining: ${remaining}`);
-
-  return data;
+  // Should not reach here, but just in case
+  throw lastError || new Error('API-Football request failed after retries');
 }
 
 // =====================================================

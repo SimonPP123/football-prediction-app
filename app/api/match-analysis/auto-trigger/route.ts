@@ -1,24 +1,29 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 
+// Configuration constants
+const ANALYSIS_DELAY_HOURS = 1 // Wait this long after match ends before analyzing
+const MAX_AGE_DAYS = 7 // Don't process matches older than this
+const RATE_LIMIT_MS = 2000 // Delay between requests to avoid overwhelming n8n
+
 // Note: This endpoint is called by Vercel cron job, not user requests
 // Auth is handled by Vercel's cron security (cron jobs are internal)
 export async function POST(request: Request) {
   try {
     const now = new Date()
 
-    // 1-hour delay: Only process matches that ended more than 1 hour ago
+    // Delay: Only process matches that ended more than ANALYSIS_DELAY_HOURS ago
     // This ensures match statistics and events have been synced
-    const oneHourAgo = new Date(now.getTime() - 1 * 60 * 60 * 1000)
+    const delayAgo = new Date(now.getTime() - ANALYSIS_DELAY_HOURS * 60 * 60 * 1000)
 
-    // Don't process matches older than 7 days
-    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    // Don't process matches older than MAX_AGE_DAYS
+    const maxAgeAgo = new Date(now.getTime() - MAX_AGE_DAYS * 24 * 60 * 60 * 1000)
 
-    console.log(`[Auto-Trigger] Looking for matches between ${sevenDaysAgo.toISOString()} and ${oneHourAgo.toISOString()}`)
+    console.log(`[Auto-Trigger] Looking for matches between ${maxAgeAgo.toISOString()} and ${delayAgo.toISOString()}`)
 
     // Get completed fixtures that:
     // 1. Have status FT/AET/PEN (completed)
-    // 2. Match ended between 7 days ago and 1 hour ago
+    // 2. Match ended between maxAgeAgo and delayAgo
     // 3. Have predictions (inner join)
     const { data: fixtures, error } = await supabase
       .from('fixtures')
@@ -33,8 +38,8 @@ export async function POST(request: Request) {
         prediction:predictions!inner(id)
       `)
       .in('status', ['FT', 'AET', 'PEN'])
-      .gte('match_date', sevenDaysAgo.toISOString())
-      .lte('match_date', oneHourAgo.toISOString())
+      .gte('match_date', maxAgeAgo.toISOString())
+      .lte('match_date', delayAgo.toISOString())
 
     if (error) throw error
 
@@ -68,8 +73,8 @@ export async function POST(request: Request) {
           success: result.success
         })
 
-        // Rate limit: 1 request per 2 seconds to avoid overwhelming n8n
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Rate limit between requests to avoid overwhelming n8n
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS))
       } catch (err: any) {
         console.error(`Failed to analyze fixture ${fixture.id}:`, err)
         results.push({

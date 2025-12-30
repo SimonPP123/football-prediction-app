@@ -40,10 +40,12 @@ export function middleware(request: NextRequest) {
   }
 
   // Allow static files and Next.js internals
+  // Use explicit extension matching instead of includes('.') to avoid matching API routes like /api/v1.0
+  const staticExtensions = /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff|woff2|ttf|eot|map|json|txt|xml|webmanifest)$/i
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.')
+    staticExtensions.test(pathname)
   ) {
     return NextResponse.next()
   }

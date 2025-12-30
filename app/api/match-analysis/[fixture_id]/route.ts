@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabase, createServerClient } from '@/lib/supabase/client'
+import { isValidUUID } from '@/lib/validation'
 
 export async function GET(
   request: Request,
   { params }: { params: { fixture_id: string } }
 ) {
   try {
+    // Validate fixture_id format
+    if (!isValidUUID(params.fixture_id)) {
+      return NextResponse.json({ error: 'Invalid fixture_id format' }, { status: 400 })
+    }
+
     // Authentication check
     const cookieStore = cookies()
     const authCookie = cookieStore.get('football_auth')?.value
@@ -38,6 +44,11 @@ export async function DELETE(
   { params }: { params: { fixture_id: string } }
 ) {
   try {
+    // Validate fixture_id format
+    if (!isValidUUID(params.fixture_id)) {
+      return NextResponse.json({ error: 'Invalid fixture_id format' }, { status: 400 })
+    }
+
     // Authentication check
     const cookieStore = cookies()
     const authCookie = cookieStore.get('football_auth')?.value

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getPredictionHistory, deletePredictionHistoryRecord, deleteAllPredictionHistory } from '@/lib/supabase/queries'
+import { isValidUUID } from '@/lib/validation'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,14 @@ export async function GET(request: Request) {
     if (!fixtureId) {
       return NextResponse.json(
         { error: 'fixture_id is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate fixture_id format
+    if (!isValidUUID(fixtureId)) {
+      return NextResponse.json(
+        { error: 'Invalid fixture_id format' },
         { status: 400 }
       )
     }
@@ -44,6 +53,20 @@ export async function DELETE(request: NextRequest) {
     const historyId = searchParams.get('history_id')
     const fixtureId = searchParams.get('fixture_id')
     const deleteAll = searchParams.get('delete_all') === 'true'
+
+    // Validate IDs if provided
+    if (historyId && !isValidUUID(historyId)) {
+      return NextResponse.json(
+        { error: 'Invalid history_id format' },
+        { status: 400 }
+      )
+    }
+    if (fixtureId && !isValidUUID(fixtureId)) {
+      return NextResponse.json(
+        { error: 'Invalid fixture_id format' },
+        { status: 400 }
+      )
+    }
 
     // Delete specific history record
     if (historyId) {

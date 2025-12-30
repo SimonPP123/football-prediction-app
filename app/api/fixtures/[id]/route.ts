@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { isValidUUID } from '@/lib/validation'
 
 // Use service role for API routes to bypass RLS
 const supabase = createClient(
@@ -13,6 +14,14 @@ export async function GET(
 ) {
   try {
     const { id } = params
+
+    // Validate fixture ID format
+    if (!isValidUUID(id)) {
+      return NextResponse.json(
+        { error: 'Invalid fixture ID format' },
+        { status: 400 }
+      )
+    }
 
     // Fetch fixture with all related data
     const { data: fixture, error } = await supabase

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
@@ -451,7 +452,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                 </button>
                 {showHomeNews && (
                   <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                    <ReactMarkdown>{prediction.home_team_news}</ReactMarkdown>
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -473,7 +474,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                 </button>
                 {showAwayNews && (
                   <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                    <ReactMarkdown>{prediction.away_team_news}</ReactMarkdown>
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -1019,7 +1020,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                                 {fixture.home_team?.name || 'Home'}
                               </div>
                               <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
-                                <ReactMarkdown>{h.home_team_news}</ReactMarkdown>
+                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{h.home_team_news}</ReactMarkdown>
                               </div>
                             </div>
                           )}
@@ -1030,7 +1031,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                                 {fixture.away_team?.name || 'Away'}
                               </div>
                               <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
-                                <ReactMarkdown>{h.away_team_news}</ReactMarkdown>
+                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{h.away_team_news}</ReactMarkdown>
                               </div>
                             </div>
                           )}

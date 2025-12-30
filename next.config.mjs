@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable instrumentation hook for env validation at startup
+  experimental: {
+    instrumentationHook: true,
+  },
   images: {
     remotePatterns: [
       {
