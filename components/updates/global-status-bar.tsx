@@ -193,7 +193,7 @@ export function MobileDataStatus() {
                 return (
                   <button
                     key={category}
-                    onClick={() => refreshCategory(category, currentLeague?.id)}
+                    onClick={() => refreshCategory(category, currentLeague?.id, currentLeague?.name)}
                     disabled={loading}
                     className="w-full flex items-center gap-2 px-2 py-2 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
                   >
@@ -210,6 +210,9 @@ export function MobileDataStatus() {
                   </button>
                 )
               })}
+            </div>
+            <div className="p-2 border-t border-border bg-muted/30 text-[10px] text-muted-foreground text-center">
+              Refresh for {currentLeague?.name || 'current league'}
             </div>
           </div>
         </>
@@ -281,7 +284,12 @@ export function GlobalStatusBar() {
               <div className="absolute top-full left-0 mt-1 z-50 w-80 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
                 <div className="p-3 border-b border-border bg-muted/30">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">Data Status</span>
+                    <div>
+                      <span className="font-medium text-sm">Data Status</span>
+                      <p className="text-xs text-muted-foreground">
+                        {currentLeague?.name || 'Loading...'}
+                      </p>
+                    </div>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <div className="w-2 h-2 rounded-full bg-green-500" /> Fresh
@@ -306,7 +314,7 @@ export function GlobalStatusBar() {
                     return (
                       <button
                         key={category}
-                        onClick={() => refreshCategory(category, currentLeague?.id)}
+                        onClick={() => refreshCategory(category, currentLeague?.id, currentLeague?.name)}
                         disabled={loading}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
                       >
@@ -338,7 +346,7 @@ export function GlobalStatusBar() {
                   })}
                 </div>
                 <div className="p-2 border-t border-border bg-muted/30 text-[10px] text-muted-foreground text-center">
-                  Click any item to refresh
+                  Click to refresh for {currentLeague?.name || 'current league'}
                 </div>
               </div>
             </>

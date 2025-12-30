@@ -87,8 +87,14 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
     }))
   }, [])
 
-  const refreshCategory = useCallback(async (category: DataCategory, leagueId?: string) => {
+  const refreshCategory = useCallback(async (category: DataCategory, leagueId?: string, leagueName?: string) => {
     setRefreshing(category, true)
+
+    // Format category name for display (e.g., "team-stats" -> "Team Stats")
+    const categoryDisplay = category
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
 
     try {
       const params = new URLSearchParams()
@@ -98,17 +104,23 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
       const response = await fetch(endpoint, { method: 'POST' })
       const data = await response.json()
 
+      // Use league name from response if available, otherwise use passed parameter
+      const displayLeague = data.league || leagueName
+
       if (data.success) {
         addRefreshEvent({
           category,
           type: 'refresh',
           status: 'success',
-          message: `${category} refreshed successfully`,
+          message: displayLeague
+            ? `${categoryDisplay} refreshed for ${displayLeague}`
+            : `${categoryDisplay} refreshed successfully`,
           details: {
             inserted: data.inserted,
             updated: data.updated,
             errors: data.errors,
             duration: data.duration,
+            league: displayLeague,
           },
         })
       } else {
@@ -116,7 +128,10 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
           category,
           type: 'refresh',
           status: 'error',
-          message: data.error || `Failed to refresh ${category}`,
+          message: data.error || `Failed to refresh ${categoryDisplay}`,
+          details: {
+            league: displayLeague,
+          },
         })
       }
     } catch (error) {
@@ -125,6 +140,9 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
         type: 'refresh',
         status: 'error',
         message: error instanceof Error ? error.message : 'Unknown error',
+        details: {
+          league: leagueName,
+        },
       })
     } finally {
       setRefreshing(category, false)

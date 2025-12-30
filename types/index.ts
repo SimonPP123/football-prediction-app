@@ -349,6 +349,7 @@ export interface RefreshEvent {
     updated?: number
     errors?: number
     duration?: number
+    league?: string  // League name that was refreshed
   }
   timestamp: string
 }
@@ -360,7 +361,7 @@ export interface UpdateState {
 }
 
 export interface UpdateContextValue extends UpdateState {
-  refreshCategory: (category: DataCategory, leagueId?: string) => Promise<void>
+  refreshCategory: (category: DataCategory, leagueId?: string, leagueName?: string) => Promise<void>
   addRefreshEvent: (event: Omit<RefreshEvent, 'id' | 'timestamp'>) => void
   updateLastRefreshTime: (category: DataCategory, time: string) => void
   setRefreshing: (category: DataCategory, isRefreshing: boolean) => void

@@ -171,11 +171,18 @@ function ToastItem({ event, visible, onDismiss }: ToastItemProps) {
         </div>
         <p className="text-sm text-foreground mt-0.5">{event.message}</p>
         {event.details && (
-          <p className="text-xs text-muted-foreground mt-1">
-            {event.details.inserted !== undefined && `${event.details.inserted} new`}
-            {event.details.updated !== undefined && `, ${event.details.updated} updated`}
-            {event.details.duration !== undefined && ` (${(event.details.duration / 1000).toFixed(1)}s)`}
-          </p>
+          <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1">
+            {event.details.league && (
+              <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium">
+                {event.details.league}
+              </span>
+            )}
+            <span>
+              {event.details.inserted !== undefined && `${event.details.inserted} new`}
+              {event.details.updated !== undefined && `, ${event.details.updated} updated`}
+              {event.details.duration !== undefined && ` (${(event.details.duration / 1000).toFixed(1)}s)`}
+            </span>
+          </div>
         )}
       </div>
 
