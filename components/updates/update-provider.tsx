@@ -121,6 +121,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
             errors: data.errors,
             duration: data.duration,
             league: displayLeague,
+            rawResponse: data,
           },
         })
       } else {
@@ -131,6 +132,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
           message: data.error || `Failed to refresh ${categoryDisplay}`,
           details: {
             league: displayLeague,
+            rawResponse: data,
           },
         })
       }
@@ -142,6 +144,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
         message: error instanceof Error ? error.message : 'Unknown error',
         details: {
           league: leagueName,
+          rawResponse: { error: error instanceof Error ? error.message : 'Unknown error' },
         },
       })
     } finally {

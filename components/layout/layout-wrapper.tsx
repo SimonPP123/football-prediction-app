@@ -49,11 +49,11 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <LeagueProvider>
-      <UpdateProvider>
+    <UpdateProvider>
+      <LeagueProvider>
         <LayoutContent>{children}</LayoutContent>
-      </UpdateProvider>
-    </LeagueProvider>
+      </LeagueProvider>
+    </UpdateProvider>
   )
 }
 

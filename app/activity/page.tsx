@@ -22,6 +22,9 @@ import {
   Target,
   BarChart3,
   Clock,
+  Globe,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 const CATEGORY_ICONS: Record<DataCategory, typeof Activity> = {
@@ -36,6 +39,7 @@ const CATEGORY_ICONS: Record<DataCategory, typeof Activity> = {
   lineups: Users,
   'match-analysis': Activity,
   'top-performers': Trophy,
+  leagues: Globe,
 }
 
 const CATEGORY_LABELS: Record<DataCategory, string> = {
@@ -50,6 +54,7 @@ const CATEGORY_LABELS: Record<DataCategory, string> = {
   lineups: 'Lineups',
   'match-analysis': 'Match Analysis',
   'top-performers': 'Top Performers',
+  leagues: 'Leagues',
 }
 
 const STATUS_ICONS = {
@@ -72,6 +77,19 @@ export default function ActivityPage() {
   const { refreshHistory, lastRefreshTimes, clearHistory } = useUpdates()
   const [filter, setFilter] = useState<FilterType>('all')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
+
+  const toggleExpanded = (eventId: string) => {
+    setExpandedEvents(prev => {
+      const next = new Set(prev)
+      if (next.has(eventId)) {
+        next.delete(eventId)
+      } else {
+        next.add(eventId)
+      }
+      return next
+    })
+  }
 
   // Filter events
   const filteredEvents = refreshHistory.filter((event) => {
@@ -257,61 +275,94 @@ export default function ActivityPage() {
                     const StatusIcon = STATUS_ICONS[event.status]
                     const CategoryIcon = CATEGORY_ICONS[event.category] || Activity
                     const statusColor = STATUS_COLORS[event.status]
+                    const hasRawResponse = !!event.details?.rawResponse
+                    const isExpanded = expandedEvents.has(event.id)
 
                     return (
                       <div
                         key={event.id}
-                        className="bg-card border rounded-lg p-4 flex items-start gap-3"
+                        className="bg-card border rounded-lg overflow-hidden"
                       >
-                        <div className={cn('p-2 rounded-lg', statusColor)}>
-                          <StatusIcon className="w-4 h-4" />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <CategoryIcon className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium">
-                              {CATEGORY_LABELS[event.category] || event.category}
-                            </span>
-                            <span
-                              className={cn(
-                                'text-xs px-2 py-0.5 rounded',
-                                event.type === 'refresh' && 'bg-blue-500/10 text-blue-500',
-                                event.type === 'prediction' && 'bg-purple-500/10 text-purple-500',
-                                event.type === 'analysis' && 'bg-amber-500/10 text-amber-500'
-                              )}
-                            >
-                              {event.type}
-                            </span>
-                            <span className="text-xs text-muted-foreground ml-auto">
-                              {formatTime(event.timestamp)}
-                            </span>
+                        {/* Event header - clickable if has rawResponse */}
+                        <div
+                          className={cn(
+                            "p-4 flex items-start gap-3",
+                            hasRawResponse && "cursor-pointer hover:bg-muted/30 transition-colors"
+                          )}
+                          onClick={() => hasRawResponse && toggleExpanded(event.id)}
+                        >
+                          <div className={cn('p-2 rounded-lg', statusColor)}>
+                            <StatusIcon className="w-4 h-4" />
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">{event.message}</p>
 
-                          {event.details && (
-                            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                              {event.details.inserted !== undefined && (
-                                <span className="text-green-500">
-                                  +{event.details.inserted} inserted
-                                </span>
-                              )}
-                              {event.details.updated !== undefined && (
-                                <span className="text-blue-500">
-                                  ~{event.details.updated} updated
-                                </span>
-                              )}
-                              {event.details.errors !== undefined && event.details.errors > 0 && (
-                                <span className="text-red-500">
-                                  {event.details.errors} errors
-                                </span>
-                              )}
-                              {event.details.duration !== undefined && (
-                                <span>{(event.details.duration / 1000).toFixed(1)}s</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <CategoryIcon className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {CATEGORY_LABELS[event.category] || event.category}
+                              </span>
+                              <span
+                                className={cn(
+                                  'text-xs px-2 py-0.5 rounded',
+                                  event.type === 'refresh' && 'bg-blue-500/10 text-blue-500',
+                                  event.type === 'prediction' && 'bg-purple-500/10 text-purple-500',
+                                  event.type === 'analysis' && 'bg-amber-500/10 text-amber-500'
+                                )}
+                              >
+                                {event.type}
+                              </span>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {formatTime(event.timestamp)}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">{event.message}</p>
+
+                            {event.details && (
+                              <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                                {event.details.inserted !== undefined && (
+                                  <span className="text-green-500">
+                                    +{event.details.inserted} inserted
+                                  </span>
+                                )}
+                                {event.details.updated !== undefined && (
+                                  <span className="text-blue-500">
+                                    ~{event.details.updated} updated
+                                  </span>
+                                )}
+                                {event.details.errors !== undefined && event.details.errors > 0 && (
+                                  <span className="text-red-500">
+                                    {event.details.errors} errors
+                                  </span>
+                                )}
+                                {event.details.duration !== undefined && (
+                                  <span>{(event.details.duration / 1000).toFixed(1)}s</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Expand/collapse indicator */}
+                          {hasRawResponse && (
+                            <div className="shrink-0 p-1">
+                              {isExpanded ? (
+                                <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
                               )}
                             </div>
                           )}
                         </div>
+
+                        {/* Collapsible raw response section */}
+                        {isExpanded && hasRawResponse && (
+                          <div className="px-4 pb-4">
+                            <div className="bg-muted/50 rounded-lg p-3 overflow-x-auto">
+                              <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap break-all">
+                                {JSON.stringify(event.details?.rawResponse, null, 2)}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )
                   })}

@@ -337,6 +337,7 @@ export type DataCategory =
   | 'lineups'
   | 'match-analysis'
   | 'top-performers'
+  | 'leagues'
 
 export interface RefreshEvent {
   id: string
@@ -350,6 +351,7 @@ export interface RefreshEvent {
     errors?: number
     duration?: number
     league?: string  // League name that was refreshed
+    rawResponse?: Record<string, any>  // Full API response for collapsible display
   }
   timestamp: string
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { Plus, RefreshCw, Check, X, Play, Edit2, Save, Globe, Loader2, RotateCcw, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useUpdates } from '@/components/updates/update-provider'
 
 interface League {
   id: string
@@ -56,6 +57,7 @@ export default function AdminLeaguesPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<League>>({})
+  const { addRefreshEvent } = useUpdates()
 
   // Setup modal state
   const [setupLeague, setSetupLeague] = useState<League | null>(null)
@@ -117,9 +119,29 @@ export default function AdminLeaguesPage() {
       if (!res.ok) {
         const data = await res.json()
         alert(data.error || 'Failed to update league')
+        addRefreshEvent({
+          category: 'leagues',
+          type: 'refresh',
+          status: 'error',
+          message: `Failed to ${league.is_active ? 'deactivate' : 'activate'} ${league.name}`,
+          details: {
+            league: league.name,
+            rawResponse: data
+          }
+        })
         return
       }
 
+      addRefreshEvent({
+        category: 'leagues',
+        type: 'refresh',
+        status: 'success',
+        message: `${league.is_active ? 'Deactivated' : 'Activated'} ${league.name}`,
+        details: {
+          league: league.name,
+          rawResponse: { id: league.id, name: league.name, isActive: !league.is_active }
+        }
+      })
       fetchLeagues()
     } catch (err) {
       alert('An error occurred')
@@ -171,8 +193,30 @@ export default function AdminLeaguesPage() {
       const data = await res.json()
 
       if (!res.ok) {
+        addRefreshEvent({
+          category: 'leagues',
+          type: 'refresh',
+          status: 'error',
+          message: `Failed to create league: ${newLeague.name}`,
+          details: {
+            league: newLeague.name,
+            rawResponse: data
+          }
+        })
         throw new Error(data.error || 'Failed to create league')
       }
+
+      addRefreshEvent({
+        category: 'leagues',
+        type: 'refresh',
+        status: 'success',
+        message: `Created league: ${data.league.name}`,
+        details: {
+          inserted: 1,
+          league: data.league.name,
+          rawResponse: data.league
+        }
+      })
 
       // Reset form
       setNewLeague({
@@ -218,11 +262,34 @@ export default function AdminLeaguesPage() {
         }),
       })
 
+      const data = await res.json()
+
       if (!res.ok) {
-        const data = await res.json()
+        addRefreshEvent({
+          category: 'leagues',
+          type: 'refresh',
+          status: 'error',
+          message: `Failed to update league: ${league.name}`,
+          details: {
+            league: league.name,
+            rawResponse: data
+          }
+        })
         alert(data.error || 'Failed to update league')
         return
       }
+
+      addRefreshEvent({
+        category: 'leagues',
+        type: 'refresh',
+        status: 'success',
+        message: `Updated league: ${data.league?.name || league.name}`,
+        details: {
+          updated: 1,
+          league: data.league?.name || league.name,
+          rawResponse: { id: league.id, changes: editData, result: data.league }
+        }
+      })
 
       setEditingId(null)
       setEditData({})

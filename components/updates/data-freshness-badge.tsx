@@ -63,6 +63,11 @@ const CATEGORY_INFO: Record<DataCategory, { name: string; description: string; r
     description: 'Top scorers, assists, and cards statistics',
     refreshFrequency: 'Updated weekly',
   },
+  leagues: {
+    name: 'Leagues',
+    description: 'League configuration and settings',
+    refreshFrequency: 'Updated when leagues are added or modified',
+  },
 }
 
 // Color legend for freshness

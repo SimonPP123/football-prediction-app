@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
+import { useUpdates } from '@/components/updates/update-provider'
 
 export interface LeagueConfig {
   id: string
@@ -47,6 +48,9 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [leagues, setLeagues] = useState<LeagueConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { addRefreshEvent } = useUpdates()
+  // Track if this is the initial load to avoid logging on page refresh
+  const isInitialLoad = useRef(true)
 
   // Fetch active leagues from API
   const fetchLeagues = useCallback(async () => {
@@ -101,6 +105,8 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       }
 
       setIsLoading(false)
+      // Mark initial load as complete so subsequent changes will be logged
+      isInitialLoad.current = false
     }
 
     init()
@@ -108,6 +114,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
 
   // Set current league and save to localStorage + cookie
   const setCurrentLeague = useCallback((league: LeagueConfig) => {
+    const previousLeague = currentLeague
     setCurrentLeagueState(league)
     localStorage.setItem(STORAGE_KEY, league.id)
 
@@ -118,7 +125,26 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     const url = new URL(window.location.href)
     url.searchParams.set('league_id', league.id)
     window.history.replaceState({}, '', url.toString())
-  }, [])
+
+    // Log league switch event (only for user-initiated switches, not initial load)
+    if (!isInitialLoad.current && previousLeague?.id !== league.id) {
+      addRefreshEvent({
+        category: 'leagues',
+        type: 'refresh',
+        status: 'info',
+        message: previousLeague
+          ? `Switched from ${previousLeague.name} to ${league.name}`
+          : `Selected ${league.name}`,
+        details: {
+          league: league.name,
+          rawResponse: {
+            previousLeague: previousLeague ? { id: previousLeague.id, name: previousLeague.name, apiId: previousLeague.apiId } : null,
+            newLeague: { id: league.id, name: league.name, apiId: league.apiId, season: league.currentSeason }
+          }
+        }
+      })
+    }
+  }, [currentLeague, addRefreshEvent])
 
   // Refresh leagues from API
   const refreshLeagues = useCallback(async () => {
