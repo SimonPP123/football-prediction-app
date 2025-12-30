@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getLiveFixtures } from '@/lib/supabase/queries'
+import { getLiveFixturesWithFactors } from '@/lib/supabase/queries'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,7 +8,8 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const leagueId = searchParams.get('league_id') || undefined
 
-    const fixtures = await getLiveFixtures(leagueId)
+    // Use getLiveFixturesWithFactors to include predictions for PredictionCard display
+    const fixtures = await getLiveFixturesWithFactors(20, leagueId)
 
     return NextResponse.json(fixtures)
   } catch (error) {

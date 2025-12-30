@@ -41,6 +41,7 @@ export default function PredictionsPage() {
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [errorIds, setErrorIds] = useState<Record<string, string>>({}) // fixtureId -> error message
   const [recentResults, setRecentResults] = useState<any[]>([])
+  const [liveFixtures, setLiveFixtures] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
   const [showStats, setShowStats] = useState(false)
   // Settings state
@@ -180,10 +181,11 @@ export default function PredictionsPage() {
     try {
       setLoading(true)
       const params = currentLeague?.id ? `league_id=${currentLeague.id}` : ''
-      // Fetch both upcoming and all historical results in parallel
-      const [upcomingRes, recentRes] = await Promise.all([
-        fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`, { signal }),
-        fetch(`/api/fixtures/recent-results?rounds=all${params ? '&' + params : ''}`, { signal })
+      // Fetch upcoming, live, and all historical results in parallel
+      const [upcomingRes, recentRes, liveRes] = await Promise.all([
+        fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`, { signal, credentials: 'include' }),
+        fetch(`/api/fixtures/recent-results?rounds=all${params ? '&' + params : ''}`, { signal, credentials: 'include' }),
+        fetch(`/api/fixtures/live${params ? '?' + params : ''}`, { signal, credentials: 'include' })
       ])
 
       // Check if request was aborted
@@ -191,12 +193,14 @@ export default function PredictionsPage() {
 
       const upcomingData = await upcomingRes.json()
       const recentData = await recentRes.json()
+      const liveData = await liveRes.json()
 
       // Check again after parsing (in case it was aborted during parsing)
       if (signal?.aborted) return
 
       setFixtures(Array.isArray(upcomingData) ? upcomingData : [])
       setRecentResults(Array.isArray(recentData) ? recentData : [])
+      setLiveFixtures(Array.isArray(liveData) ? liveData : [])
     } catch (error: any) {
       // Don't log abort errors - they're expected when changing leagues
       if (error?.name !== 'AbortError') {
@@ -602,6 +606,34 @@ export default function PredictionsPage() {
             </div>
           )}
         </div>
+
+        {/* Live Matches - Only show if there are live matches */}
+        {liveFixtures.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+                <h2 className="font-semibold text-lg text-red-500">Live Now</h2>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                {liveFixtures.length} match{liveFixtures.length > 1 ? 'es' : ''} in progress
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {liveFixtures.map((fixture: any) => (
+                <PredictionCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  isLive={true}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex items-center border-b border-border mb-6">
