@@ -9,25 +9,23 @@ import {
   Trophy,
   AlertTriangle,
   DollarSign,
-  CloudRain,
-  Target,
   BarChart3,
   Users,
   UserCheck,
-  Brain,
   Loader2,
-  RefreshCw,
   ChevronDown,
   Settings,
+  Info,
 } from 'lucide-react'
 import { usePollerSettings, PollerSettingsPanel } from './update-poller'
 
-const CATEGORY_CONFIG: Record<DataCategory, {
+const CATEGORY_CONFIG: Record<string, {
   label: string
   icon: typeof Calendar
   color: string
   bgColor: string
   description: string
+  tooltip: string
 }> = {
   fixtures: {
     label: 'Fixtures',
@@ -35,6 +33,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-blue-500',
     bgColor: 'bg-blue-500',
     description: 'Match schedule and venues',
+    tooltip: 'Upcoming and past match schedules with venues, kickoff times, and scores. Source: API-Football.',
   },
   standings: {
     label: 'Standings',
@@ -42,6 +41,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-amber-500',
     bgColor: 'bg-amber-500',
     description: 'League table',
+    tooltip: 'Current Premier League standings including points, goal difference, and form. Source: API-Football.',
   },
   injuries: {
     label: 'Injuries',
@@ -49,6 +49,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-red-500',
     bgColor: 'bg-red-500',
     description: 'Player injuries',
+    tooltip: 'Current player injuries and suspensions affecting squad availability. Source: API-Football.',
   },
   odds: {
     label: 'Odds',
@@ -56,20 +57,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-green-500',
     bgColor: 'bg-green-500',
     description: 'Betting odds',
-  },
-  weather: {
-    label: 'Weather',
-    icon: CloudRain,
-    color: 'text-cyan-500',
-    bgColor: 'bg-cyan-500',
-    description: 'Match weather',
-  },
-  predictions: {
-    label: 'Predictions',
-    icon: Target,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-500',
-    description: 'AI predictions',
+    tooltip: 'Latest betting odds from multiple bookmakers for upcoming matches. Source: The Odds API.',
   },
   'team-stats': {
     label: 'Team Stats',
@@ -77,6 +65,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-indigo-500',
     bgColor: 'bg-indigo-500',
     description: 'Team statistics',
+    tooltip: 'Detailed team performance metrics including xG, shots, passes, and defensive stats. Source: API-Football.',
   },
   'player-stats': {
     label: 'Player Stats',
@@ -84,6 +73,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-pink-500',
     bgColor: 'bg-pink-500',
     description: 'Player statistics',
+    tooltip: 'Individual player performance data and statistics for the season.',
   },
   lineups: {
     label: 'Lineups',
@@ -91,13 +81,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-orange-500',
     bgColor: 'bg-orange-500',
     description: 'Starting XI',
-  },
-  'match-analysis': {
-    label: 'Analysis',
-    icon: Brain,
-    color: 'text-emerald-500',
-    bgColor: 'bg-emerald-500',
-    description: 'Post-match analysis',
+    tooltip: 'Confirmed starting lineups and formations. Available ~1hr before kickoff. Source: API-Football.',
   },
   'top-performers': {
     label: 'Top Performers',
@@ -105,6 +89,7 @@ const CATEGORY_CONFIG: Record<DataCategory, {
     color: 'text-amber-500',
     bgColor: 'bg-amber-500',
     description: 'Top scorers & assists',
+    tooltip: 'League top scorers, assist leaders, and card statistics. Source: API-Football.',
   },
 }
 
@@ -112,7 +97,6 @@ const VISIBLE_CATEGORIES: DataCategory[] = [
   'fixtures',
   'standings',
   'injuries',
-  'predictions',
 ]
 
 function formatRelativeTime(dateString: string | undefined): string {
@@ -241,7 +225,12 @@ export function GlobalStatusBar() {
                           <Icon className={cn("w-4 h-4 shrink-0", config.color)} />
                         )}
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-medium">{config.label}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium">{config.label}</span>
+                            <span title={config.tooltip} className="cursor-help">
+                              <Info className="w-3 h-3 text-muted-foreground hover:text-foreground transition-colors" />
+                            </span>
+                          </div>
                           <div className="text-xs text-muted-foreground truncate">
                             {config.description}
                           </div>

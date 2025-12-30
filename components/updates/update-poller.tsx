@@ -14,31 +14,79 @@ interface PollerSettings {
 const DEFAULT_SETTINGS: PollerSettings = {
   enabled: false,
   intervals: {
-    // Critical data (on matchday)
-    fixtures: 5,
-    lineups: 5,
-    // Normal priority
-    standings: 15,
-    injuries: 15,
-    'team-stats': 30,
-    // Low priority
-    weather: 30,
-    odds: 30,
-    'top-performers': 60,
+    // Less frequent defaults to avoid API rate limits
+    fixtures: 120,      // 2 hours (recommended)
+    lineups: 60,        // 1 hour (recommended)
+    standings: 360,     // 6 hours (recommended)
+    injuries: 720,      // 12 hours (recommended)
+    odds: 120,          // 2 hours (recommended)
+    'team-stats': 1440, // 24 hours (recommended)
+    'top-performers': 1440, // 24 hours (recommended)
   },
 }
 
-// Data categories that can be polled
+// Data categories that can be polled (removed weather, predictions, match-analysis)
 const POLLABLE_CATEGORIES: DataCategory[] = [
+  'fixtures',
   'standings',
   'injuries',
   'odds',
-  'weather',
-  'fixtures',
   'lineups',
   'team-stats',
   'top-performers',
 ]
+
+// Endpoint-specific interval options with recommended defaults
+interface IntervalOption {
+  label: string
+  value: number
+  recommended?: boolean
+}
+
+const CATEGORY_INTERVALS: Record<string, IntervalOption[]> = {
+  fixtures: [
+    { label: '1 hour', value: 60 },
+    { label: '2 hours', value: 120, recommended: true },
+    { label: '4 hours', value: 240 },
+    { label: '6 hours', value: 360 },
+  ],
+  standings: [
+    { label: '2 hours', value: 120 },
+    { label: '4 hours', value: 240 },
+    { label: '6 hours', value: 360, recommended: true },
+    { label: '12 hours', value: 720 },
+  ],
+  injuries: [
+    { label: '4 hours', value: 240 },
+    { label: '6 hours', value: 360 },
+    { label: '12 hours', value: 720, recommended: true },
+    { label: '24 hours', value: 1440 },
+  ],
+  odds: [
+    { label: '1 hour', value: 60 },
+    { label: '2 hours', value: 120, recommended: true },
+    { label: '4 hours', value: 240 },
+    { label: '6 hours', value: 360 },
+  ],
+  lineups: [
+    { label: '30 min', value: 30 },
+    { label: '1 hour', value: 60, recommended: true },
+    { label: '2 hours', value: 120 },
+    { label: '4 hours', value: 240 },
+  ],
+  'team-stats': [
+    { label: '6 hours', value: 360 },
+    { label: '12 hours', value: 720 },
+    { label: '24 hours', value: 1440, recommended: true },
+    { label: '48 hours', value: 2880 },
+  ],
+  'top-performers': [
+    { label: '12 hours', value: 720 },
+    { label: '24 hours', value: 1440, recommended: true },
+    { label: '48 hours', value: 2880 },
+    { label: '72 hours', value: 4320 },
+  ],
+}
 
 export function usePollerSettings() {
   const [settings, setSettings] = useState<PollerSettings>(DEFAULT_SETTINGS)
@@ -185,20 +233,11 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
 
   if (!isLoaded) return null
 
-  const intervalOptions = [
-    { label: '1 min', value: 1 },
-    { label: '5 min', value: 5 },
-    { label: '15 min', value: 15 },
-    { label: '30 min', value: 30 },
-    { label: '1 hour', value: 60 },
-  ]
-
   const categoryLabels: Record<string, string> = {
     fixtures: 'Fixtures',
     standings: 'Standings',
     injuries: 'Injuries',
     odds: 'Odds',
-    weather: 'Weather',
     lineups: 'Lineups',
     'team-stats': 'Team Stats',
     'top-performers': 'Top Performers',
@@ -229,22 +268,27 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
 
       {settings.enabled && (
         <div className="space-y-3 pt-3 border-t border-border">
-          {POLLABLE_CATEGORIES.map(category => (
-            <div key={category} className="flex items-center justify-between">
-              <span className="text-sm">{categoryLabels[category] || category}</span>
-              <select
-                value={settings.intervals[category] || 15}
-                onChange={e => setInterval(category, parseInt(e.target.value))}
-                className="text-sm bg-muted border border-border rounded px-2 py-1"
-              >
-                {intervalOptions.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+          {POLLABLE_CATEGORIES.map(category => {
+            const options = CATEGORY_INTERVALS[category] || []
+            const currentValue = settings.intervals[category] || DEFAULT_SETTINGS.intervals[category]
+
+            return (
+              <div key={category} className="flex items-center justify-between">
+                <span className="text-sm">{categoryLabels[category] || category}</span>
+                <select
+                  value={currentValue}
+                  onChange={e => setInterval(category, parseInt(e.target.value))}
+                  className="text-sm bg-muted border border-border rounded px-2 py-1"
+                >
+                  {options.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}{opt.recommended ? ' (Recommended)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
