@@ -236,14 +236,28 @@ export default function MatchDetailPage() {
                   <p className="text-sm text-muted-foreground mt-2">
                     {prediction.prediction_result === '1' ? 'Home Win' :
                      prediction.prediction_result === 'X' ? 'Draw' :
-                     'Away Win'}
+                     prediction.prediction_result === '2' ? 'Away Win' :
+                     prediction.prediction_result === '1X' ? 'Home or Draw' :
+                     prediction.prediction_result === 'X2' ? 'Draw or Away' :
+                     'Home or Away'}
                   </p>
+                  {/* Confidence percentage - shows how confident the AI is in this prediction */}
+                  {prediction.confidence_pct && (
+                    <p className={cn(
+                      "text-sm font-semibold mt-1",
+                      prediction.confidence_pct >= 70 ? 'text-green-500' :
+                      prediction.confidence_pct >= 50 ? 'text-amber-500' :
+                      'text-red-500'
+                    )}>
+                      {prediction.confidence_pct}% confident
+                    </p>
+                  )}
                 </div>
                 <div className="text-center">
                   <p className="text-4xl font-bold text-primary">
-                    {prediction.overall_index}%
+                    {prediction.overall_index}
                   </p>
-                  <p className="text-sm text-muted-foreground">Confidence</p>
+                  <p className="text-sm text-muted-foreground">Factor Score</p>
                 </div>
               </div>
 

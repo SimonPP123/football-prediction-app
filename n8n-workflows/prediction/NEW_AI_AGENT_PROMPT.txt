@@ -484,7 +484,16 @@ ANALYSIS INSTRUCTIONS
    - away_win_pct: Probability of away win (0-100)
    Must sum to 100%
 
-7. **CONFIDENCE ADJUSTMENTS**:
+7. **SET CONFIDENCE_PCT**:
+   confidence_pct = max(home_win_pct, draw_pct, away_win_pct)
+
+   This represents your confidence in the predicted outcome.
+   - If you predict "1" (Home Win), confidence_pct should equal home_win_pct
+   - If you predict "X" (Draw), confidence_pct should equal draw_pct
+   - If you predict "2" (Away Win), confidence_pct should equal away_win_pct
+   - For double-chance (1X, X2, 12), confidence_pct = sum of the two relevant probabilities
+
+   **Adjustments:**
    - Missing lineup data: reduce confidence by 10%
    - Conflicting data: reduce confidence by 5%
    - Extreme weather: adjust confidence based on uncertainty
@@ -497,8 +506,8 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
 {
   "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",
-  "confidence_pct": 0-100,
-  "overall_index": 1-100,
+  "confidence_pct": 0-100,  // IMPORTANT: Set to max(home_win_pct, draw_pct, away_win_pct) - confidence in the predicted outcome
+  "overall_index": 1-100,   // Factor analysis weighted sum (>50 = home favored, <50 = away favored)
   "home_win_pct": 0-100,
   "draw_pct": 0-100,
   "away_win_pct": 0-100,
