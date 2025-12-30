@@ -102,7 +102,8 @@ $$ LANGUAGE plpgsql STABLE;
 -- STEP 8: ADD RLS POLICIES FOR NEW LEAGUE DATA
 -- =====================================================
 -- Ensure RLS policies allow access to league data
-CREATE POLICY IF NOT EXISTS "Allow public read access for leagues config"
+DROP POLICY IF EXISTS "Allow public read access for leagues config" ON leagues;
+CREATE POLICY "Allow public read access for leagues config"
 ON leagues FOR SELECT USING (true);
 
 -- =====================================================
