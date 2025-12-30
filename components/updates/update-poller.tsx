@@ -210,14 +210,24 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
     'top-performers': { label: 'Top Performers', description: 'Scorers & assists' },
   }
 
-  const handleIntervalChange = (category: string, value: number, unit: 'minutes' | 'hours') => {
-    const minutes = unit === 'hours' ? value * 60 : value
+  const handleIntervalChange = (category: string, value: number, unit: 'minutes' | 'hours' | 'days') => {
+    let minutes: number
+    if (unit === 'days') {
+      minutes = value * 1440
+    } else if (unit === 'hours') {
+      minutes = value * 60
+    } else {
+      minutes = value
+    }
     // Minimum 10 minutes, maximum 7 days
     const clamped = Math.max(10, Math.min(minutes, 10080))
     setInterval(category, clamped)
   }
 
-  const getDisplayValue = (minutes: number): { value: number; unit: 'minutes' | 'hours' } => {
+  const getDisplayValue = (minutes: number): { value: number; unit: 'minutes' | 'hours' | 'days' } => {
+    if (minutes >= 1440 && minutes % 1440 === 0) {
+      return { value: minutes / 1440, unit: 'days' }
+    }
     if (minutes >= 60 && minutes % 60 === 0) {
       return { value: minutes / 60, unit: 'hours' }
     }
@@ -271,8 +281,8 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
                 <div className="flex items-center gap-2">
                   <input
                     type="number"
-                    min={unit === 'hours' ? 1 : 10}
-                    max={unit === 'hours' ? 168 : 10080}
+                    min={unit === 'days' ? 1 : unit === 'hours' ? 1 : 10}
+                    max={unit === 'days' ? 7 : unit === 'hours' ? 168 : 10080}
                     value={value}
                     onChange={e => handleIntervalChange(category, parseInt(e.target.value) || 1, unit)}
                     className="w-20 text-sm bg-muted border border-border rounded px-2 py-1 text-center"
@@ -280,14 +290,25 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
                   <select
                     value={unit}
                     onChange={e => {
-                      const newUnit = e.target.value as 'minutes' | 'hours'
-                      const newValue = newUnit === 'hours' ? Math.max(1, Math.floor(value / 60)) : value * 60
+                      const newUnit = e.target.value as 'minutes' | 'hours' | 'days'
+                      // Convert current value to minutes first
+                      const currentMinutes = unit === 'days' ? value * 1440 : unit === 'hours' ? value * 60 : value
+                      // Then convert to new unit
+                      let newValue: number
+                      if (newUnit === 'days') {
+                        newValue = Math.max(1, Math.round(currentMinutes / 1440))
+                      } else if (newUnit === 'hours') {
+                        newValue = Math.max(1, Math.round(currentMinutes / 60))
+                      } else {
+                        newValue = Math.max(10, currentMinutes)
+                      }
                       handleIntervalChange(category, newValue, newUnit)
                     }}
                     className="text-sm bg-muted border border-border rounded px-2 py-1"
                   >
                     <option value="minutes">minutes</option>
                     <option value="hours">hours</option>
+                    <option value="days">days</option>
                   </select>
                 </div>
               </div>
