@@ -111,6 +111,26 @@ export default function PredictionsPage() {
     }
   }, [currentLeague?.id])
 
+  // Auto-refresh live fixtures every 60 seconds
+  useEffect(() => {
+    const refreshLive = async () => {
+      try {
+        const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+        const res = await fetch(`/api/fixtures/live${params}`, { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          setLiveFixtures(Array.isArray(data) ? data : [])
+        }
+      } catch (error) {
+        console.error('Failed to refresh live fixtures:', error)
+      }
+    }
+
+    const intervalId = setInterval(refreshLive, 60000) // Refresh every 60 seconds
+
+    return () => clearInterval(intervalId)
+  }, [currentLeague?.id])
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

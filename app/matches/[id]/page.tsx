@@ -176,17 +176,29 @@ export default function MatchDetailPage() {
   // Check if there are any injuries for either team
   const hasInjuries = homeInjuries.length > 0 || awayInjuries.length > 0
 
-  // Define available tabs based on data
-  const tabs: { id: TabType; label: string; icon: typeof Target; available: boolean }[] = [
-    { id: 'prediction', label: 'Prediction', icon: Target, available: !!prediction },
-    { id: 'injuries', label: 'Injuries', icon: AlertTriangle, available: hasInjuries },
-    { id: 'statistics', label: 'Statistics', icon: BarChart3, available: isCompleted && Object.keys(homeStats).length > 0 },
-    { id: 'events', label: 'Events', icon: Calendar, available: events.length > 0 },
-    { id: 'odds', label: 'Odds', icon: DollarSign, available: odds.length > 0 },
-    { id: 'weather', label: 'Weather', icon: CloudRain, available: !!weather },
-    { id: 'h2h', label: 'H2H', icon: History, available: !!h2h },
-    { id: 'analysis', label: 'Analysis', icon: Brain, available: isCompleted },
-  ]
+  // Memoize availability flags to prevent infinite re-renders
+  const tabAvailability = useMemo(() => ({
+    prediction: !!prediction,
+    injuries: hasInjuries,
+    statistics: isCompleted && Object.keys(homeStats).length > 0,
+    events: events.length > 0,
+    odds: odds.length > 0,
+    weather: !!weather,
+    h2h: !!h2h,
+    analysis: isCompleted,
+  }), [prediction, hasInjuries, isCompleted, homeStats, events.length, odds.length, weather, h2h])
+
+  // Define available tabs based on data - memoized with stable dependencies
+  const tabs: { id: TabType; label: string; icon: typeof Target; available: boolean }[] = useMemo(() => [
+    { id: 'prediction', label: 'Prediction', icon: Target, available: tabAvailability.prediction },
+    { id: 'injuries', label: 'Injuries', icon: AlertTriangle, available: tabAvailability.injuries },
+    { id: 'statistics', label: 'Statistics', icon: BarChart3, available: tabAvailability.statistics },
+    { id: 'events', label: 'Events', icon: Calendar, available: tabAvailability.events },
+    { id: 'odds', label: 'Odds', icon: DollarSign, available: tabAvailability.odds },
+    { id: 'weather', label: 'Weather', icon: CloudRain, available: tabAvailability.weather },
+    { id: 'h2h', label: 'H2H', icon: History, available: tabAvailability.h2h },
+    { id: 'analysis', label: 'Analysis', icon: Brain, available: tabAvailability.analysis },
+  ], [tabAvailability])
 
   const availableTabs = useMemo(() => tabs.filter(t => t.available), [tabs])
 
