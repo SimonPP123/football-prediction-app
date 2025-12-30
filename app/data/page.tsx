@@ -50,7 +50,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useLeague } from '@/contexts/league-context'
+import { useLeague, LeagueConfig } from '@/contexts/league-context'
 
 // Types
 interface LogEntry {
@@ -207,8 +207,12 @@ function getTimestamp(): string {
 }
 
 export default function DataManagementPage() {
-  const { currentLeague } = useLeague()
+  const { currentLeague, leagues } = useLeague()
   const [stats, setStats] = useState<Record<string, TableStats> | null>(null)
+
+  // Multi-league selection state
+  const [selectionMode, setSelectionMode] = useState<'single' | 'multiple'>('single')
+  const [selectedLeagues, setSelectedLeagues] = useState<LeagueConfig[]>([])
   const [summary, setSummary] = useState<{ totalTables: number; totalRecords: number; lastSync: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -239,10 +243,37 @@ export default function DataManagementPage() {
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
 
-  // Build league query param helper
+  // Get the target leagues based on selection mode
+  const getTargetLeagues = useCallback((): LeagueConfig[] => {
+    if (selectionMode === 'multiple' && selectedLeagues.length > 0) {
+      return selectedLeagues
+    }
+    return currentLeague ? [currentLeague] : []
+  }, [selectionMode, selectedLeagues, currentLeague])
+
+  // Get display text for target leagues
+  const getTargetLeaguesDisplay = useCallback((): string => {
+    const targets = getTargetLeagues()
+    if (targets.length === 0) return 'No league selected'
+    if (targets.length === 1) return targets[0].name
+    return `${targets.length} leagues`
+  }, [getTargetLeagues])
+
+  // Build league query param helper (for single league - backward compatibility)
   const getLeagueParam = useCallback(() => {
     return currentLeague?.id ? `league_id=${currentLeague.id}` : ''
   }, [currentLeague?.id])
+
+  // Toggle league selection in multi-mode
+  const toggleLeagueSelection = useCallback((league: LeagueConfig) => {
+    setSelectedLeagues(prev => {
+      const isSelected = prev.some(l => l.id === league.id)
+      if (isSelected) {
+        return prev.filter(l => l.id !== league.id)
+      }
+      return [...prev, league]
+    })
+  }, [])
 
   const toggleDetails = (sourceId: string) => {
     setExpandedDetails(prev => ({ ...prev, [sourceId]: !prev[sourceId] }))
@@ -533,67 +564,34 @@ export default function DataManagementPage() {
   }
 
   const handlePreMatchRefresh = async () => {
+    const targetLeagues = getTargetLeagues()
+    if (targetLeagues.length === 0) return
+
     setIsPreMatchRefreshing(true)
-    addLog('info', 'pre-match', 'Starting pre-match data refresh...')
+    addLog('info', 'pre-match', `Starting pre-match refresh for ${targetLeagues.length} league(s)...`)
 
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/refresh/pre-match${leagueParam}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          includeRefereeStats,
-          includeLineups,
-        }),
-      })
+      const promises = targetLeagues.map(league =>
+        runWorkflowForLeague(
+          '/api/data/refresh/pre-match',
+          league.id,
+          league.name,
+          'pre-match',
+          { includeRefereeStats, includeLineups }
+        )
+      )
 
-      const contentType = res.headers.get('content-type') || ''
+      const results = await Promise.all(promises)
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.length - successCount
 
-      if (contentType.includes('text/event-stream') && res.body) {
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.done) {
-                  if (data.success) {
-                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'pre-match', `Pre-match refresh complete: ${data.successful}/${data.endpoints || data.total} successful${duration}`)
-                    await fetchStats()
-                  } else {
-                    addLog('error', 'pre-match', `Pre-match refresh failed: ${data.failed || data.errors} endpoints had errors`)
-                  }
-                } else {
-                  // Real-time progress log
-                  addLog(data.type || 'info', 'pre-match', data.message, data.details)
-                }
-              } catch (parseError) {
-                console.error('Failed to parse SSE data:', line)
-              }
-            }
-          }
-        }
+      if (failCount === 0) {
+        addLog('success', 'pre-match', `All ${successCount} league(s) completed successfully`)
       } else {
-        const data = await res.json()
-        if (data.success) {
-          addLog('success', 'pre-match', `Pre-match refresh complete`)
-          await fetchStats()
-        } else {
-          addLog('error', 'pre-match', `Pre-match refresh failed: ${data.error || 'Unknown error'}`)
-        }
+        addLog('warning', 'pre-match', `Completed: ${successCount} succeeded, ${failCount} failed`)
       }
+
+      await fetchStats()
     } catch (error) {
       addLog('error', 'pre-match', `Pre-match refresh failed: ${error instanceof Error ? error.message : 'Network error'}`)
     } finally {
@@ -602,80 +600,34 @@ export default function DataManagementPage() {
   }
 
   const handlePostMatchRefresh = async () => {
+    const targetLeagues = getTargetLeagues()
+    if (targetLeagues.length === 0) return
+
     setIsPostMatchRefreshing(true)
-    addLog('info', 'post-match', 'Starting post-match data refresh...')
+    addLog('info', 'post-match', `Starting post-match refresh for ${targetLeagues.length} league(s)...`)
 
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/refresh/post-match${leagueParam}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          includeLineups: includePostMatchLineups,
-        }),
-      })
+      const promises = targetLeagues.map(league =>
+        runWorkflowForLeague(
+          '/api/data/refresh/post-match',
+          league.id,
+          league.name,
+          'post-match',
+          { includeLineups: includePostMatchLineups }
+        )
+      )
 
-      // Check if response is OK
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
-      }
+      const results = await Promise.all(promises)
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.length - successCount
 
-      const contentType = res.headers.get('content-type') || ''
-
-      if (contentType.includes('text/event-stream') && res.body) {
-        // Handle SSE streaming
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.done) {
-                  if (data.success) {
-                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'post-match',
-                      `Post-match refresh complete: ${data.successful}/${data.total} successful${duration}`
-                    )
-                  } else {
-                    addLog('error', 'post-match',
-                      `Post-match refresh completed with ${data.failed || data.errors} failures`
-                    )
-                  }
-                  await fetchStats()
-                } else {
-                  // Real-time progress log
-                  addLog(data.type || 'info', 'post-match', data.message, data.details)
-                }
-              } catch (e) {
-                console.error('Failed to parse SSE data:', e)
-              }
-            }
-          }
-        }
+      if (failCount === 0) {
+        addLog('success', 'post-match', `All ${successCount} league(s) completed successfully`)
       } else {
-        // Fallback to JSON response
-        const data = await res.json()
-        if (data.success) {
-          addLog('success', 'post-match',
-            `Post-match refresh completed: ${data.successful}/${data.total} successful`
-          )
-          await fetchStats()
-        } else {
-          addLog('error', 'post-match', `Post-match refresh failed: ${data.error || 'Unknown error'}`)
-        }
+        addLog('warning', 'post-match', `Completed: ${successCount} succeeded, ${failCount} failed`)
       }
+
+      await fetchStats()
     } catch (error) {
       addLog('error', 'post-match',
         `Post-match refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -685,15 +637,19 @@ export default function DataManagementPage() {
     }
   }
 
-  const handleSeasonSetupRefresh = async () => {
-    setIsSeasonSetupRefreshing(true)
-    addLog('info', 'season-setup', 'Starting season setup refresh...')
-
+  // Helper function to run a workflow refresh for a single league
+  const runWorkflowForLeague = async (
+    endpoint: string,
+    leagueId: string,
+    leagueName: string,
+    category: string,
+    body?: object
+  ): Promise<{ success: boolean; league: string }> => {
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/refresh/season-setup${leagueParam}`, {
+      const res = await fetch(`${endpoint}?league_id=${leagueId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
       })
 
       if (!res.ok) {
@@ -707,6 +663,7 @@ export default function DataManagementPage() {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ''
+        let finalSuccess = false
 
         while (true) {
           const { done, value } = await reader.read()
@@ -722,20 +679,20 @@ export default function DataManagementPage() {
                 const data = JSON.parse(line.slice(6))
 
                 if (data.done) {
+                  finalSuccess = data.success
                   if (data.success) {
                     const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'season-setup',
-                      `Season setup complete: ${data.successful}/${data.total} successful${duration}`
+                    addLog('success', category,
+                      `[${leagueName}] Complete: ${data.successful}/${data.total} successful${duration}`
                     )
                   } else {
-                    addLog('error', 'season-setup',
-                      `Season setup completed with ${data.failed || data.errors} failures`
+                    addLog('error', category,
+                      `[${leagueName}] Completed with ${data.failed || data.errors} failures`
                     )
                   }
-                  await fetchStats()
                 } else {
-                  // Real-time progress log
-                  addLog(data.type || 'info', 'season-setup', data.message, data.details)
+                  // Real-time progress log with league prefix
+                  addLog(data.type || 'info', category, `[${leagueName}] ${data.message}`, data.details)
                 }
               } catch (e) {
                 console.error('Failed to parse SSE data:', e)
@@ -743,17 +700,56 @@ export default function DataManagementPage() {
             }
           }
         }
+        return { success: finalSuccess, league: leagueName }
       } else {
         const data = await res.json()
         if (data.success) {
-          addLog('success', 'season-setup',
-            `Season setup completed: ${data.successful}/${data.total} successful`
+          addLog('success', category,
+            `[${leagueName}] Completed: ${data.successful}/${data.total} successful`
           )
-          await fetchStats()
+          return { success: true, league: leagueName }
         } else {
-          addLog('error', 'season-setup', `Season setup failed: ${data.error || 'Unknown error'}`)
+          addLog('error', category, `[${leagueName}] Failed: ${data.error || 'Unknown error'}`)
+          return { success: false, league: leagueName }
         }
       }
+    } catch (error) {
+      addLog('error', category,
+        `[${leagueName}] Failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+      return { success: false, league: leagueName }
+    }
+  }
+
+  const handleSeasonSetupRefresh = async () => {
+    const targetLeagues = getTargetLeagues()
+    if (targetLeagues.length === 0) return
+
+    setIsSeasonSetupRefreshing(true)
+    addLog('info', 'season-setup', `Starting season setup for ${targetLeagues.length} league(s)...`)
+
+    try {
+      // Run all leagues in parallel
+      const promises = targetLeagues.map(league =>
+        runWorkflowForLeague(
+          '/api/data/refresh/season-setup',
+          league.id,
+          league.name,
+          'season-setup'
+        )
+      )
+
+      const results = await Promise.all(promises)
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.length - successCount
+
+      if (failCount === 0) {
+        addLog('success', 'season-setup', `All ${successCount} league(s) completed successfully`)
+      } else {
+        addLog('warning', 'season-setup', `Completed: ${successCount} succeeded, ${failCount} failed`)
+      }
+
+      await fetchStats()
     } catch (error) {
       addLog('error', 'season-setup',
         `Season setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -764,74 +760,33 @@ export default function DataManagementPage() {
   }
 
   const handleWeeklyMaintenanceRefresh = async () => {
+    const targetLeagues = getTargetLeagues()
+    if (targetLeagues.length === 0) return
+
     setIsWeeklyMaintenanceRefreshing(true)
-    addLog('info', 'weekly-maintenance', 'Starting weekly maintenance refresh...')
+    addLog('info', 'weekly-maintenance', `Starting weekly maintenance for ${targetLeagues.length} league(s)...`)
 
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/refresh/weekly-maintenance${leagueParam}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
+      const promises = targetLeagues.map(league =>
+        runWorkflowForLeague(
+          '/api/data/refresh/weekly-maintenance',
+          league.id,
+          league.name,
+          'weekly-maintenance'
+        )
+      )
 
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
-      }
+      const results = await Promise.all(promises)
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.length - successCount
 
-      const contentType = res.headers.get('content-type') || ''
-
-      if (contentType.includes('text/event-stream') && res.body) {
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.done) {
-                  if (data.success) {
-                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'weekly-maintenance',
-                      `Weekly maintenance complete: ${data.successful}/${data.total} successful${duration}`
-                    )
-                  } else {
-                    addLog('error', 'weekly-maintenance',
-                      `Weekly maintenance completed with ${data.failed || data.errors} failures`
-                    )
-                  }
-                  await fetchStats()
-                } else {
-                  // Real-time progress log
-                  addLog(data.type || 'info', 'weekly-maintenance', data.message, data.details)
-                }
-              } catch (e) {
-                console.error('Failed to parse SSE data:', e)
-              }
-            }
-          }
-        }
+      if (failCount === 0) {
+        addLog('success', 'weekly-maintenance', `All ${successCount} league(s) completed successfully`)
       } else {
-        const data = await res.json()
-        if (data.success) {
-          addLog('success', 'weekly-maintenance',
-            `Weekly maintenance completed: ${data.successful}/${data.total} successful`
-          )
-          await fetchStats()
-        } else {
-          addLog('error', 'weekly-maintenance', `Weekly maintenance failed: ${data.error || 'Unknown error'}`)
-        }
+        addLog('warning', 'weekly-maintenance', `Completed: ${successCount} succeeded, ${failCount} failed`)
       }
+
+      await fetchStats()
     } catch (error) {
       addLog('error', 'weekly-maintenance',
         `Weekly maintenance failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -842,74 +797,33 @@ export default function DataManagementPage() {
   }
 
   const handleSquadSyncRefresh = async () => {
+    const targetLeagues = getTargetLeagues()
+    if (targetLeagues.length === 0) return
+
     setIsSquadSyncRefreshing(true)
-    addLog('info', 'squad-sync', 'Starting squad sync refresh...')
+    addLog('info', 'squad-sync', `Starting squad sync for ${targetLeagues.length} league(s)...`)
 
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/data/refresh/squad-sync${leagueParam}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
+      const promises = targetLeagues.map(league =>
+        runWorkflowForLeague(
+          '/api/data/refresh/squad-sync',
+          league.id,
+          league.name,
+          'squad-sync'
+        )
+      )
 
-      if (!res.ok) {
-        const errorText = await res.text()
-        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
-      }
+      const results = await Promise.all(promises)
+      const successCount = results.filter(r => r.success).length
+      const failCount = results.length - successCount
 
-      const contentType = res.headers.get('content-type') || ''
-
-      if (contentType.includes('text/event-stream') && res.body) {
-        const reader = res.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6))
-
-                if (data.done) {
-                  if (data.success) {
-                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'squad-sync',
-                      `Squad sync complete: ${data.successful}/${data.total} successful${duration}`
-                    )
-                  } else {
-                    addLog('error', 'squad-sync',
-                      `Squad sync completed with ${data.failed || data.errors} failures`
-                    )
-                  }
-                  await fetchStats()
-                } else {
-                  // Real-time progress log
-                  addLog(data.type || 'info', 'squad-sync', data.message, data.details)
-                }
-              } catch (e) {
-                console.error('Failed to parse SSE data:', e)
-              }
-            }
-          }
-        }
+      if (failCount === 0) {
+        addLog('success', 'squad-sync', `All ${successCount} league(s) completed successfully`)
       } else {
-        const data = await res.json()
-        if (data.success) {
-          addLog('success', 'squad-sync',
-            `Squad sync completed: ${data.successful}/${data.total} successful`
-          )
-          await fetchStats()
-        } else {
-          addLog('error', 'squad-sync', `Squad sync failed: ${data.error || 'Unknown error'}`)
-        }
+        addLog('warning', 'squad-sync', `Completed: ${successCount} succeeded, ${failCount} failed`)
       }
+
+      await fetchStats()
     } catch (error) {
       addLog('error', 'squad-sync',
         `Squad sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -973,6 +887,93 @@ export default function DataManagementPage() {
               </div>
             </div>
 
+            {/* League Selection Panel */}
+            <div className="border-t border-border pt-4">
+              <div className="flex flex-wrap items-center gap-4 mb-3">
+                <span className="text-sm font-medium text-muted-foreground">Target Leagues:</span>
+                <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
+                  <button
+                    onClick={() => setSelectionMode('single')}
+                    className={cn(
+                      'px-3 py-1 text-sm rounded-md transition-colors',
+                      selectionMode === 'single'
+                        ? 'bg-background shadow text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    Single
+                  </button>
+                  <button
+                    onClick={() => setSelectionMode('multiple')}
+                    className={cn(
+                      'px-3 py-1 text-sm rounded-md transition-colors',
+                      selectionMode === 'multiple'
+                        ? 'bg-background shadow text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    Multiple
+                  </button>
+                </div>
+                {selectionMode === 'single' && currentLeague && (
+                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                    {currentLeague.name}
+                  </span>
+                )}
+                {selectionMode === 'multiple' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedLeagues([...leagues])}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-muted-foreground">|</span>
+                    <button
+                      onClick={() => setSelectedLeagues([])}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Clear All
+                    </button>
+                    {selectedLeagues.length > 0 && (
+                      <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs">
+                        {selectedLeagues.length} selected
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Multi-league checkbox grid */}
+              {selectionMode === 'multiple' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  {leagues.map((league) => {
+                    const isSelected = selectedLeagues.some(l => l.id === league.id)
+                    return (
+                      <button
+                        key={league.id}
+                        onClick={() => toggleLeagueSelection(league)}
+                        className={cn(
+                          'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all',
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-border bg-background hover:border-primary/50 text-muted-foreground'
+                        )}
+                      >
+                        <div className={cn(
+                          'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+                          isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'
+                        )}>
+                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <span className="truncate">{league.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Primary Action Buttons */}
             <div className="flex flex-wrap gap-2">
               {/* Season Setup */}
@@ -980,11 +981,11 @@ export default function DataManagementPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleSeasonSetupRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm font-medium"
                   >
                     <CalendarPlus className={cn("w-4 h-4", isSeasonSetupRefreshing && "animate-pulse")} />
-                    {isSeasonSetupRefreshing ? 'Running...' : 'Season Setup'}
+                    {isSeasonSetupRefreshing ? 'Running...' : `Season Setup (${getTargetLeaguesDisplay()})`}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -999,11 +1000,11 @@ export default function DataManagementPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handlePreMatchRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
                   >
                     <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
-                    {isPreMatchRefreshing ? 'Running...' : 'Matchday Prep'}
+                    {isPreMatchRefreshing ? 'Running...' : `Matchday Prep (${getTargetLeaguesDisplay()})`}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -1018,11 +1019,11 @@ export default function DataManagementPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handlePostMatchRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm font-medium"
                   >
                     <CheckCircle className={cn("w-4 h-4", isPostMatchRefreshing && "animate-pulse")} />
-                    {isPostMatchRefreshing ? 'Running...' : 'Post-Match Sync'}
+                    {isPostMatchRefreshing ? 'Running...' : `Post-Match Sync (${getTargetLeaguesDisplay()})`}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -1037,11 +1038,11 @@ export default function DataManagementPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleWeeklyMaintenanceRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 text-sm font-medium"
                   >
                     <BarChart3 className={cn("w-4 h-4", isWeeklyMaintenanceRefreshing && "animate-pulse")} />
-                    {isWeeklyMaintenanceRefreshing ? 'Running...' : 'Weekly Stats'}
+                    {isWeeklyMaintenanceRefreshing ? 'Running...' : `Weekly Stats (${getTargetLeaguesDisplay()})`}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
@@ -1056,11 +1057,11 @@ export default function DataManagementPage() {
                 <TooltipTrigger asChild>
                   <button
                     onClick={handleSquadSyncRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
                     className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 text-sm font-medium"
                   >
                     <UsersRound className={cn("w-4 h-4", isSquadSyncRefreshing && "animate-pulse")} />
-                    {isSquadSyncRefreshing ? 'Running...' : 'Squad Sync'}
+                    {isSquadSyncRefreshing ? 'Running...' : `Squad Sync (${getTargetLeaguesDisplay()})`}
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs">
