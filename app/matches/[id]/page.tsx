@@ -77,8 +77,8 @@ export default function MatchDetailPage() {
       // Fetch injuries for both teams if we have team IDs
       if (data.home_team_id && data.away_team_id) {
         const [homeRes, awayRes] = await Promise.all([
-          fetch(`/api/injuries?team_id=${data.home_team_id}`, { signal }),
-          fetch(`/api/injuries?team_id=${data.away_team_id}`, { signal })
+          fetch(`/api/injuries?team_id=${data.home_team_id}`, { credentials: 'include', signal }),
+          fetch(`/api/injuries?team_id=${data.away_team_id}`, { credentials: 'include', signal })
         ])
 
         if (signal?.aborted) return

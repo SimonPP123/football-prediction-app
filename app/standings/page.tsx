@@ -38,11 +38,21 @@ export default function StandingsPage() {
 
       if (signal?.aborted) return
 
+      if (!res.ok) {
+        console.error('Failed to fetch standings:', res.status)
+        return // Keep standings as empty array
+      }
+
       const data = await res.json()
 
       if (signal?.aborted) return
 
-      setStandings(data)
+      // Ensure data is an array before setting state
+      if (Array.isArray(data)) {
+        setStandings(data)
+      } else {
+        console.error('Invalid standings data format:', data)
+      }
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         console.error('Failed to fetch standings:', error)
