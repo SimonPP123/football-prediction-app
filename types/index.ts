@@ -102,6 +102,7 @@ export interface Prediction {
 export interface PredictionHistory {
   id: string
   fixture_id: string
+  league_id: string | null  // Added for efficient league-based filtering
   model_used: string | null
   prediction_result: string | null
   overall_index: number | null
@@ -124,8 +125,10 @@ export interface PredictionHistory {
 export interface MatchAnalysis {
   id: string
   fixture_id: string
+  league_id: string | null  // Added for efficient league-based filtering
   home_team_id: string
   away_team_id: string
+  analyzed_prediction_history_id: string | null  // Reference to which prediction version was analyzed
   predicted_result: '1' | 'X' | '2' | null
   actual_result: '1' | 'X' | '2' | null
   prediction_correct: boolean

@@ -48,6 +48,7 @@ export default function PredictionsPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [analysisWebhookUrl, setAnalysisWebhookUrl] = useState(DEFAULT_ANALYSIS_WEBHOOK)
   const settingsDropdownRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
   // Webhook documentation modal state
   const [showWebhookDocs, setShowWebhookDocs] = useState(false)
   const [webhookDocsTab, setWebhookDocsTab] = useState<'prediction' | 'analysis'>('prediction')
@@ -93,7 +94,19 @@ export default function PredictionsPage() {
   }, [])
 
   useEffect(() => {
-    fetchFixtures()
+    // Cancel any pending request when league changes or component unmounts
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    fetchFixtures(abortControllerRef.current.signal)
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [currentLeague?.id])
 
   // Close dropdowns when clicking outside
@@ -163,24 +176,37 @@ export default function PredictionsPage() {
     setShowModelDropdown(false)
   }
 
-  const fetchFixtures = async () => {
+  const fetchFixtures = async (signal?: AbortSignal) => {
     try {
+      setLoading(true)
       const params = currentLeague?.id ? `league_id=${currentLeague.id}` : ''
       // Fetch both upcoming and all historical results in parallel
       const [upcomingRes, recentRes] = await Promise.all([
-        fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`),
-        fetch(`/api/fixtures/recent-results?rounds=all${params ? '&' + params : ''}`)
+        fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`, { signal }),
+        fetch(`/api/fixtures/recent-results?rounds=all${params ? '&' + params : ''}`, { signal })
       ])
+
+      // Check if request was aborted
+      if (signal?.aborted) return
 
       const upcomingData = await upcomingRes.json()
       const recentData = await recentRes.json()
 
+      // Check again after parsing (in case it was aborted during parsing)
+      if (signal?.aborted) return
+
       setFixtures(Array.isArray(upcomingData) ? upcomingData : [])
       setRecentResults(Array.isArray(recentData) ? recentData : [])
-    } catch (error) {
-      console.error('Failed to fetch fixtures:', error)
+    } catch (error: any) {
+      // Don't log abort errors - they're expected when changing leagues
+      if (error?.name !== 'AbortError') {
+        console.error('Failed to fetch fixtures:', error)
+      }
     } finally {
-      setLoading(false)
+      // Only set loading to false if not aborted
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 

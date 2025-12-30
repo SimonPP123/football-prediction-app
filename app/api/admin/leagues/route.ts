@@ -1,10 +1,29 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
 
-// GET all leagues (including inactive)
+// Helper to check if request is from admin
+function isAdmin(): boolean {
+  const cookieStore = cookies()
+  const authCookie = cookieStore.get('football_auth')?.value
+  if (!authCookie) return false
+
+  try {
+    const authData = JSON.parse(authCookie)
+    return authData.isAdmin === true
+  } catch {
+    return false
+  }
+}
+
+// GET all leagues (including inactive) - Admin only
 export async function GET() {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   try {
     const { data, error } = await supabase
       .from('leagues')
@@ -23,8 +42,12 @@ export async function GET() {
   }
 }
 
-// POST create new league
+// POST create new league - Admin only
 export async function POST(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   try {
     const body = await request.json()
     const { apiId, name, country, logo, currentSeason, oddsSportKey, isActive, displayOrder } = body
@@ -77,8 +100,12 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH update league(s)
+// PATCH update league(s) - Admin only
 export async function PATCH(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   try {
     const body = await request.json()
     const { id, apiId, name, country, logo, currentSeason, oddsSportKey, isActive, displayOrder } = body

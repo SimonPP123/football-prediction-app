@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getLeagueFromRequest } from '@/lib/league-context'
+
+export const dynamic = 'force-dynamic'
 
 // Use service role for API routes to bypass RLS
 const supabase = createClient(
@@ -13,6 +16,7 @@ export async function GET(
 ) {
   try {
     const { id } = params
+    const league = await getLeagueFromRequest(request)
 
     // Fetch team with related data
     const { data: team, error: teamError } = await supabase
@@ -86,12 +90,12 @@ export async function GET(
     }
     console.log(`[Team API] Upcoming matches for team ${id}: ${upcomingMatches?.length || 0}`)
 
-    // Fetch predictions involving this team
-    const { data: predictions } = await supabase
+    // Fetch predictions involving this team, filtered by league
+    let predictionsQuery = supabase
       .from('predictions')
       .select(`
         *,
-        fixture:fixtures(
+        fixture:fixtures!inner(
           id,
           match_date,
           status,
@@ -99,11 +103,19 @@ export async function GET(
           goals_away,
           home_team_id,
           away_team_id,
+          league_id,
           home_team:teams!fixtures_home_team_id_fkey(id, name, logo),
           away_team:teams!fixtures_away_team_id_fkey(id, name, logo)
         )
       `)
       .order('created_at', { ascending: false })
+
+    // Filter by league if available
+    if (league?.id) {
+      predictionsQuery = predictionsQuery.eq('fixture.league_id', league.id)
+    }
+
+    const { data: predictions } = await predictionsQuery
 
     // Filter predictions for this team
     const teamPredictions = predictions?.filter((p: any) =>

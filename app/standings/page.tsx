@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Header } from '@/components/layout/header'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { FormIndicator } from '@/components/stats/form-indicator'
@@ -12,21 +12,45 @@ export default function StandingsPage() {
   const [standings, setStandings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { currentLeague } = useLeague()
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    fetchStandings()
+    // Cancel any pending request when league changes
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    abortControllerRef.current = new AbortController()
+
+    fetchStandings(abortControllerRef.current.signal)
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [currentLeague?.id])
 
-  const fetchStandings = async () => {
+  const fetchStandings = async (signal?: AbortSignal) => {
     try {
+      setLoading(true)
       const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-      const res = await fetch(`/api/standings${params}`)
+      const res = await fetch(`/api/standings${params}`, { signal })
+
+      if (signal?.aborted) return
+
       const data = await res.json()
+
+      if (signal?.aborted) return
+
       setStandings(data)
-    } catch (error) {
-      console.error('Failed to fetch standings:', error)
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('Failed to fetch standings:', error)
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 

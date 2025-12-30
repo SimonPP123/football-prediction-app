@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getLeagueFromRequest } from '@/lib/league-context'
+
+export const dynamic = 'force-dynamic'
 
 // Use service role for API routes to bypass RLS
 const supabase = createClient(
@@ -7,12 +10,22 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Get all match analyses
-    const { data: analyses, error: analysisError } = await supabase
+    // Get league from request (query param or cookie)
+    const league = await getLeagueFromRequest(request)
+
+    // Get match analyses, optionally filtered by league
+    let analysisQuery = supabase
       .from('match_analysis')
-      .select('*')
+      .select('*, fixture:fixtures!inner(league_id)')
+
+    // Filter by league if available (join through fixtures table)
+    if (league?.id) {
+      analysisQuery = analysisQuery.eq('fixture.league_id', league.id)
+    }
+
+    const { data: analyses, error: analysisError } = await analysisQuery
 
     if (analysisError) throw analysisError
 

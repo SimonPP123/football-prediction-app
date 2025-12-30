@@ -12,6 +12,7 @@ import { PostMatchAnalysis } from '@/components/matches/post-match-analysis'
 import { FactorBreakdown } from '@/components/predictions/factor-breakdown'
 import { ConfidenceBreakdown } from '@/components/stats/confidence-breakdown'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { useLeague } from '@/contexts/league-context'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
@@ -32,6 +33,7 @@ type TabType = 'prediction' | 'statistics' | 'events' | 'odds' | 'weather' | 'h2
 
 export default function MatchDetailPage() {
   const params = useParams()
+  const { currentLeague } = useLeague()
   const [fixture, setFixture] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,7 +41,7 @@ export default function MatchDetailPage() {
 
   useEffect(() => {
     fetchFixture()
-  }, [params.id])
+  }, [params.id, currentLeague?.id])
 
   const fetchFixture = async () => {
     try {
@@ -138,10 +140,12 @@ export default function MatchDetailPage() {
 
   const availableTabs = tabs.filter(t => t.available)
 
-  // Set default tab to first available
-  if (!availableTabs.find(t => t.id === activeTab) && availableTabs.length > 0) {
-    setActiveTab(availableTabs[0].id)
-  }
+  // Set default tab to first available - using useEffect to avoid state update during render
+  useEffect(() => {
+    if (!availableTabs.find(t => t.id === activeTab) && availableTabs.length > 0) {
+      setActiveTab(availableTabs[0].id)
+    }
+  }, [availableTabs, activeTab])
 
   return (
     <div className="min-h-screen">
