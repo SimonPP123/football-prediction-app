@@ -13,6 +13,7 @@ import { SettingsModal } from '@/components/predictions/settings-modal'
 import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
+import { useLeague } from '@/contexts/league-context'
 import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/default-prompt'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 
@@ -28,6 +29,7 @@ const parseRoundNumber = (round: string | null): number | null => {
 }
 
 export default function PredictionsPage() {
+  const { currentLeague } = useLeague()
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
   const [fixtures, setFixtures] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +94,7 @@ export default function PredictionsPage() {
 
   useEffect(() => {
     fetchFixtures()
-  }, [])
+  }, [currentLeague?.id])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -163,10 +165,11 @@ export default function PredictionsPage() {
 
   const fetchFixtures = async () => {
     try {
+      const params = currentLeague?.id ? `league_id=${currentLeague.id}` : ''
       // Fetch both upcoming and all historical results in parallel
       const [upcomingRes, recentRes] = await Promise.all([
-        fetch('/api/fixtures/upcoming'),
-        fetch('/api/fixtures/recent-results?rounds=all')
+        fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`),
+        fetch(`/api/fixtures/recent-results?rounds=all${params ? '&' + params : ''}`)
       ])
 
       const upcomingData = await upcomingRes.json()

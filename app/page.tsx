@@ -6,6 +6,8 @@ import {
   getBestPerformingFactor,
   getLiveFixtures,
 } from '@/lib/supabase/queries'
+import { getLeagueFromCookies } from '@/lib/league-context'
+import { cookies } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { SummaryStats } from '@/components/dashboard/summary-stats'
 import { UpcomingMatchCard } from '@/components/dashboard/upcoming-match-card'
@@ -17,13 +19,19 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
+  // Get league from cookies (set by client-side LeagueProvider)
+  const cookieStore = await cookies()
+  const cookieHeader = cookieStore.toString()
+  const league = await getLeagueFromCookies(cookieHeader)
+  const leagueId = league.id || undefined
+
   const [stats, upcomingFixtures, standings, recentResults, bestFactor, liveFixtures] = await Promise.all([
-    getDashboardStats(),
-    getUpcomingWithFactors(6),
-    getStandings(),
-    getRecentResultsWithAccuracy(5),
-    getBestPerformingFactor(),
-    getLiveFixtures(),
+    getDashboardStats(leagueId),
+    getUpcomingWithFactors(6, leagueId),
+    getStandings(leagueId),
+    getRecentResultsWithAccuracy(5, leagueId),
+    getBestPerformingFactor(leagueId),
+    getLiveFixtures(leagueId),
   ])
 
   const topStandings = standings.slice(0, 6)

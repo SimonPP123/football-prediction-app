@@ -1,11 +1,21 @@
 import { getCompletedFixtures, getUpcomingFixtures } from '@/lib/supabase/queries'
+import { getLeagueFromCookies } from '@/lib/league-context'
+import { cookies } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MatchesPage() {
+  // Get league from cookies
+  const cookieStore = await cookies()
+  const cookieHeader = cookieStore.toString()
+  const league = await getLeagueFromCookies(cookieHeader)
+  const leagueId = league.id || undefined
+
   const [completed, upcoming] = await Promise.all([
-    getCompletedFixtures(50),
-    getUpcomingFixtures(20),
+    getCompletedFixtures(50, leagueId),
+    getUpcomingFixtures(20, leagueId),
   ])
 
   return (

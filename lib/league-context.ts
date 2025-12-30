@@ -168,6 +168,37 @@ export async function getLeagueFromRequest(request: Request): Promise<LeagueConf
 }
 
 /**
+ * Get league ID from cookies (for server components)
+ * Returns the league ID from the cookie, or null if not set
+ */
+export function getLeagueIdFromCookies(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null
+
+  const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=')
+    acc[key] = value
+    return acc
+  }, {} as Record<string, string>)
+
+  return cookies['football-prediction-league'] || null
+}
+
+/**
+ * Get league from cookies, falling back to default
+ * Use this in Server Components to get the current league
+ */
+export async function getLeagueFromCookies(cookieHeader: string | null): Promise<LeagueConfig> {
+  const leagueId = getLeagueIdFromCookies(cookieHeader)
+
+  if (leagueId) {
+    const league = await getLeagueById(leagueId)
+    if (league) return league
+  }
+
+  return getDefaultLeague()
+}
+
+/**
  * Toggle league active status
  */
 export async function setLeagueActive(id: string, isActive: boolean): Promise<boolean> {

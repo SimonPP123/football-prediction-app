@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { StatCard } from '@/components/stats/stat-card'
+import { useLeague } from '@/contexts/league-context'
 import { cn } from '@/lib/utils'
 import {
   Loader2,
@@ -27,6 +28,7 @@ type TabType = 'players' | 'teams' | 'predictions'
 type PlayerStatType = 'goals' | 'assists' | 'yellow_cards' | 'red_cards'
 
 export default function StatsPage() {
+  const { currentLeague } = useLeague()
   const [activeTab, setActiveTab] = useState<TabType>('players')
   const [playerStatType, setPlayerStatType] = useState<PlayerStatType>('goals')
   const [loading, setLoading] = useState(true)
@@ -37,20 +39,21 @@ export default function StatsPage() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [currentLeague?.id])
 
   useEffect(() => {
     if (activeTab === 'players') {
       fetchPlayerStats(playerStatType)
     }
-  }, [playerStatType])
+  }, [playerStatType, currentLeague?.id])
 
   const fetchData = async () => {
     try {
       setLoading(true)
+      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
       const [standingsRes, accuracyRes] = await Promise.all([
-        fetch('/api/standings'),
-        fetch('/api/accuracy-stats'),
+        fetch(`/api/standings${params}`),
+        fetch(`/api/accuracy-stats${params}`),
       ])
 
       const standingsData = await standingsRes.json()
@@ -70,7 +73,8 @@ export default function StatsPage() {
 
   const fetchPlayerStats = async (statType: PlayerStatType) => {
     try {
-      const res = await fetch(`/api/stats/players?type=${statType}`)
+      const params = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/stats/players?type=${statType}${params}`)
       const data = await res.json()
       setPlayerStats(data)
     } catch (error) {

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { TeamCard } from '@/components/teams/team-card'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { useLeague } from '@/contexts/league-context'
 import { Loader2, Search, Filter, Trophy, Target, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -16,16 +17,18 @@ export default function TeamsPage() {
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('rank')
+  const { currentLeague } = useLeague()
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [currentLeague?.id])
 
   const fetchData = async () => {
     try {
+      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
       const [teamsRes, standingsRes] = await Promise.all([
-        fetch('/api/teams'),
-        fetch('/api/standings'),
+        fetch(`/api/teams${params}`),
+        fetch(`/api/standings${params}`),
       ])
 
       const teamsData = await teamsRes.json()
@@ -35,7 +38,7 @@ export default function TeamsPage() {
       setStandings(standingsData)
 
       // Fetch injury counts per team
-      const injuryRes = await fetch('/api/injuries')
+      const injuryRes = await fetch(`/api/injuries${params}`)
       const injuryData = await injuryRes.json()
 
       const injuryCounts: Record<string, number> = {}

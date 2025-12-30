@@ -206,9 +206,12 @@ export default function AdminLeaguesPage() {
         for (const line of lines) {
           try {
             const data = JSON.parse(line.slice(6))
-            if (data.type === 'log' && data.message) {
+            // Backend sends type: 'info'|'success'|'error'|'warning'|'progress', not 'log'
+            if (data.message) {
               setSetupLogs(prev => [...prev, data.message])
-            } else if (data.type === 'complete') {
+            }
+            // Backend sends done: true in final summary, not type: 'complete'
+            if (data.done) {
               setSetupLogs(prev => [...prev, `Setup complete!`])
             }
           } catch {

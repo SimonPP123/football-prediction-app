@@ -631,10 +631,16 @@ export async function getTeamRecentAnalyses(teamId: string, limit = 5) {
 }
 
 // Get accuracy statistics across all analyses
-export async function getAnalysisAccuracyStats() {
-  const { data, error } = await supabase
+export async function getAnalysisAccuracyStats(leagueId?: string) {
+  let query = supabase
     .from('match_analysis')
-    .select('prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score')
+    .select('prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score, league_id')
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
 
@@ -747,7 +753,24 @@ export async function getCalibrationData() {
 }
 
 // Get dashboard statistics
-export async function getDashboardStats() {
+export async function getDashboardStats(leagueId?: string) {
+  // Build queries with optional league filter
+  let fixturesQuery = supabase.from('fixtures').select('*', { count: 'exact', head: true })
+  let completedQuery = supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['FT', 'AET', 'PEN'])
+  let upcomingQuery = supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['NS', 'TBD', 'SUSP', 'PST'])
+  let predictionsQuery = supabase.from('predictions').select('*', { count: 'exact', head: true })
+  let analysisQuery = supabase.from('match_analysis').select('*', { count: 'exact', head: true })
+  let teamsQuery = supabase.from('teams').select('id')
+
+  if (leagueId) {
+    fixturesQuery = fixturesQuery.eq('league_id', leagueId)
+    completedQuery = completedQuery.eq('league_id', leagueId)
+    upcomingQuery = upcomingQuery.eq('league_id', leagueId)
+    predictionsQuery = predictionsQuery.eq('league_id', leagueId)
+    analysisQuery = analysisQuery.eq('league_id', leagueId)
+    teamsQuery = teamsQuery.eq('league_id', leagueId)
+  }
+
   const [
     { count: totalFixtures },
     { count: completedFixtures },
@@ -757,13 +780,13 @@ export async function getDashboardStats() {
     { data: teams },
     analysisStats,
   ] = await Promise.all([
-    supabase.from('fixtures').select('*', { count: 'exact', head: true }),
-    supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['FT', 'AET', 'PEN']),
-    supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['NS', 'TBD', 'SUSP', 'PST']),
-    supabase.from('predictions').select('*', { count: 'exact', head: true }),
-    supabase.from('match_analysis').select('*', { count: 'exact', head: true }),
-    supabase.from('teams').select('id'),
-    getAnalysisAccuracyStats(),
+    fixturesQuery,
+    completedQuery,
+    upcomingQuery,
+    predictionsQuery,
+    analysisQuery,
+    teamsQuery,
+    getAnalysisAccuracyStats(leagueId),
   ])
 
   return {
@@ -834,12 +857,18 @@ export async function getRecentResultsWithAccuracy(limit = 5, leagueId?: string)
 }
 
 // Get best performing factor from analyses
-export async function getBestPerformingFactor() {
-  const { data, error } = await supabase
+export async function getBestPerformingFactor(leagueId?: string) {
+  let query = supabase
     .from('match_analysis')
-    .select('factor_accuracy')
+    .select('factor_accuracy, league_id')
     .not('factor_accuracy', 'is', null)
     .limit(100)
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   if (!data || data.length === 0) return null

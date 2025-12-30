@@ -4,20 +4,23 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { FormIndicator } from '@/components/stats/form-indicator'
+import { useLeague } from '@/contexts/league-context'
 import { Loader2, TrendingUp, TrendingDown, Minus, Trophy, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function StandingsPage() {
   const [standings, setStandings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const { currentLeague } = useLeague()
 
   useEffect(() => {
     fetchStandings()
-  }, [])
+  }, [currentLeague?.id])
 
   const fetchStandings = async () => {
     try {
-      const res = await fetch('/api/standings')
+      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/standings${params}`)
       const data = await res.json()
       setStandings(data)
     } catch (error) {

@@ -79,17 +79,25 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
       // Try to load saved league from localStorage
       const savedLeagueId = localStorage.getItem(STORAGE_KEY)
 
+      let selectedLeague: LeagueConfig | null = null
+
       if (savedLeagueId && fetchedLeagues.length > 0) {
         const savedLeague = fetchedLeagues.find((l: LeagueConfig) => l.id === savedLeagueId)
         if (savedLeague) {
-          setCurrentLeagueState(savedLeague)
+          selectedLeague = savedLeague
         } else {
           // Saved league not found or not active, use first active league
-          setCurrentLeagueState(fetchedLeagues[0])
+          selectedLeague = fetchedLeagues[0]
         }
       } else if (fetchedLeagues.length > 0) {
         // No saved league, use first active league
-        setCurrentLeagueState(fetchedLeagues[0])
+        selectedLeague = fetchedLeagues[0]
+      }
+
+      if (selectedLeague) {
+        setCurrentLeagueState(selectedLeague)
+        // Set cookie for server-side access
+        document.cookie = `${STORAGE_KEY}=${selectedLeague.id}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
       }
 
       setIsLoading(false)
@@ -98,10 +106,13 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
     init()
   }, [fetchLeagues])
 
-  // Set current league and save to localStorage
+  // Set current league and save to localStorage + cookie
   const setCurrentLeague = useCallback((league: LeagueConfig) => {
     setCurrentLeagueState(league)
     localStorage.setItem(STORAGE_KEY, league.id)
+
+    // Set cookie for server-side access (expires in 1 year)
+    document.cookie = `${STORAGE_KEY}=${league.id}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
 
     // Update URL with league_id for shareable links
     const url = new URL(window.location.href)
