@@ -48,26 +48,26 @@ async function handleStreamingRefresh() {
       const { data: upcomingFixtures } = await supabase
         .from('fixtures')
         .select(`
-          id, api_id, date,
+          id, api_id, match_date,
           home_team:teams!fixtures_home_team_id_fkey(name),
           away_team:teams!fixtures_away_team_id_fkey(name)
         `)
         .in('status', ['NS', 'TBD', '1H', '2H', 'HT']) // Not started or in progress
-        .gte('date', now.toISOString())
-        .lte('date', next48Hours.toISOString())
-        .order('date', { ascending: true })
+        .gte('match_date', now.toISOString())
+        .lte('match_date', next48Hours.toISOString())
+        .order('match_date', { ascending: true })
 
       // Also fetch recently completed without lineups (backfill)
       const { data: completedFixtures } = await supabase
         .from('fixtures')
         .select(`
-          id, api_id, date,
+          id, api_id, match_date,
           home_team:teams!fixtures_home_team_id_fkey(name),
           away_team:teams!fixtures_away_team_id_fkey(name)
         `)
         .in('status', ['FT', 'AET', 'PEN'])
-        .gte('date', past7Days.toISOString())
-        .order('date', { ascending: false })
+        .gte('match_date', past7Days.toISOString())
+        .order('match_date', { ascending: false })
 
       const fixtures = [...(upcomingFixtures || []), ...(completedFixtures || [])]
 
@@ -191,26 +191,26 @@ async function handleBatchRefresh() {
     const { data: upcomingFixtures } = await supabase
       .from('fixtures')
       .select(`
-        id, api_id, date,
+        id, api_id, match_date,
         home_team:teams!fixtures_home_team_id_fkey(name),
         away_team:teams!fixtures_away_team_id_fkey(name)
       `)
       .in('status', ['NS', 'TBD', '1H', '2H', 'HT'])
-      .gte('date', now.toISOString())
-      .lte('date', next48Hours.toISOString())
-      .order('date', { ascending: true })
+      .gte('match_date', now.toISOString())
+      .lte('match_date', next48Hours.toISOString())
+      .order('match_date', { ascending: true })
 
     // Also fetch recently completed without lineups (backfill)
     const { data: completedFixtures } = await supabase
       .from('fixtures')
       .select(`
-        id, api_id, date,
+        id, api_id, match_date,
         home_team:teams!fixtures_home_team_id_fkey(name),
         away_team:teams!fixtures_away_team_id_fkey(name)
       `)
       .in('status', ['FT', 'AET', 'PEN'])
-      .gte('date', past7Days.toISOString())
-      .order('date', { ascending: false })
+      .gte('match_date', past7Days.toISOString())
+      .order('match_date', { ascending: false })
 
     const fixtures = [...(upcomingFixtures || []), ...(completedFixtures || [])]
 
