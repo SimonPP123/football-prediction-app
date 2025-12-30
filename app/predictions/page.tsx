@@ -315,14 +315,6 @@ export default function PredictionsPage() {
           <DataFreshnessBadge category="fixtures" size="sm" showInfo />
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Predictions</span>
-          <DataFreshnessBadge category="predictions" size="sm" showInfo />
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Analysis</span>
-          <DataFreshnessBadge category="match-analysis" size="sm" showInfo />
-        </div>
-        <div className="flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Odds</span>
           <DataFreshnessBadge category="odds" size="sm" showInfo />
         </div>
