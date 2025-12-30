@@ -10,7 +10,7 @@ export default async function MatchesPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Matches" subtitle="Premier League 2025-2026" />
+      <Header title="Matches" />
 
       <div className="p-6 space-y-6">
         {/* Upcoming Matches */}

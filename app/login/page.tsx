@@ -48,7 +48,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="font-bold text-xl">Football AI</h1>
-              <p className="text-xs text-muted-foreground">Premier League 2025</p>
+              <p className="text-xs text-muted-foreground">Match Predictions</p>
             </div>
           </div>
 

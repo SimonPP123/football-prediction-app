@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { fetchTeamStats, LEAGUE_ID, SEASON } from '@/lib/api-football'
+import { fetchTeamStats } from '@/lib/api-football'
+import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
@@ -17,37 +18,39 @@ interface LogEntry {
   message: string
 }
 
-export async function POST(request: Request) {
-  if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
-  }
-  return handleBatchRefresh()
+interface LeagueConfig {
+  id: string
+  apiId: number
+  name: string
+  currentSeason: number
 }
 
-async function handleStreamingRefresh() {
+export async function POST(request: Request) {
+  // Get league from request (defaults to Premier League)
+  const league = await getLeagueFromRequest(request)
+
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh(league)
+  }
+  return handleBatchRefresh(league)
+}
+
+async function handleStreamingRefresh(league: LeagueConfig) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: 'Starting team stats refresh...' })
+      sendLog({ type: 'info', message: `Starting team stats refresh for ${league.name}...` })
 
-      const { data: leagueData } = await supabase
-        .from('leagues')
-        .select('id')
-        .eq('api_id', LEAGUE_ID)
-        .single()
-
-      if (!leagueData) {
-        sendLog({ type: 'error', message: 'League not found in database' })
-        closeWithError('League not found in database', Date.now() - startTime)
-        return
-      }
-
-      const { data: teams } = await supabase.from('teams').select('id, api_id, name')
+      // Get teams for this league
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('id, api_id, name')
+        .eq('league_id', league.id)
 
       if (!teams || teams.length === 0) {
-        sendLog({ type: 'error', message: 'No teams found in database' })
+        sendLog({ type: 'error', message: 'No teams found in database for this league' })
         closeWithError('No teams found', Date.now() - startTime)
         return
       }
@@ -68,7 +71,7 @@ async function handleStreamingRefresh() {
         })
 
         try {
-          const data = await fetchTeamStats(team.api_id)
+          const data = await fetchTeamStats(team.api_id, league.apiId, league.currentSeason)
 
           if (!data.response) {
             sendLog({ type: 'warning', message: `No stats returned for ${team.name}` })
@@ -82,8 +85,8 @@ async function handleStreamingRefresh() {
             .from('team_season_stats')
             .upsert({
               team_id: team.id,
-              league_id: leagueData.id,
-              season: SEASON,
+              league_id: league.id,
+              season: league.currentSeason,
               fixtures_played: stats.fixtures?.played?.total || 0,
               wins: stats.fixtures?.wins?.total || 0,
               draws: stats.fixtures?.draws?.total || 0,
@@ -128,7 +131,7 @@ async function handleStreamingRefresh() {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: teams.length, duration })
+      close({ success: true, imported, errors, total: teams.length, duration, league: league.name })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -139,41 +142,29 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(league: LeagueConfig) {
   const logs: LogEntry[] = []
   const addLog = (type: LogEntry['type'], message: string) => {
     logs.push({ type, message })
-    console.log(`[Refresh Team Stats] ${message}`)
+    console.log(`[Refresh Team Stats - ${league.name}] ${message}`)
   }
 
   try {
-    addLog('info', 'Starting team stats refresh...')
+    addLog('info', `Starting team stats refresh for ${league.name}...`)
 
-    // Get league UUID
-    const { data: leagueData } = await supabase
-      .from('leagues')
-      .select('id')
-      .eq('api_id', LEAGUE_ID)
-      .single()
-
-    if (!leagueData) {
-      addLog('error', 'League not found in database')
-      return NextResponse.json({
-        success: false,
-        error: 'League not found in database',
-        logs,
-      }, { status: 400 })
-    }
-
-    // Get all teams
-    const { data: teams } = await supabase.from('teams').select('id, api_id, name')
+    // Get teams for this league
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id, api_id, name')
+      .eq('league_id', league.id)
 
     if (!teams || teams.length === 0) {
-      addLog('error', 'No teams found in database')
+      addLog('error', 'No teams found in database for this league')
       return NextResponse.json({
         success: false,
         error: 'No teams found',
         logs,
+        league: league.name,
       }, { status: 400 })
     }
 
@@ -187,7 +178,7 @@ async function handleBatchRefresh() {
 
       try {
         addLog('info', `Fetching stats for ${team.name}...`)
-        const data = await fetchTeamStats(team.api_id)
+        const data = await fetchTeamStats(team.api_id, league.apiId, league.currentSeason)
 
         if (!data.response) {
           addLog('warning', `No stats returned for ${team.name}`)
@@ -201,8 +192,8 @@ async function handleBatchRefresh() {
           .from('team_season_stats')
           .upsert({
             team_id: team.id,
-            league_id: leagueData.id,
-            season: SEASON,
+            league_id: league.id,
+            season: league.currentSeason,
             fixtures_played: stats.fixtures?.played?.total || 0,
             wins: stats.fixtures?.wins?.total || 0,
             draws: stats.fixtures?.draws?.total || 0,
@@ -254,6 +245,7 @@ async function handleBatchRefresh() {
       errors,
       total: teams.length,
       logs,
+      league: league.name,
     })
   } catch (error) {
     addLog('error', error instanceof Error ? error.message : 'Unknown error')
@@ -261,6 +253,7 @@ async function handleBatchRefresh() {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       logs,
+      league: league.name,
     }, { status: 500 })
   }
 }

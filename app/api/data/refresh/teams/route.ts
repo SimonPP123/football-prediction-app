@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { fetchTeams, LEAGUE_ID, SEASON, ENDPOINTS } from '@/lib/api-football'
+import { fetchTeams, ENDPOINTS } from '@/lib/api-football'
+import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
@@ -10,8 +11,10 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Premier League stadium coordinates for weather API
+// Known stadium coordinates for weather API (can be extended per league)
+// These are fallbacks when API-Football doesn't provide coordinates
 const VENUE_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  // England - Premier League
   'Emirates Stadium': { lat: 51.5549, lng: -0.1084 },
   'Villa Park': { lat: 52.5092, lng: -1.8847 },
   'Vitality Stadium': { lat: 50.7352, lng: -1.8384 },
@@ -34,6 +37,21 @@ const VENUE_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'Tottenham Hotspur Stadium': { lat: 51.6043, lng: -0.0664 },
   'London Stadium': { lat: 51.5387, lng: -0.0166 },
   'Molineux Stadium': { lat: 52.5902, lng: -2.1305 },
+  // Spain - La Liga
+  'Santiago Bernabéu': { lat: 40.4531, lng: -3.6883 },
+  'Camp Nou': { lat: 41.3809, lng: 2.1228 },
+  'Metropolitano': { lat: 40.4362, lng: -3.5995 },
+  'Ramón Sánchez Pizjuán': { lat: 37.3840, lng: -5.9705 },
+  // Germany - Bundesliga
+  'Allianz Arena': { lat: 48.2188, lng: 11.6247 },
+  'Signal Iduna Park': { lat: 51.4926, lng: 7.4519 },
+  // Italy - Serie A
+  'San Siro': { lat: 45.4781, lng: 9.1240 },
+  'Olimpico': { lat: 41.9341, lng: 12.4547 },
+  'Allianz Stadium': { lat: 45.1096, lng: 7.6413 },
+  // France - Ligue 1
+  'Parc des Princes': { lat: 48.8414, lng: 2.2530 },
+  'Groupama Stadium': { lat: 45.7652, lng: 4.9822 },
 }
 
 interface LogEntry {
@@ -48,22 +66,33 @@ interface LogEntry {
   }
 }
 
-export async function POST(request: Request) {
-  if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
-  }
-  return handleBatchRefresh()
+interface LeagueConfig {
+  id: string
+  apiId: number
+  name: string
+  country: string
+  currentSeason: number
 }
 
-async function handleStreamingRefresh() {
+export async function POST(request: Request) {
+  // Get league from request (defaults to Premier League)
+  const league = await getLeagueFromRequest(request)
+
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh(league)
+  }
+  return handleBatchRefresh(league)
+}
+
+async function handleStreamingRefresh(league: LeagueConfig) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: 'Starting teams refresh...', details: { endpoint: ENDPOINTS.teams.url } })
+      sendLog({ type: 'info', message: `Starting teams refresh for ${league.name}...`, details: { endpoint: ENDPOINTS.teams.url } })
 
-      const data = await fetchTeams()
+      const data = await fetchTeams(league.apiId, league.currentSeason)
 
       if (!data.response || data.response.length === 0) {
         sendLog({ type: 'error', message: 'No teams returned from API' })
@@ -72,18 +101,6 @@ async function handleStreamingRefresh() {
       }
 
       sendLog({ type: 'info', message: `Received ${data.response.length} teams from API` })
-
-      const { data: leagueData } = await supabase
-        .from('leagues')
-        .select('id')
-        .eq('api_id', LEAGUE_ID)
-        .single()
-
-      if (!leagueData) {
-        sendLog({ type: 'error', message: 'League not found in database' })
-        closeWithError('League not found in database', Date.now() - startTime)
-        return
-      }
 
       let teamsInserted = 0
       let teamsUpdated = 0
@@ -119,7 +136,7 @@ async function handleStreamingRefresh() {
               api_id: venue.id,
               name: venue.name,
               city: venue.city,
-              country: 'England',
+              country: league.country,
               capacity: venue.capacity,
               surface: venue.surface,
               lat: coords.lat,
@@ -140,23 +157,25 @@ async function handleStreamingRefresh() {
           }
         }
 
-        // Check if team exists
+        // Check if team exists for this league
         const { data: existingTeam } = await supabase
           .from('teams')
           .select('id')
           .eq('api_id', team.id)
+          .eq('league_id', league.id)
           .single()
 
         const { error: teamError } = await supabase
           .from('teams')
           .upsert({
             api_id: team.id,
+            league_id: league.id,
             name: team.name,
             code: team.code,
             country: team.country,
             logo: team.logo,
             venue_id: venueId,
-          }, { onConflict: 'api_id' })
+          }, { onConflict: 'api_id,league_id' })
 
         if (teamError) {
           sendLog({ type: 'error', message: `Error updating ${team.name}: ${teamError.message}` })
@@ -170,7 +189,7 @@ async function handleStreamingRefresh() {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: Teams (${teamsInserted} new, ${teamsUpdated} updated), Venues (${venuesInserted} new, ${venuesUpdated} updated), ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, inserted: teamsInserted, updated: teamsUpdated, venuesInserted, venuesUpdated, errors, total, duration })
+      close({ success: true, inserted: teamsInserted, updated: teamsUpdated, venuesInserted, venuesUpdated, errors, total, duration, league: league.name })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -181,7 +200,7 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(league: LeagueConfig) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -191,16 +210,16 @@ async function handleBatchRefresh() {
     details?: LogEntry['details']
   ) => {
     logs.push({ type, message, details })
-    console.log(`[Refresh Teams] ${message}`)
+    console.log(`[Refresh Teams - ${league.name}] ${message}`)
   }
 
   try {
-    addLog('info', 'Starting teams refresh...', {
+    addLog('info', `Starting teams refresh for ${league.name}...`, {
       endpoint: ENDPOINTS.teams.url,
     })
 
-    // Fetch teams from API-Football
-    const data = await fetchTeams()
+    // Fetch teams from API-Football for this league
+    const data = await fetchTeams(league.apiId, league.currentSeason)
 
     if (!data.response || data.response.length === 0) {
       addLog('error', 'No teams returned from API')
@@ -209,27 +228,11 @@ async function handleBatchRefresh() {
         error: 'No teams returned from API',
         logs,
         endpoint: ENDPOINTS.teams.url,
+        league: league.name,
       }, { status: 400 })
     }
 
     addLog('info', `Received ${data.response.length} teams from API`)
-
-    // Get league UUID
-    const { data: leagueData } = await supabase
-      .from('leagues')
-      .select('id')
-      .eq('api_id', LEAGUE_ID)
-      .single()
-
-    if (!leagueData) {
-      addLog('error', 'League not found in database')
-      return NextResponse.json({
-        success: false,
-        error: 'League not found in database',
-        logs,
-        endpoint: ENDPOINTS.teams.url,
-      }, { status: 400 })
-    }
 
     let teamsInserted = 0
     let teamsUpdated = 0
@@ -266,7 +269,7 @@ async function handleBatchRefresh() {
             api_id: venue.id,
             name: venue.name,
             city: venue.city,
-            country: 'England',
+            country: league.country,
             capacity: venue.capacity,
             surface: venue.surface,
             lat: coords.lat,
@@ -287,24 +290,26 @@ async function handleBatchRefresh() {
         }
       }
 
-      // Check if team exists
+      // Check if team exists for this league
       const { data: existingTeam } = await supabase
         .from('teams')
         .select('id')
         .eq('api_id', team.id)
+        .eq('league_id', league.id)
         .single()
 
-      // Upsert team
+      // Upsert team with league_id
       const { error: teamError } = await supabase
         .from('teams')
         .upsert({
           api_id: team.id,
+          league_id: league.id,
           name: team.name,
           code: team.code,
           country: team.country,
           logo: team.logo,
           venue_id: venueId,
-        }, { onConflict: 'api_id' })
+        }, { onConflict: 'api_id,league_id' })
 
       if (teamError) {
         addLog('error', `Error updating ${team.name}: ${teamError.message}`, {
@@ -342,6 +347,7 @@ async function handleBatchRefresh() {
       duration,
       endpoint: ENDPOINTS.teams.url,
       logs,
+      league: league.name,
     })
   } catch (error) {
     const duration = Date.now() - startTime
@@ -352,6 +358,7 @@ async function handleBatchRefresh() {
       duration,
       endpoint: ENDPOINTS.teams.url,
       logs,
+      league: league.name,
     }, { status: 500 })
   }
 }

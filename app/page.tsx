@@ -43,7 +43,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Dashboard" subtitle="Premier League 2025-2026" />
+      <Header title="Dashboard" />
 
       <div className="p-6 space-y-6">
         {/* Summary Stats */}

@@ -9,10 +9,13 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const leagueId = searchParams.get('league_id')
+
     // Get teams with venue and season stats
-    const { data, error } = await supabase
+    let query = supabase
       .from('teams')
       .select(`
         *,
@@ -21,12 +24,18 @@ export async function GET() {
       `)
       .order('name')
 
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+
+    const { data, error } = await query
+
     if (error) {
       console.error('Supabase error:', error)
       throw error
     }
 
-    console.log(`[Teams API] Fetched ${data?.length || 0} teams`)
+    console.log(`[Teams API] Fetched ${data?.length || 0} teams${leagueId ? ` for league ${leagueId}` : ''}`)
 
     // Transform season_stats to flatten home/away JSONB fields
     const transformedData = data?.map((team: any) => ({

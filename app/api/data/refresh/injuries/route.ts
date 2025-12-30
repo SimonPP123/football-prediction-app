@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { fetchInjuries, SEASON } from '@/lib/api-football'
+import { fetchInjuries } from '@/lib/api-football'
+import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
@@ -15,22 +16,32 @@ interface LogEntry {
   message: string
 }
 
-export async function POST(request: Request) {
-  if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
-  }
-  return handleBatchRefresh()
+interface LeagueConfig {
+  id: string
+  apiId: number
+  name: string
+  currentSeason: number
 }
 
-async function handleStreamingRefresh() {
+export async function POST(request: Request) {
+  // Get league from request (defaults to Premier League)
+  const league = await getLeagueFromRequest(request)
+
+  if (wantsStreaming(request)) {
+    return handleStreamingRefresh(league)
+  }
+  return handleBatchRefresh(league)
+}
+
+async function handleStreamingRefresh(league: LeagueConfig) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: 'Fetching injuries from API-Football...' })
+      sendLog({ type: 'info', message: `Fetching injuries for ${league.name} from API-Football...` })
 
-      const data = await fetchInjuries()
+      const data = await fetchInjuries(league.apiId, league.currentSeason)
 
       if (!data.response) {
         sendLog({ type: 'error', message: 'No injuries data returned from API' })
@@ -40,7 +51,11 @@ async function handleStreamingRefresh() {
 
       sendLog({ type: 'info', message: `Received ${data.response.length} injury records from API` })
 
-      const { data: teams } = await supabase.from('teams').select('id, api_id')
+      // Get teams for this league
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('id, api_id')
+        .eq('league_id', league.id)
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
       sendLog({ type: 'info', message: `Loaded ${teams?.length || 0} teams for mapping` })
 
@@ -100,7 +115,7 @@ async function handleStreamingRefresh() {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: data.response.length, duration })
+      close({ success: true, imported, errors, total: data.response.length, duration, league: league.name })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -111,18 +126,18 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(league: LeagueConfig) {
   const logs: LogEntry[] = []
   const addLog = (type: LogEntry['type'], message: string) => {
     logs.push({ type, message })
-    console.log(`[Refresh Injuries] ${message}`)
+    console.log(`[Refresh Injuries - ${league.name}] ${message}`)
   }
 
   try {
-    addLog('info', 'Fetching injuries from API-Football...')
+    addLog('info', `Fetching injuries for ${league.name} from API-Football...`)
 
-    // Fetch injuries from API-Football
-    const data = await fetchInjuries()
+    // Fetch injuries from API-Football for this league
+    const data = await fetchInjuries(league.apiId, league.currentSeason)
 
     if (!data.response) {
       addLog('error', 'No injuries data returned from API')
@@ -130,13 +145,17 @@ async function handleBatchRefresh() {
         success: false,
         error: 'No injuries data returned from API',
         logs,
+        league: league.name,
       }, { status: 400 })
     }
 
     addLog('info', `Received ${data.response.length} injury records from API`)
 
-    // Build team lookup
-    const { data: teams } = await supabase.from('teams').select('id, api_id')
+    // Build team lookup for this league
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id, api_id')
+      .eq('league_id', league.id)
     const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
     addLog('info', `Loaded ${teams?.length || 0} teams for mapping`)
 
@@ -194,6 +213,7 @@ async function handleBatchRefresh() {
       skipped,
       total: data.response.length,
       logs,
+      league: league.name,
     })
   } catch (error) {
     addLog('error', error instanceof Error ? error.message : 'Unknown error')
@@ -201,6 +221,7 @@ async function handleBatchRefresh() {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
       logs,
+      league: league.name,
     }, { status: 500 })
   }
 }

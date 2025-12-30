@@ -1,12 +1,18 @@
 import { supabase, createServerClient } from './client'
 import type { Team, Fixture, Standing, Prediction, TopPerformer, TeamSeasonStats, HeadToHead } from '@/types'
 
-// Get all teams
-export async function getTeams(): Promise<Team[]> {
-  const { data, error } = await supabase
+// Get all teams (optionally filtered by league)
+export async function getTeams(leagueId?: string): Promise<Team[]> {
+  let query = supabase
     .from('teams')
     .select('*')
     .order('name')
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
@@ -29,8 +35,8 @@ export async function getTeam(id: string) {
   return data
 }
 
-// Get upcoming fixtures (not yet played)
-export async function getUpcomingFixtures(limit?: number) {
+// Get upcoming fixtures (not yet played), optionally filtered by league
+export async function getUpcomingFixtures(limit?: number, leagueId?: string) {
   const now = new Date().toISOString()
 
   let query = supabase
@@ -47,6 +53,10 @@ export async function getUpcomingFixtures(limit?: number) {
     .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
     .order('match_date', { ascending: true })
 
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
   if (limit) {
     query = query.limit(limit)
   }
@@ -57,19 +67,24 @@ export async function getUpcomingFixtures(limit?: number) {
   return data || []
 }
 
-// Get next round fixtures
-export async function getNextRoundFixtures() {
+// Get next round fixtures (optionally filtered by league)
+export async function getNextRoundFixtures(leagueId?: string) {
   const now = new Date().toISOString()
 
   // First get the next round
-  const { data: nextFixture } = await supabase
+  let nextRoundQuery = supabase
     .from('fixtures')
-    .select('round')
+    .select('round, league_id')
     .gte('match_date', now)
     .in('status', ['NS', 'TBD'])
     .order('match_date', { ascending: true })
     .limit(1)
-    .single()
+
+  if (leagueId) {
+    nextRoundQuery = nextRoundQuery.eq('league_id', leagueId)
+  }
+
+  const { data: nextFixture } = await nextRoundQuery.single()
 
   if (!nextFixture) return []
 
@@ -77,7 +92,7 @@ export async function getNextRoundFixtures() {
   const fixture = nextFixture as any
 
   // Get all fixtures for that round
-  const { data, error } = await supabase
+  let fixturesQuery = supabase
     .from('fixtures')
     .select(`
       *,
@@ -90,13 +105,19 @@ export async function getNextRoundFixtures() {
     .eq('round', fixture.round)
     .order('match_date', { ascending: true })
 
+  if (leagueId) {
+    fixturesQuery = fixturesQuery.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await fixturesQuery
+
   if (error) throw error
   return data || []
 }
 
-// Get live/in-progress fixtures
-export async function getLiveFixtures() {
-  const { data, error } = await supabase
+// Get live/in-progress fixtures (optionally filtered by league)
+export async function getLiveFixtures(leagueId?: string) {
+  let query = supabase
     .from('fixtures')
     .select(`
       *,
@@ -107,13 +128,19 @@ export async function getLiveFixtures() {
     .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
     .order('match_date', { ascending: true })
 
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
+
   if (error) throw error
   return data || []
 }
 
-// Get completed fixtures
-export async function getCompletedFixtures(limit = 20) {
-  const { data, error } = await supabase
+// Get completed fixtures (optionally filtered by league)
+export async function getCompletedFixtures(limit = 20, leagueId?: string) {
+  let query = supabase
     .from('fixtures')
     .select(`
       *,
@@ -124,15 +151,21 @@ export async function getCompletedFixtures(limit = 20) {
     .order('match_date', { ascending: false })
     .limit(limit)
 
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
+
   if (error) throw error
   return data || []
 }
 
-// Get recently completed fixtures with their predictions (for results comparison)
-export async function getRecentCompletedWithPredictions(limitRounds: number | 'all' = 2) {
+// Get recently completed fixtures with their predictions (for results comparison), optionally filtered by league
+export async function getRecentCompletedWithPredictions(limitRounds: number | 'all' = 2, leagueId?: string) {
   // If 'all' is requested, fetch all completed fixtures
   if (limitRounds === 'all') {
-    const { data, error } = await supabase
+    let query = supabase
       .from('fixtures')
       .select(`
         *,
@@ -144,18 +177,30 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
       .in('status', ['FT', 'AET', 'PEN'])
       .order('match_date', { ascending: false })
 
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+
+    const { data, error } = await query
+
     if (error) throw error
     return data || []
   }
 
   // Original logic: get specific number of rounds
   // First, get the rounds of recent completed matches
-  const { data: recentFixtures, error: roundError } = await supabase
+  let roundQuery = supabase
     .from('fixtures')
     .select('round')
     .in('status', ['FT', 'AET', 'PEN'])
     .order('match_date', { ascending: false })
     .limit(50) // Get enough to find recent rounds
+
+  if (leagueId) {
+    roundQuery = roundQuery.eq('league_id', leagueId)
+  }
+
+  const { data: recentFixtures, error: roundError } = await roundQuery
 
   if (roundError) throw roundError
 
@@ -166,7 +211,7 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
   if (recentRounds.length === 0) return []
 
   // Get all fixtures from those rounds with predictions
-  const { data, error } = await supabase
+  let fixturesQuery = supabase
     .from('fixtures')
     .select(`
       *,
@@ -178,6 +223,12 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
     .in('round', recentRounds)
     .in('status', ['FT', 'AET', 'PEN'])
     .order('match_date', { ascending: false })
+
+  if (leagueId) {
+    fixturesQuery = fixturesQuery.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await fixturesQuery
 
   if (error) throw error
   return data || []
@@ -205,30 +256,42 @@ export async function getFixture(id: string) {
   return data
 }
 
-// Get standings
-export async function getStandings(): Promise<any[]> {
-  const { data, error } = await supabase
+// Get standings (optionally filtered by league)
+export async function getStandings(leagueId?: string, season: number = 2025): Promise<any[]> {
+  let query = supabase
     .from('standings')
     .select(`
       *,
       team:teams(*)
     `)
-    .eq('season', 2025)
+    .eq('season', season)
     .order('rank', { ascending: true })
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
 }
 
-// Get top performers
-export async function getTopPerformers(category: 'goals' | 'assists' | 'yellow_cards' | 'red_cards', limit = 10) {
-  const { data, error } = await supabase
+// Get top performers (optionally filtered by league)
+export async function getTopPerformers(category: 'goals' | 'assists' | 'yellow_cards' | 'red_cards', limit = 10, leagueId?: string, season: number = 2025) {
+  let query = supabase
     .from('top_performers')
     .select('*')
     .eq('category', category)
-    .eq('season', 2025)
+    .eq('season', season)
     .order('rank', { ascending: true })
     .limit(limit)
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
@@ -715,11 +778,11 @@ export async function getDashboardStats() {
   }
 }
 
-// Get upcoming fixtures with predictions and factor details
-export async function getUpcomingWithFactors(limit = 6) {
+// Get upcoming fixtures with predictions and factor details (optionally filtered by league)
+export async function getUpcomingWithFactors(limit = 6, leagueId?: string) {
   const now = new Date().toISOString()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('fixtures')
     .select(`
       *,
@@ -735,13 +798,19 @@ export async function getUpcomingWithFactors(limit = 6) {
     .order('match_date', { ascending: true })
     .limit(limit)
 
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
+
   if (error) throw error
   return data || []
 }
 
-// Get recent results with prediction accuracy
-export async function getRecentResultsWithAccuracy(limit = 5) {
-  const { data, error } = await supabase
+// Get recent results with prediction accuracy (optionally filtered by league)
+export async function getRecentResultsWithAccuracy(limit = 5, leagueId?: string) {
+  let query = supabase
     .from('fixtures')
     .select(`
       *,
@@ -753,6 +822,12 @@ export async function getRecentResultsWithAccuracy(limit = 5) {
     .in('status', ['FT', 'AET', 'PEN'])
     .order('match_date', { ascending: false })
     .limit(limit)
+
+  if (leagueId) {
+    query = query.eq('league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []

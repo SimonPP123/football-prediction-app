@@ -1,4 +1,5 @@
 import { createSSEStream } from '@/lib/utils/streaming'
+import { getLeagueFromRequest } from '@/lib/league-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +15,9 @@ const SEASON_SETUP_ENDPOINTS = [
 ]
 
 export async function POST(request: Request) {
+  // Get league from request (defaults to Premier League)
+  const league = await getLeagueFromRequest(request)
+
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
@@ -22,7 +26,7 @@ export async function POST(request: Request) {
       const totalEndpoints = SEASON_SETUP_ENDPOINTS.length
       sendLog({
         type: 'info',
-        message: `Starting season setup (${totalEndpoints} endpoints)...`
+        message: `Starting season setup for ${league.name} (${totalEndpoints} endpoints)...`
       })
       sendLog({
         type: 'info',
@@ -46,7 +50,8 @@ export async function POST(request: Request) {
 
         try {
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-          const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}`, {
+          // Pass league_id to each refresh endpoint
+          const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}?league_id=${league.id}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -111,7 +116,7 @@ export async function POST(request: Request) {
 
       sendLog({
         type: successCount === totalEndpoints ? 'success' : 'warning',
-        message: `Season setup complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
+        message: `Season setup for ${league.name} complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
       })
 
       close({
@@ -123,6 +128,7 @@ export async function POST(request: Request) {
         total: totalEndpoints,
         errors: failCount,
         results,
+        league: league.name,
       })
     } catch (error) {
       const duration = Date.now() - startTime

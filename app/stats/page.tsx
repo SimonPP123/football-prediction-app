@@ -113,7 +113,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <Header title="Statistics" subtitle="Premier League 2025-2026" />
+        <Header title="Statistics" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -123,7 +123,7 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Statistics" subtitle="Premier League 2025-2026" />
+      <Header title="Statistics" />
 
       <div className="p-6 space-y-6">
         {/* Data freshness */}

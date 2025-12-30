@@ -3,9 +3,12 @@ import { getLiveFixtures } from '@/lib/supabase/queries'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const fixtures = await getLiveFixtures()
+    const { searchParams } = new URL(request.url)
+    const leagueId = searchParams.get('league_id') || undefined
+
+    const fixtures = await getLiveFixtures(leagueId)
 
     return NextResponse.json(fixtures)
   } catch (error) {

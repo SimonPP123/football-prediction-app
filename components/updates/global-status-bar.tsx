@@ -18,6 +18,7 @@ import {
   Info,
 } from 'lucide-react'
 import { usePollerSettings, PollerSettingsPanel } from './update-poller'
+import { LeagueSelector } from '@/components/layout/league-selector'
 
 const CATEGORY_CONFIG: Record<string, {
   label: string
@@ -234,8 +235,10 @@ export function GlobalStatusBar() {
   return (
     <div className="bg-card/80 backdrop-blur-sm border-b border-border">
       <div className="flex items-center justify-between px-4 py-2">
-        {/* Left: Data status summary */}
-        <div className="relative">
+        {/* Left: League selector + Data status summary */}
+        <div className="flex items-center gap-4">
+          <LeagueSelector />
+          <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
             className="flex items-center gap-2 text-sm hover:bg-muted/50 rounded-lg px-2 py-1 transition-colors"
@@ -337,6 +340,7 @@ export function GlobalStatusBar() {
               </div>
             </>
           )}
+          </div>
         </div>
 
         {/* Right: Auto-refresh toggle */}

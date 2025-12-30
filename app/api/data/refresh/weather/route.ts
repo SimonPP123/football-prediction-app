@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,11 @@ interface LogEntry {
   }
 }
 
+interface LeagueConfig {
+  id: string
+  name: string
+}
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Weather code descriptions
@@ -38,23 +44,27 @@ const weatherCodes: Record<number, string> = {
 }
 
 export async function POST(request: Request) {
+  // Get league from request (defaults to Premier League)
+  const league = await getLeagueFromRequest(request)
+
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
+    return handleStreamingRefresh(league)
   }
-  return handleBatchRefresh()
+  return handleBatchRefresh(league)
 }
 
-async function handleStreamingRefresh() {
+async function handleStreamingRefresh(league: LeagueConfig) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: 'Starting weather refresh from Open-Meteo...' })
+      sendLog({ type: 'info', message: `Starting weather refresh for ${league.name} from Open-Meteo...` })
 
       const nextWeek = new Date()
       nextWeek.setDate(nextWeek.getDate() + 7)
 
+      // Get upcoming fixtures for this league
       const { data: fixtures } = await supabase
         .from('fixtures')
         .select(`
@@ -62,13 +72,14 @@ async function handleStreamingRefresh() {
           home_team:teams!fixtures_home_team_id_fkey(name),
           venue:venues!fixtures_venue_id_fkey(name, lat, lng)
         `)
+        .eq('league_id', league.id)
         .gte('match_date', new Date().toISOString())
         .lte('match_date', nextWeek.toISOString())
         .eq('status', 'NS')
 
       if (!fixtures || fixtures.length === 0) {
         sendLog({ type: 'info', message: 'No upcoming fixtures found' })
-        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime, league: league.name })
         return
       }
 
@@ -138,7 +149,7 @@ async function handleStreamingRefresh() {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: fixturesWithVenue.length, duration })
+      close({ success: true, imported, errors, total: fixturesWithVenue.length, duration, league: league.name })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -149,19 +160,19 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(league: LeagueConfig) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
   const addLog = (type: LogEntry['type'], message: string, details?: LogEntry['details']) => {
     logs.push({ type, message, details })
-    console.log(`[Refresh Weather] ${message}`)
+    console.log(`[Refresh Weather - ${league.name}] ${message}`)
   }
 
   try {
-    addLog('info', 'Starting weather refresh from Open-Meteo...')
+    addLog('info', `Starting weather refresh for ${league.name} from Open-Meteo...`)
 
-    // Get upcoming fixtures with venue info (next 7 days)
+    // Get upcoming fixtures with venue info (next 7 days) for this league
     const nextWeek = new Date()
     nextWeek.setDate(nextWeek.getDate() + 7)
 
@@ -172,6 +183,7 @@ async function handleBatchRefresh() {
         home_team:teams!fixtures_home_team_id_fkey(name),
         venue:venues!fixtures_venue_id_fkey(name, lat, lng)
       `)
+      .eq('league_id', league.id)
       .gte('match_date', new Date().toISOString())
       .lte('match_date', nextWeek.toISOString())
       .eq('status', 'NS')
@@ -184,6 +196,7 @@ async function handleBatchRefresh() {
         errors: 0,
         total: 0,
         logs,
+        league: league.name,
       })
     }
 
@@ -266,6 +279,7 @@ async function handleBatchRefresh() {
       total: fixturesWithVenue.length,
       duration,
       logs,
+      league: league.name,
     })
   } catch (error) {
     const duration = Date.now() - startTime
@@ -275,6 +289,7 @@ async function handleBatchRefresh() {
       error: error instanceof Error ? error.message : 'Unknown error',
       duration,
       logs,
+      league: league.name,
     }, { status: 500 })
   }
 }

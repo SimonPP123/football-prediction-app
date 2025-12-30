@@ -6,8 +6,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limitParam = searchParams.get('limit')
     const limit = limitParam ? parseInt(limitParam) : undefined
+    const leagueId = searchParams.get('league_id') || undefined
 
-    const fixtures = await getUpcomingFixtures(limit)
+    const fixtures = await getUpcomingFixtures(limit, leagueId)
 
     return NextResponse.json(fixtures)
   } catch (error) {

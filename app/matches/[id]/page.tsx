@@ -147,7 +147,7 @@ export default function MatchDetailPage() {
     <div className="min-h-screen">
       <Header
         title={`${fixture.home_team?.name || 'Home'} vs ${fixture.away_team?.name || 'Away'}`}
-        subtitle={fixture.round || 'Premier League'}
+        subtitle={fixture.round || undefined}
       />
 
       <div className="p-6 space-y-6">

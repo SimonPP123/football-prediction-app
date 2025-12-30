@@ -92,7 +92,7 @@ export default function TeamsPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <Header title="Teams" subtitle="Premier League 2025-2026" />
+        <Header title="Teams" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -102,7 +102,7 @@ export default function TeamsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Teams" subtitle="Premier League 2025-2026" />
+      <Header title="Teams" />
 
       <div className="p-6 space-y-6">
         {/* Data freshness */}

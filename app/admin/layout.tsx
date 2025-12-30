@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Users, Shield, ArrowLeft } from 'lucide-react'
+import { Users, Shield, ArrowLeft, Globe } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const adminNavItems = [
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/leagues', label: 'Leagues', icon: Globe },
 ]
 
 export default function AdminLayout({

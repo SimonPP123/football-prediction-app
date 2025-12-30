@@ -8,13 +8,17 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data: standings, error } = await supabase
+    const { searchParams } = new URL(request.url)
+    const leagueId = searchParams.get('league_id')
+
+    let query = supabase
       .from('standings')
       .select(`
         id,
         team_id,
+        league_id,
         rank,
         points,
         goal_diff,
@@ -31,6 +35,12 @@ export async function GET() {
         team:teams(id, name, logo, code, api_id)
       `)
       .order('rank', { ascending: true })
+
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+
+    const { data: standings, error } = await query
 
     if (error) {
       console.error('[API Standings] Error:', error)

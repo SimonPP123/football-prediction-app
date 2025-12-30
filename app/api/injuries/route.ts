@@ -3,26 +3,42 @@ import { supabase } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url)
+    const leagueId = searchParams.get('league_id')
+
     // Get recent injuries (created within last 30 days, or no fixture yet completed)
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('injuries')
       .select(`
         *,
-        team:teams(id, name, logo)
+        team:teams(id, name, logo, league_id)
       `)
       .gte('created_at', thirtyDaysAgo.toISOString())
       .order('created_at', { ascending: false })
 
+    // Filter by league via team's league_id if specified
+    // Note: This requires a join filter which Supabase supports
+    if (leagueId) {
+      query = query.eq('team.league_id', leagueId)
+    }
+
+    const { data, error } = await query
+
     if (error) throw error
 
-    console.log(`[Injuries API] Returning ${data?.length || 0} current injuries`)
+    // Filter out results where team doesn't match league (for the join filter)
+    const filteredData = leagueId
+      ? data?.filter((injury: any) => injury.team?.league_id === leagueId)
+      : data
 
-    return NextResponse.json(data || [])
+    console.log(`[Injuries API] Returning ${filteredData?.length || 0} current injuries${leagueId ? ` for league ${leagueId}` : ''}`)
+
+    return NextResponse.json(filteredData || [])
   } catch (error) {
     console.error('Error fetching injuries:', error)
     return NextResponse.json(

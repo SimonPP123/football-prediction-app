@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Shield, LogOut, User } from 'lucide-react'
+import { useLeague, getLeagueTitle } from '@/contexts/league-context'
 
 interface HeaderProps {
   title: string
   subtitle?: string
+  showLeagueSubtitle?: boolean // If true and no subtitle provided, shows current league
 }
 
 interface AuthData {
@@ -17,10 +19,14 @@ interface AuthData {
   isAdmin: boolean
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, showLeagueSubtitle = true }: HeaderProps) {
   const router = useRouter()
   const [authData, setAuthData] = useState<AuthData | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
+  const { currentLeague } = useLeague()
+
+  // Determine the subtitle to display
+  const displaySubtitle = subtitle || (showLeagueSubtitle ? getLeagueTitle(currentLeague) : undefined)
 
   useEffect(() => {
     // Read auth data from cookie (client-side)
@@ -62,8 +68,8 @@ export function Header({ title, subtitle }: HeaderProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
+          {displaySubtitle && (
+            <p className="text-sm text-muted-foreground">{displaySubtitle}</p>
           )}
         </div>
 

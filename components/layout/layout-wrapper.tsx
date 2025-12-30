@@ -23,6 +23,8 @@ import { UpdateProvider } from '@/components/updates/update-provider'
 import { GlobalStatusBar, MobileDataStatus } from '@/components/updates/global-status-bar'
 import { ToastNotificationContainer } from '@/components/updates/toast-notification'
 import { UpdatePoller } from '@/components/updates/update-poller'
+import { LeagueProvider, useLeague, getSeasonDisplay } from '@/contexts/league-context'
+import { LeagueSelector } from '@/components/layout/league-selector'
 
 const SIDEBAR_COLLAPSED_KEY = 'football-ai-sidebar-collapsed'
 
@@ -39,10 +41,28 @@ const navItems = [
 ]
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
+  // Don't show layout on login page
+  if (pathname === '/login') {
+    return <>{children}</>
+  }
+
+  return (
+    <LeagueProvider>
+      <UpdateProvider>
+        <LayoutContent>{children}</LayoutContent>
+      </UpdateProvider>
+    </LeagueProvider>
+  )
+}
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
   const pathname = usePathname()
+  const { currentLeague } = useLeague()
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -68,13 +88,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // Don't show layout on login page
-  if (pathname === '/login') {
-    return <>{children}</>
-  }
-
   return (
-    <UpdateProvider>
       <div className="flex min-h-screen bg-background">
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border md:hidden">
@@ -130,7 +144,9 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
                 mounted && collapsed ? "md:hidden" : ""
               )}>
                 <h1 className="font-bold text-lg">Football AI</h1>
-                <p className="text-xs text-muted-foreground">Premier League 2025</p>
+                <p className="text-xs text-muted-foreground">
+                  {currentLeague ? `${currentLeague.name.split(' ')[0]} ${getSeasonDisplay(currentLeague.currentSeason).split('-')[0]}` : 'Loading...'}
+                </p>
               </div>
             </div>
             {/* Collapse button - Desktop only */}
@@ -210,6 +226,5 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       {/* Background Poller */}
       <UpdatePoller />
     </div>
-    </UpdateProvider>
   )
 }

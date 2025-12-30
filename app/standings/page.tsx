@@ -37,7 +37,7 @@ export default function StandingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <Header title="Standings" subtitle="Premier League 2025-2026" />
+        <Header title="Standings" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -55,7 +55,7 @@ export default function StandingsPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Standings" subtitle="Premier League 2025-2026" />
+      <Header title="Standings" />
 
       <div className="p-6 space-y-6">
         {/* Data Status and Stats */}
