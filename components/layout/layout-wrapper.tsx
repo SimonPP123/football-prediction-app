@@ -92,23 +92,26 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen bg-background">
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border md:hidden">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+        <div className="flex items-center justify-between p-3 gap-2">
+          {/* Logo - compact */}
+          <Link href="/" className="flex items-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-lg">⚽</span>
             </div>
-            <span className="font-bold">Football AI</span>
+          </Link>
+
+          {/* League Selector - centered, takes available space */}
+          <div className="flex-1 flex justify-center min-w-0">
+            <LeagueSelector />
           </div>
-          <div className="flex items-center gap-1">
-            {/* Mobile: Compact data status indicator */}
-            <MobileDataStatus />
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-muted rounded-lg"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-          </div>
+
+          {/* Menu button - larger touch target */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-3 hover:bg-muted rounded-lg shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
         </div>
       </header>
 
@@ -164,10 +167,10 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                 <ChevronLeft className="w-5 h-5" />
               )}
             </button>
-            {/* Close button - mobile only */}
+            {/* Close button - mobile only, larger touch target */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-2 hover:bg-muted rounded-lg md:hidden"
+              className="p-3 hover:bg-muted rounded-lg md:hidden min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>

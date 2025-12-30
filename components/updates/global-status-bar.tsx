@@ -150,7 +150,7 @@ export function MobileDataStatus() {
     <div className="relative">
       <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="flex items-center gap-1.5 text-xs hover:bg-muted/50 rounded px-2 py-1 transition-colors"
+        className="flex items-center gap-1.5 text-xs hover:bg-muted/50 rounded px-2 py-2 min-h-[44px] transition-colors"
       >
         {anyRefreshing ? (
           <Loader2 className="w-3 h-3 animate-spin text-primary" />
@@ -178,7 +178,7 @@ export function MobileDataStatus() {
             className="fixed inset-0 z-40"
             onClick={() => setShowDropdown(false)}
           />
-          <div className="absolute top-full right-0 mt-2 z-50 w-72 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+          <div className="absolute top-full right-0 mt-2 z-50 w-72 max-w-[calc(100vw-1rem)] bg-card border border-border rounded-lg shadow-lg overflow-hidden">
             <div className="p-2 border-b border-border bg-muted/30">
               <span className="font-medium text-xs">Data Status</span>
             </div>

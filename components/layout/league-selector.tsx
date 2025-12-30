@@ -59,11 +59,11 @@ export function LeagueSelector() {
   const showDropdown = leagues.length > 1
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative max-w-full" ref={dropdownRef}>
       <button
         onClick={() => showDropdown && setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors",
+          "flex items-center gap-2 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg transition-colors min-h-[44px]",
           showDropdown
             ? "hover:bg-muted cursor-pointer"
             : "cursor-default",
@@ -77,11 +77,13 @@ export function LeagueSelector() {
             alt={currentLeague.name}
             width={24}
             height={24}
-            className="rounded"
+            className="rounded shrink-0"
           />
         )}
-        <div className="flex flex-col items-start">
-          <span className="text-sm font-medium leading-tight">{currentLeague.name}</span>
+        <div className="flex flex-col items-start min-w-0">
+          <span className="text-sm font-medium leading-tight truncate max-w-[120px] sm:max-w-none">
+            {currentLeague.name}
+          </span>
           <span className="text-xs text-muted-foreground leading-tight">
             {getSeasonDisplay(currentLeague.currentSeason)}
           </span>
@@ -89,22 +91,22 @@ export function LeagueSelector() {
         {showDropdown && (
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform ml-1",
+              "h-4 w-4 text-muted-foreground transition-transform shrink-0",
               isOpen && "transform rotate-180"
             )}
           />
         )}
       </button>
 
-      {/* Dropdown menu */}
+      {/* Dropdown menu - responsive width, centered on mobile */}
       {isOpen && showDropdown && (
-        <div className="absolute top-full left-0 mt-1 w-64 bg-popover border rounded-lg shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-1 w-[calc(100vw-2rem)] sm:w-64 max-w-[280px] bg-popover border rounded-lg shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95">
           {leagues.map((league) => (
             <button
               key={league.id}
               onClick={() => handleSelect(league)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 hover:bg-muted transition-colors",
+                "w-full flex items-center gap-3 px-3 py-3 sm:py-2 hover:bg-muted transition-colors min-h-[48px] sm:min-h-0",
                 league.id === currentLeague.id && "bg-muted"
               )}
             >
@@ -114,17 +116,17 @@ export function LeagueSelector() {
                   alt={league.name}
                   width={28}
                   height={28}
-                  className="rounded"
+                  className="rounded shrink-0"
                 />
               )}
-              <div className="flex flex-col items-start flex-1">
-                <span className="text-sm font-medium">{league.name}</span>
-                <span className="text-xs text-muted-foreground">
+              <div className="flex flex-col items-start flex-1 min-w-0">
+                <span className="text-sm font-medium truncate w-full">{league.name}</span>
+                <span className="text-xs text-muted-foreground truncate w-full">
                   {league.country} - {getSeasonDisplay(league.currentSeason)}
                 </span>
               </div>
               {league.id === currentLeague.id && (
-                <Check className="h-4 w-4 text-primary" />
+                <Check className="h-4 w-4 text-primary shrink-0" />
               )}
             </button>
           ))}
