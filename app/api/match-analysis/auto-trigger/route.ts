@@ -5,18 +5,18 @@ export async function POST(request: Request) {
   try {
     const now = new Date()
 
-    // 4-hour delay: Only process matches that ended more than 4 hours ago
-    // This ensures all match statistics, events, and data have been synced
-    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+    // 1-hour delay: Only process matches that ended more than 1 hour ago
+    // This ensures match statistics and events have been synced
+    const oneHourAgo = new Date(now.getTime() - 1 * 60 * 60 * 1000)
 
     // Don't process matches older than 7 days
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-    console.log(`[Auto-Trigger] Looking for matches between ${sevenDaysAgo.toISOString()} and ${fourHoursAgo.toISOString()}`)
+    console.log(`[Auto-Trigger] Looking for matches between ${sevenDaysAgo.toISOString()} and ${oneHourAgo.toISOString()}`)
 
     // Get completed fixtures that:
     // 1. Have status FT/AET/PEN (completed)
-    // 2. Match ended between 7 days ago and 4 hours ago
+    // 2. Match ended between 7 days ago and 1 hour ago
     // 3. Have predictions (inner join)
     const { data: fixtures, error } = await supabase
       .from('fixtures')
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       `)
       .in('status', ['FT', 'AET', 'PEN'])
       .gte('match_date', sevenDaysAgo.toISOString())
-      .lte('match_date', fourHoursAgo.toISOString())
+      .lte('match_date', oneHourAgo.toISOString())
 
     if (error) throw error
 

@@ -39,17 +39,40 @@ async function handleStreamingRefresh() {
     try {
       sendLog({ type: 'info', message: 'Starting lineups refresh...' })
 
-      const { data: fixtures } = await supabase
+      // Get upcoming matches (within next 48 hours) OR recently completed (for backfill)
+      const now = new Date()
+      const next48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+      const past7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+      // Fetch upcoming fixtures (lineups typically available ~1hr before kickoff)
+      const { data: upcomingFixtures } = await supabase
         .from('fixtures')
         .select(`
-          id, api_id,
+          id, api_id, date,
+          home_team:teams!fixtures_home_team_id_fkey(name),
+          away_team:teams!fixtures_away_team_id_fkey(name)
+        `)
+        .in('status', ['NS', 'TBD', '1H', '2H', 'HT']) // Not started or in progress
+        .gte('date', now.toISOString())
+        .lte('date', next48Hours.toISOString())
+        .order('date', { ascending: true })
+
+      // Also fetch recently completed without lineups (backfill)
+      const { data: completedFixtures } = await supabase
+        .from('fixtures')
+        .select(`
+          id, api_id, date,
           home_team:teams!fixtures_home_team_id_fkey(name),
           away_team:teams!fixtures_away_team_id_fkey(name)
         `)
         .in('status', ['FT', 'AET', 'PEN'])
+        .gte('date', past7Days.toISOString())
+        .order('date', { ascending: false })
+
+      const fixtures = [...(upcomingFixtures || []), ...(completedFixtures || [])]
 
       if (!fixtures || fixtures.length === 0) {
-        sendLog({ type: 'info', message: 'No completed fixtures found' })
+        sendLog({ type: 'info', message: 'No fixtures found needing lineups' })
         close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
         return
       }
@@ -61,7 +84,7 @@ async function handleStreamingRefresh() {
       const existingSet = new Set(existingLineups?.map(l => l.fixture_id) || [])
       const fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
 
-      sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing lineups (${fixtures.length} total completed)` })
+      sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing lineups (${upcomingFixtures?.length || 0} upcoming, ${completedFixtures?.length || 0} completed)` })
 
       const { data: teams } = await supabase.from('teams').select('id, api_id')
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
@@ -159,18 +182,40 @@ async function handleBatchRefresh() {
   try {
     addLog('info', 'Starting lineups refresh...')
 
-    // Get completed fixtures without lineups
-    const { data: fixtures } = await supabase
+    // Get upcoming matches (within next 48 hours) OR recently completed (for backfill)
+    const now = new Date()
+    const next48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+    const past7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    // Fetch upcoming fixtures (lineups typically available ~1hr before kickoff)
+    const { data: upcomingFixtures } = await supabase
       .from('fixtures')
       .select(`
-        id, api_id,
+        id, api_id, date,
+        home_team:teams!fixtures_home_team_id_fkey(name),
+        away_team:teams!fixtures_away_team_id_fkey(name)
+      `)
+      .in('status', ['NS', 'TBD', '1H', '2H', 'HT'])
+      .gte('date', now.toISOString())
+      .lte('date', next48Hours.toISOString())
+      .order('date', { ascending: true })
+
+    // Also fetch recently completed without lineups (backfill)
+    const { data: completedFixtures } = await supabase
+      .from('fixtures')
+      .select(`
+        id, api_id, date,
         home_team:teams!fixtures_home_team_id_fkey(name),
         away_team:teams!fixtures_away_team_id_fkey(name)
       `)
       .in('status', ['FT', 'AET', 'PEN'])
+      .gte('date', past7Days.toISOString())
+      .order('date', { ascending: false })
+
+    const fixtures = [...(upcomingFixtures || []), ...(completedFixtures || [])]
 
     if (!fixtures || fixtures.length === 0) {
-      addLog('info', 'No completed fixtures found')
+      addLog('info', 'No fixtures found needing lineups')
       return NextResponse.json({
         success: true,
         imported: 0,
@@ -188,7 +233,7 @@ async function handleBatchRefresh() {
     const existingSet = new Set(existingLineups?.map(l => l.fixture_id) || [])
     const fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
 
-    addLog('info', `Found ${fixturesToProcess.length} fixtures needing lineups (${fixtures.length} total completed)`)
+    addLog('info', `Found ${fixturesToProcess.length} fixtures needing lineups (${upcomingFixtures?.length || 0} upcoming, ${completedFixtures?.length || 0} completed)`)
 
     // Build team lookup
     const { data: teams } = await supabase.from('teams').select('id, api_id')
