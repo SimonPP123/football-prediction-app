@@ -68,11 +68,13 @@ export async function GET() {
 
     analyses.forEach(a => {
       const prediction = predictionMap.get(a.fixture_id)
-      const predResult = prediction?.prediction_result || a.predicted_outcome
+      // Use match_analysis.predicted_result as primary source (stored at analysis time)
+      // Falls back to predictions table if available
+      const predResult = a.predicted_result || prediction?.prediction_result
 
       // Skip if no prediction result at all
       if (!predResult) {
-        console.log(`[Accuracy Stats] Analysis ${a.fixture_id} has no prediction_result`)
+        console.log(`[Accuracy Stats] Analysis ${a.fixture_id} has no predicted_result`)
         return
       }
 
@@ -156,7 +158,9 @@ export async function GET() {
 
     analyses.forEach(a => {
       const prediction = predictionMap.get(a.fixture_id)
-      const model = prediction?.model_used || prediction?.model_version || a.model_version || 'Unknown'
+      // Use match_analysis.model_version as primary source (stored at analysis time)
+      // Falls back to predictions table if available
+      const model = a.model_version || prediction?.model_used || prediction?.model_version || 'Unknown'
 
       if (!byModel[model]) {
         byModel[model] = { total: 0, correct: 0, accuracy: 0 }

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
+import type { Prediction } from '@/types'
 
 interface ScorePrediction {
   score: string
@@ -55,8 +56,12 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
   const [showKeyRiskFactors, setShowKeyRiskFactors] = useState(false)
 
   // Handle both array and object formats from Supabase
+  // Sort by updated_at DESC to ensure we always show the most recent prediction
   const prediction = Array.isArray(fixture.prediction)
-    ? fixture.prediction[0]
+    ? fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
+        new Date(b.updated_at || b.created_at || 0).getTime() -
+        new Date(a.updated_at || a.created_at || 0).getTime()
+      )[0]
     : fixture.prediction
 
   // Get score predictions from prediction data - sort by probability descending and exclude "other"

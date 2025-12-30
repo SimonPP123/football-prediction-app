@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { OddsMarket, OddsOutcome } from '@/types'
+import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
 interface ScorePrediction {
@@ -31,8 +31,12 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null)
 
   // Handle both array and object formats from Supabase
+  // Sort by updated_at DESC to ensure we always show the most recent prediction
   const prediction = Array.isArray(fixture.prediction)
-    ? fixture.prediction[0]
+    ? fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
+        new Date(b.updated_at || b.created_at || 0).getTime() -
+        new Date(a.updated_at || a.created_at || 0).getTime()
+      )[0]
     : fixture.prediction
   const hasPrediction = !!prediction
 

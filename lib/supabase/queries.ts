@@ -345,6 +345,19 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
   // Use server client with service role key for UPSERT operations
   const serverSupabase = createServerClient()
 
+  // AUTO-SAVE TO HISTORY: Check if prediction already exists
+  // If it does, save current prediction to history BEFORE overwriting
+  const existingPrediction = await getPrediction(fixtureId)
+  if (existingPrediction) {
+    try {
+      await savePredictionToHistory(fixtureId)
+      console.log(`[savePrediction] Saved existing prediction to history for fixture ${fixtureId}`)
+    } catch (historyError) {
+      console.error(`[savePrediction] Failed to save history for fixture ${fixtureId}:`, historyError)
+      // Continue with save even if history fails - don't block the new prediction
+    }
+  }
+
   // Use overall_index if provided, otherwise fall back to confidence
   // Round to integer since database columns are INTEGER type
   const overallIndex = Math.round(prediction.overall_index || prediction.confidence || 50)
@@ -412,16 +425,70 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
 }
 
 // Delete prediction (main prediction for a fixture)
+// After deletion, promotes the most recent history record to main prediction
 export async function deletePrediction(fixtureId: string) {
   const serverSupabase = createServerClient()
 
+  // 1. Delete from predictions table
   const { error } = await serverSupabase
     .from('predictions')
     .delete()
     .eq('fixture_id', fixtureId)
 
   if (error) throw error
-  return { success: true }
+
+  // 2. Get most recent history record to promote as new main prediction
+  const { data: history, error: historyError } = await supabase
+    .from('prediction_history')
+    .select('*')
+    .eq('fixture_id', fixtureId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  // 3. If history exists, promote it to main prediction
+  if (!historyError && history) {
+    const { error: insertError } = await serverSupabase
+      .from('predictions')
+      .insert({
+        fixture_id: fixtureId,
+        prediction_result: history.prediction_result,
+        overall_index: history.overall_index,
+        confidence_level: history.overall_index >= 70 ? 'high' : history.overall_index >= 50 ? 'medium' : 'low',
+        confidence_pct: history.confidence_pct || history.overall_index,
+        certainty_score: history.certainty_score,
+        factors: history.factors,
+        analysis_text: history.analysis_text,
+        key_factors: history.key_factors,
+        risk_factors: history.risk_factors,
+        model_version: history.model_used,
+        model_used: history.model_used,
+        score_predictions: history.score_predictions,
+        most_likely_score: history.most_likely_score,
+        home_win_pct: history.home_win_pct,
+        draw_pct: history.draw_pct,
+        away_win_pct: history.away_win_pct,
+        over_under_2_5: history.over_under_2_5,
+        btts: history.btts,
+        updated_at: new Date().toISOString(),
+      })
+
+    if (insertError) {
+      console.error(`[deletePrediction] Failed to promote history to main:`, insertError)
+    } else {
+      // Delete the promoted history record to avoid duplication
+      await serverSupabase
+        .from('prediction_history')
+        .delete()
+        .eq('id', history.id)
+
+      console.log(`[deletePrediction] Promoted history ${history.id} to main prediction for fixture ${fixtureId}`)
+      return { success: true, promoted: true, promotedFrom: history.id }
+    }
+  }
+
+  // If no history, fixture will show "Generate Prediction" button
+  return { success: true, promoted: false }
 }
 
 // Delete a specific prediction history record
