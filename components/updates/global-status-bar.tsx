@@ -129,6 +129,92 @@ function getStatusInfo(dateString: string | undefined): { color: string; status:
   return { color: 'bg-red-500', status: 'Stale' }
 }
 
+// Compact version for mobile header
+export function MobileDataStatus() {
+  const [showDropdown, setShowDropdown] = useState(false)
+  const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
+  const anyRefreshing = Object.values(isRefreshing).some(Boolean)
+
+  const allCategories = Object.keys(CATEGORY_CONFIG) as DataCategory[]
+  const syncedCount = allCategories.filter(c => lastRefreshTimes[c]).length
+  const freshCount = allCategories.filter(c => {
+    const last = lastRefreshTimes[c]
+    if (!last) return false
+    return (Date.now() - new Date(last).getTime()) < 3600000
+  }).length
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="flex items-center gap-1.5 text-xs hover:bg-muted/50 rounded px-2 py-1 transition-colors"
+      >
+        {anyRefreshing ? (
+          <Loader2 className="w-3 h-3 animate-spin text-primary" />
+        ) : (
+          <div className="flex items-center gap-0.5">
+            {VISIBLE_CATEGORIES.map(category => {
+              const { color } = getStatusInfo(lastRefreshTimes[category])
+              return (
+                <div
+                  key={category}
+                  className={cn("w-1.5 h-1.5 rounded-full", color)}
+                />
+              )
+            })}
+          </div>
+        )}
+        <span className="text-muted-foreground whitespace-nowrap">
+          {freshCount}/{syncedCount}
+        </span>
+      </button>
+
+      {showDropdown && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowDropdown(false)}
+          />
+          <div className="absolute top-full right-0 mt-2 z-50 w-72 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+            <div className="p-2 border-b border-border bg-muted/30">
+              <span className="font-medium text-xs">Data Status</span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {allCategories.map(category => {
+                const config = CATEGORY_CONFIG[category]
+                const Icon = config.icon
+                const lastRefresh = lastRefreshTimes[category]
+                const { color, status } = getStatusInfo(lastRefresh)
+                const loading = isRefreshing[category]
+
+                return (
+                  <button
+                    key={category}
+                    onClick={() => refreshCategory(category)}
+                    disabled={loading}
+                    className="w-full flex items-center gap-2 px-2 py-2 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
+                  >
+                    <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", color)} />
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Icon className={cn("w-3.5 h-3.5 shrink-0", config.color)} />
+                    )}
+                    <span className="text-xs font-medium flex-1">{config.label}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatRelativeTime(lastRefresh)}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function GlobalStatusBar() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [showSettings, setShowSettings] = useState(false)

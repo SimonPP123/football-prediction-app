@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { UpdateProvider } from '@/components/updates/update-provider'
-import { GlobalStatusBar } from '@/components/updates/global-status-bar'
+import { GlobalStatusBar, MobileDataStatus } from '@/components/updates/global-status-bar'
 import { ToastNotificationContainer } from '@/components/updates/toast-notification'
 import { UpdatePoller } from '@/components/updates/update-poller'
 
@@ -85,12 +85,16 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
             </div>
             <span className="font-bold">Football AI</span>
           </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="p-2 hover:bg-muted rounded-lg"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Mobile: Compact data status indicator */}
+            <MobileDataStatus />
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="p-2 hover:bg-muted rounded-lg"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </div>
       </header>
 
