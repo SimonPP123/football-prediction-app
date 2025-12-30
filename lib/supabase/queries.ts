@@ -632,12 +632,13 @@ export async function getTeamRecentAnalyses(teamId: string, limit = 5) {
 
 // Get accuracy statistics across all analyses
 export async function getAnalysisAccuracyStats(leagueId?: string) {
+  // Note: match_analysis doesn't have league_id column, so we filter via fixture join
   let query = supabase
     .from('match_analysis')
-    .select('prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score, league_id')
+    .select('prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score, fixture:fixtures!inner(league_id)')
 
   if (leagueId) {
-    query = query.eq('league_id', leagueId)
+    query = query.eq('fixture.league_id', leagueId)
   }
 
   const { data, error } = await query
@@ -767,7 +768,7 @@ export async function getDashboardStats(leagueId?: string) {
     completedQuery = completedQuery.eq('league_id', leagueId)
     upcomingQuery = upcomingQuery.eq('league_id', leagueId)
     predictionsQuery = predictionsQuery.eq('league_id', leagueId)
-    analysisQuery = analysisQuery.eq('league_id', leagueId)
+    // Note: match_analysis doesn't have league_id column - filtered via getAnalysisAccuracyStats with fixture join
     teamsQuery = teamsQuery.eq('league_id', leagueId)
   }
 
@@ -858,14 +859,15 @@ export async function getRecentResultsWithAccuracy(limit = 5, leagueId?: string)
 
 // Get best performing factor from analyses
 export async function getBestPerformingFactor(leagueId?: string) {
+  // Note: match_analysis doesn't have league_id column, so we filter via fixture join
   let query = supabase
     .from('match_analysis')
-    .select('factor_accuracy, league_id')
+    .select('factor_accuracy, fixture:fixtures!inner(league_id)')
     .not('factor_accuracy', 'is', null)
     .limit(100)
 
   if (leagueId) {
-    query = query.eq('league_id', leagueId)
+    query = query.eq('fixture.league_id', leagueId)
   }
 
   const { data, error } = await query
