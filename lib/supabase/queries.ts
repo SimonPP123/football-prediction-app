@@ -596,3 +596,122 @@ export async function getCalibrationData() {
     }))
     .sort((a, b) => a.expectedRate - b.expectedRate)
 }
+
+// Get dashboard statistics
+export async function getDashboardStats() {
+  const [
+    { count: totalFixtures },
+    { count: completedFixtures },
+    { count: upcomingFixtures },
+    { count: totalPredictions },
+    { count: analyzedMatches },
+    { data: teams },
+    analysisStats,
+  ] = await Promise.all([
+    supabase.from('fixtures').select('*', { count: 'exact', head: true }),
+    supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['FT', 'AET', 'PEN']),
+    supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['NS', 'TBD', 'SUSP', 'PST']),
+    supabase.from('predictions').select('*', { count: 'exact', head: true }),
+    supabase.from('match_analysis').select('*', { count: 'exact', head: true }),
+    supabase.from('teams').select('id'),
+    getAnalysisAccuracyStats(),
+  ])
+
+  return {
+    totalFixtures: totalFixtures || 0,
+    completedFixtures: completedFixtures || 0,
+    upcomingFixtures: upcomingFixtures || 0,
+    totalPredictions: totalPredictions || 0,
+    analyzedMatches: analyzedMatches || 0,
+    totalTeams: teams?.length || 20,
+    resultAccuracy: analysisStats?.result_accuracy || 0,
+    averageAccuracy: analysisStats?.average_accuracy || 0,
+  }
+}
+
+// Get upcoming fixtures with predictions and factor details
+export async function getUpcomingWithFactors(limit = 6) {
+  const now = new Date().toISOString()
+
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      venue:venues(*),
+      prediction:predictions(*),
+      odds:odds(*),
+      weather:weather(*)
+    `)
+    .gte('match_date', now)
+    .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
+    .order('match_date', { ascending: true })
+    .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+// Get recent results with prediction accuracy
+export async function getRecentResultsWithAccuracy(limit = 5) {
+  const { data, error } = await supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      prediction:predictions(*),
+      match_analysis:match_analysis(*)
+    `)
+    .in('status', ['FT', 'AET', 'PEN'])
+    .order('match_date', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data || []
+}
+
+// Get best performing factor from analyses
+export async function getBestPerformingFactor() {
+  const { data, error } = await supabase
+    .from('match_analysis')
+    .select('factor_accuracy')
+    .not('factor_accuracy', 'is', null)
+    .limit(100)
+
+  if (error) throw error
+  if (!data || data.length === 0) return null
+
+  // Aggregate factor accuracies
+  const factorTotals: Record<string, { correct: number; total: number }> = {}
+
+  data.forEach(analysis => {
+    const factors = analysis.factor_accuracy as Record<string, boolean> | null
+    if (!factors) return
+
+    Object.entries(factors).forEach(([factor, correct]) => {
+      if (!factorTotals[factor]) {
+        factorTotals[factor] = { correct: 0, total: 0 }
+      }
+      factorTotals[factor].total++
+      if (correct) factorTotals[factor].correct++
+    })
+  })
+
+  // Find best performing factor
+  let bestFactor = null
+  let bestAccuracy = 0
+
+  Object.entries(factorTotals).forEach(([factor, stats]) => {
+    if (stats.total >= 5) { // Minimum sample size
+      const accuracy = (stats.correct / stats.total) * 100
+      if (accuracy > bestAccuracy) {
+        bestAccuracy = accuracy
+        bestFactor = { factor, accuracy, total: stats.total }
+      }
+    }
+  })
+
+  return bestFactor
+}

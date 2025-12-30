@@ -291,3 +291,45 @@ export interface BestOdds {
 export interface FixtureWithOdds extends FixtureWithTeams {
   odds?: OddsMarket[]
 }
+
+// Update System Types
+export type DataCategory =
+  | 'fixtures'
+  | 'standings'
+  | 'injuries'
+  | 'odds'
+  | 'weather'
+  | 'predictions'
+  | 'team-stats'
+  | 'player-stats'
+  | 'lineups'
+  | 'match-analysis'
+
+export interface RefreshEvent {
+  id: string
+  category: DataCategory
+  type: 'refresh' | 'prediction' | 'analysis'
+  status: 'success' | 'error' | 'info' | 'warning'
+  message: string
+  details?: {
+    inserted?: number
+    updated?: number
+    errors?: number
+    duration?: number
+  }
+  timestamp: string
+}
+
+export interface UpdateState {
+  lastRefreshTimes: Partial<Record<DataCategory, string>>
+  isRefreshing: Partial<Record<DataCategory, boolean>>
+  refreshHistory: RefreshEvent[]
+}
+
+export interface UpdateContextValue extends UpdateState {
+  refreshCategory: (category: DataCategory) => Promise<void>
+  addRefreshEvent: (event: Omit<RefreshEvent, 'id' | 'timestamp'>) => void
+  updateLastRefreshTime: (category: DataCategory, time: string) => void
+  setRefreshing: (category: DataCategory, isRefreshing: boolean) => void
+  clearHistory: () => void
+}

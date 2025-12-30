@@ -370,11 +370,12 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           </div>
         )}
 
-        {/* Factor Analysis - Collapsible */}
+        {/* Factor Analysis - Always Expanded */}
         {hasPrediction && prediction.factors && (
           <FactorBreakdown
             factors={prediction.factors}
             overallIndex={prediction.overall_index}
+            alwaysExpanded={true}
           />
         )}
 

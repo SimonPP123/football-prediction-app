@@ -15,7 +15,11 @@ import {
   FileText,
   Menu,
   X,
+  Activity,
 } from 'lucide-react'
+import { UpdateProvider } from '@/components/updates/update-provider'
+import { GlobalStatusBar } from '@/components/updates/global-status-bar'
+import { ToastNotificationContainer } from '@/components/updates/toast-notification'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -24,6 +28,7 @@ const navItems = [
   { href: '/teams', label: 'Teams', icon: Users },
   { href: '/matches', label: 'Matches', icon: Calendar },
   { href: '/stats', label: 'Statistics', icon: BarChart3 },
+  { href: '/activity', label: 'Activity Feed', icon: Activity },
   { href: '/data', label: 'Data Management', icon: Database },
   { href: '/data/docs', label: 'API Docs', icon: FileText },
 ]
@@ -38,7 +43,8 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <UpdateProvider>
+      <div className="flex min-h-screen bg-background">
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border md:hidden">
         <div className="flex items-center justify-between p-4">
@@ -122,9 +128,19 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pt-16 md:pt-0">
-        {children}
+      <main className="flex-1 overflow-auto pt-16 md:pt-0 flex flex-col">
+        {/* Global Status Bar - Desktop only */}
+        <div className="hidden md:block sticky top-0 z-30">
+          <GlobalStatusBar />
+        </div>
+        <div className="flex-1">
+          {children}
+        </div>
       </main>
+
+      {/* Toast Notifications */}
+      <ToastNotificationContainer />
     </div>
+    </UpdateProvider>
   )
 }

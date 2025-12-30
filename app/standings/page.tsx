@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/header'
-import { Loader2 } from 'lucide-react'
+import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { FormIndicator } from '@/components/stats/form-indicator'
+import { Loader2, TrendingUp, TrendingDown, Minus, Trophy, Home, Plane } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export default function StandingsPage() {
   const [standings, setStandings] = useState<any[]>([])
@@ -42,13 +45,39 @@ export default function StandingsPage() {
     )
   }
 
+  // Calculate league stats
+  const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
+  const totalMatches = standings.reduce((sum, s) => sum + (s.played || 0), 0) / 2
+  const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'
+  const topScorer = standings.sort((a, b) => b.goals_for - a.goals_for)[0]
+  const bestDefense = standings.sort((a, b) => a.goals_against - b.goals_against)[0]
+
   return (
     <div className="min-h-screen">
       <Header title="Standings" subtitle="Premier League 2025-2026" />
 
-      <div className="p-6">
+      <div className="p-6 space-y-6">
+        {/* Data Status and Stats */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Last updated:</span>
+            <DataFreshnessBadge category="standings" size="md" />
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span className="text-muted-foreground">Total Goals:</span>
+              <span className="font-bold">{totalGoals}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-muted-foreground">Avg/Match:</span>
+              <span className="font-bold">{avgGoalsPerMatch}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Legend */}
-        <div className="flex gap-4 text-xs mb-4">
+        <div className="flex gap-4 text-xs">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-blue-500 rounded" />
             <span>Champions League</span>
@@ -124,19 +153,8 @@ export default function StandingsPage() {
                       <td className="p-3 text-center font-bold text-lg">{standing.points}</td>
                       <td className="p-3">
                         {standing.form && (
-                          <div className="flex gap-1 justify-center">
-                            {standing.form.split('').slice(0, 5).map((result: string, i: number) => (
-                              <span
-                                key={i}
-                                className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                                  result === 'W' ? 'bg-green-500' :
-                                  result === 'D' ? 'bg-gray-500' :
-                                  result === 'L' ? 'bg-red-500' : 'bg-muted'
-                                }`}
-                              >
-                                {result}
-                              </span>
-                            ))}
+                          <div className="flex justify-center">
+                            <FormIndicator form={standing.form} size="sm" maxResults={5} />
                           </div>
                         )}
                       </td>
@@ -149,7 +167,7 @@ export default function StandingsPage() {
         </div>
 
         {/* Home/Away Tables */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Home Table */}
           <div className="bg-card border border-border rounded-lg">
             <div className="p-4 border-b border-border">

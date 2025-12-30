@@ -57,10 +57,11 @@ interface FactorBreakdownProps {
   factors: FactorsObject
   overallIndex?: number
   compact?: boolean // For table view
+  alwaysExpanded?: boolean // If true, factors are always visible (no collapse)
 }
 
-export function FactorBreakdown({ factors, overallIndex, compact = false }: FactorBreakdownProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+export function FactorBreakdown({ factors, overallIndex, compact = false, alwaysExpanded = false }: FactorBreakdownProps) {
+  const [isExpanded, setIsExpanded] = useState(alwaysExpanded)
 
   // Check if we have A-I factor breakdown
   const hasFactorBreakdown = Object.keys(FACTOR_DEFINITIONS).some(
@@ -163,33 +164,52 @@ export function FactorBreakdown({ factors, overallIndex, compact = false }: Fact
     )
   }
 
-  // Full collapsible view
+  // Full collapsible view (or always expanded)
   return (
     <div className="mt-4">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
-      >
-        <BarChart3 className="w-4 h-4 text-primary" />
-        <span className="text-xs font-medium">Factor Analysis</span>
-        <span className={cn(
-          "text-xs font-bold px-2 py-0.5 rounded",
-          calculatedOverall >= 55 ? "bg-green-500/20 text-green-500" :
-          calculatedOverall >= 45 ? "bg-muted text-muted-foreground" :
-          "bg-red-500/20 text-red-500"
-        )}>
-          {Math.round(calculatedOverall)} pts
-        </span>
-        <span className="text-xs text-muted-foreground ml-1">
-          {predictionInfo.label}
-        </span>
-        <ChevronDown className={cn(
-          "w-4 h-4 ml-auto text-muted-foreground transition-transform",
-          isExpanded && "rotate-180"
-        )} />
-      </button>
+      {/* Header - clickable to toggle if not alwaysExpanded */}
+      {alwaysExpanded ? (
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50">
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <span className="text-xs font-medium">Factor Analysis</span>
+          <span className={cn(
+            "text-xs font-bold px-2 py-0.5 rounded",
+            calculatedOverall >= 55 ? "bg-green-500/20 text-green-500" :
+            calculatedOverall >= 45 ? "bg-muted text-muted-foreground" :
+            "bg-red-500/20 text-red-500"
+          )}>
+            {Math.round(calculatedOverall)} pts
+          </span>
+          <span className="text-xs text-muted-foreground ml-1">
+            {predictionInfo.label}
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+        >
+          <BarChart3 className="w-4 h-4 text-primary" />
+          <span className="text-xs font-medium">Factor Analysis</span>
+          <span className={cn(
+            "text-xs font-bold px-2 py-0.5 rounded",
+            calculatedOverall >= 55 ? "bg-green-500/20 text-green-500" :
+            calculatedOverall >= 45 ? "bg-muted text-muted-foreground" :
+            "bg-red-500/20 text-red-500"
+          )}>
+            {Math.round(calculatedOverall)} pts
+          </span>
+          <span className="text-xs text-muted-foreground ml-1">
+            {predictionInfo.label}
+          </span>
+          <ChevronDown className={cn(
+            "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+            isExpanded && "rotate-180"
+          )} />
+        </button>
+      )}
 
-      {isExpanded && (
+      {(isExpanded || alwaysExpanded) && (
         <div className="mt-2 p-3 bg-muted/30 rounded-lg space-y-1">
           {(Object.keys(FACTOR_DEFINITIONS) as FactorKey[]).map((key, idx) =>
             renderFactor(key, idx)

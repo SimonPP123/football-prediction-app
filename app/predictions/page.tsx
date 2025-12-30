@@ -14,6 +14,7 @@ import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, Chevr
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/default-prompt'
+import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 
 // Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
@@ -302,6 +303,27 @@ export default function PredictionsPage() {
         title="Predictions"
         subtitle="AI-powered match predictions"
       />
+
+      {/* Data Freshness Indicators */}
+      <div className="px-6 pt-4 flex items-center gap-3 flex-wrap">
+        <span className="text-xs text-muted-foreground">Data Status:</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Fixtures</span>
+          <DataFreshnessBadge category="fixtures" size="sm" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Predictions</span>
+          <DataFreshnessBadge category="predictions" size="sm" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Analysis</span>
+          <DataFreshnessBadge category="match-analysis" size="sm" />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">Odds</span>
+          <DataFreshnessBadge category="odds" size="sm" />
+        </div>
+      </div>
 
       <div className="p-6">
         {/* Controls */}
