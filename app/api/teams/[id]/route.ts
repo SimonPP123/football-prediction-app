@@ -88,8 +88,29 @@ export async function GET(
       p.fixture?.home_team_id === id || p.fixture?.away_team_id === id
     ) || []
 
+    // Transform season_stats to flatten home/away JSONB fields
+    const transformedStats = team.season_stats?.map((stats: any) => ({
+      ...stats,
+      // Flatten home_stats JSONB
+      home_wins: stats.home_stats?.wins ?? 0,
+      home_draws: stats.home_stats?.draws ?? 0,
+      home_losses: stats.home_stats?.losses ?? 0,
+      home_goals_for: stats.home_stats?.goals_for ?? 0,
+      home_goals_against: stats.home_stats?.goals_against ?? 0,
+      // Flatten away_stats JSONB
+      away_wins: stats.away_stats?.wins ?? 0,
+      away_draws: stats.away_stats?.draws ?? 0,
+      away_losses: stats.away_stats?.losses ?? 0,
+      away_goals_for: stats.away_stats?.goals_for ?? 0,
+      away_goals_against: stats.away_stats?.goals_against ?? 0,
+      // Add computed averages
+      avg_goals_scored: stats.goals_for_avg,
+      avg_goals_conceded: stats.goals_against_avg,
+    })) || []
+
     return NextResponse.json({
       ...team,
+      season_stats: transformedStats,
       squad: squad || [],
       recent_matches: recentMatches || [],
       upcoming_matches: upcomingMatches || [],
