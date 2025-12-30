@@ -39,7 +39,7 @@ export function Header({ title, subtitle, showLeagueSubtitle = true }: HeaderPro
     // For now, let's create a simple current user endpoint
     const checkAuth = async () => {
       try {
-        const res = await fetch('/api/auth/me')
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
           setAuthData(data.user)
@@ -55,7 +55,7 @@ export function Header({ title, subtitle, showLeagueSubtitle = true }: HeaderPro
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
       router.push('/login')
       router.refresh()
     } catch {

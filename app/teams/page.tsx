@@ -41,8 +41,8 @@ export default function TeamsPage() {
       setLoading(true)
       const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
       const [teamsRes, standingsRes] = await Promise.all([
-        fetch(`/api/teams${params}`, { signal }),
-        fetch(`/api/standings${params}`, { signal }),
+        fetch(`/api/teams${params}`, { credentials: 'include', signal }),
+        fetch(`/api/standings${params}`, { credentials: 'include', signal }),
       ])
 
       if (signal?.aborted) return

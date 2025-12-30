@@ -25,7 +25,7 @@ export function ModelComparison() {
 
   const fetchModels = async () => {
     try {
-      const response = await fetch('/api/accuracy-stats/by-model')
+      const response = await fetch('/api/accuracy-stats/by-model', { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch model stats')
       const data = await response.json()
       setModels(data)

@@ -63,9 +63,9 @@ export default function TeamDetailPage() {
 
       // Fetch all team data in parallel
       const [teamRes, standingsRes, injuriesRes] = await Promise.all([
-        fetch(`/api/teams/${teamId}`, { signal }),
-        fetch('/api/standings', { signal }),
-        fetch(`/api/injuries?team_id=${teamId}`, { signal }),
+        fetch(`/api/teams/${teamId}`, { credentials: 'include', signal }),
+        fetch('/api/standings', { credentials: 'include', signal }),
+        fetch(`/api/injuries?team_id=${teamId}`, { credentials: 'include', signal }),
       ])
 
       if (signal?.aborted) return

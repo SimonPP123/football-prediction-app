@@ -52,8 +52,8 @@ export default function StatsPage() {
       setLoading(true)
       const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
       const [standingsRes, accuracyRes] = await Promise.all([
-        fetch(`/api/standings${params}`),
-        fetch(`/api/accuracy-stats${params}`),
+        fetch(`/api/standings${params}`, { credentials: 'include' }),
+        fetch(`/api/accuracy-stats${params}`, { credentials: 'include' }),
       ])
 
       const standingsData = await standingsRes.json()

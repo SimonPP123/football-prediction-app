@@ -38,7 +38,7 @@ export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing, le
     setError(null)
     try {
       const params = leagueId ? `?league_id=${leagueId}` : ''
-      const res = await fetch(`/api/data/fixtures/upcoming${params}`)
+      const res = await fetch(`/api/data/fixtures/upcoming${params}`, { credentials: 'include' })
       const data = await res.json()
       if (data.error) {
         setError(data.error)

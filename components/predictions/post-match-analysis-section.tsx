@@ -66,7 +66,7 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/match-analysis/${fixtureId}`)
+      const response = await fetch(`/api/match-analysis/${fixtureId}`, { credentials: 'include' })
 
       if (response.status === 404) {
         // Analysis doesn't exist yet - this is normal
@@ -97,7 +97,8 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
       // Delete existing analysis if it exists
       if (analysis) {
         await fetch(`/api/match-analysis/${fixtureId}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          credentials: 'include'
         })
       }
 
@@ -109,6 +110,7 @@ export function PostMatchAnalysisSection({ fixtureId }: PostMatchAnalysisSection
       const response = await fetch('/api/match-analysis/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           fixture_id: fixtureId,
           force_regenerate: true,

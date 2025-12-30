@@ -125,7 +125,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     }
     setLoadingHistory(true)
     try {
-      const res = await fetch(`/api/predictions/history?fixture_id=${fixture.id}`)
+      const res = await fetch(`/api/predictions/history?fixture_id=${fixture.id}`, { credentials: 'include' })
       const data = await res.json()
       if (data.success) {
         setHistory(data.history)
@@ -147,7 +147,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     setDeleting(true)
     try {
       const res = await fetch(`/api/predictions?fixture_id=${fixture.id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
       const data = await res.json()
 
@@ -174,7 +175,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     setDeletingHistoryId(historyId)
     try {
       const res = await fetch(`/api/predictions/history?history_id=${historyId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       })
       const data = await res.json()
 

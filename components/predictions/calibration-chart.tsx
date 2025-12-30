@@ -22,7 +22,7 @@ export function CalibrationChart() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/accuracy-stats/calibration')
+      const response = await fetch('/api/accuracy-stats/calibration', { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch calibration data')
       const result = await response.json()
       setData(result)
