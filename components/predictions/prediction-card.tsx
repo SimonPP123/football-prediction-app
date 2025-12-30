@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3 } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
@@ -26,7 +27,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [showScores, setShowScores] = useState(false) // Collapsed by default
   const [showOdds, setShowOdds] = useState(false) // Collapsed by default
-  const [showTeamNews, setShowTeamNews] = useState(false) // Collapsed by default
+  const [showHomeNews, setShowHomeNews] = useState(false) // Collapsed by default
+  const [showAwayNews, setShowAwayNews] = useState(false) // Collapsed by default
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null)
@@ -385,44 +387,50 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           />
         )}
 
-        {/* Team News - Collapsible */}
+        {/* Team News - Separate Collapsible Sections */}
         {hasPrediction && (prediction.home_team_news || prediction.away_team_news) && (
-          <div className="mt-4">
-            <button
-              onClick={() => setShowTeamNews(!showTeamNews)}
-              className="w-full flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors text-left"
-            >
-              <Newspaper className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-medium">Team News</span>
-              <ChevronDown className={cn(
-                "w-4 h-4 ml-auto text-muted-foreground transition-transform",
-                showTeamNews && "rotate-180"
-              )} />
-            </button>
+          <div className="mt-4 space-y-2">
+            {/* Home Team News */}
+            {prediction.home_team_news && (
+              <div>
+                <button
+                  onClick={() => setShowHomeNews(!showHomeNews)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
+                >
+                  <Home className="w-4 h-4 text-home" />
+                  <span className="text-xs font-medium">{fixture.home_team?.name || 'Home'} News</span>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    showHomeNews && "rotate-180"
+                  )} />
+                </button>
+                {showHomeNews && (
+                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                    <ReactMarkdown>{prediction.home_team_news}</ReactMarkdown>
+                  </div>
+                )}
+              </div>
+            )}
 
-            {showTeamNews && (
-              <div className="mt-2 p-3 bg-muted/30 rounded-lg space-y-3">
-                {/* Home Team News */}
-                <div>
-                  <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-home"></span>
-                    {fixture.home_team?.name || 'Home'}
-                  </h5>
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                    {prediction.home_team_news || 'No news available'}
-                  </p>
-                </div>
-
-                {/* Away Team News */}
-                <div>
-                  <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-away"></span>
-                    {fixture.away_team?.name || 'Away'}
-                  </h5>
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                    {prediction.away_team_news || 'No news available'}
-                  </p>
-                </div>
+            {/* Away Team News */}
+            {prediction.away_team_news && (
+              <div>
+                <button
+                  onClick={() => setShowAwayNews(!showAwayNews)}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
+                >
+                  <Plane className="w-4 h-4 text-away" />
+                  <span className="text-xs font-medium">{fixture.away_team?.name || 'Away'} News</span>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    showAwayNews && "rotate-180"
+                  )} />
+                </button>
+                {showAwayNews && (
+                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                    <ReactMarkdown>{prediction.away_team_news}</ReactMarkdown>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -954,21 +962,33 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
 
                       {/* Team News */}
                       {(h.home_team_news || h.away_team_news) && (
-                        <div>
-                          <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                        <div className="space-y-2">
+                          <h5 className="text-xs font-medium flex items-center gap-1">
                             <Newspaper className="w-3 h-3 text-blue-500" />
                             Team News
                           </h5>
-                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                            <div>
-                              <span className="font-medium text-foreground">Home:</span>
-                              <p className="whitespace-pre-wrap">{h.home_team_news || 'N/A'}</p>
+                          {h.home_team_news && (
+                            <div className="p-2 bg-home/10 rounded-lg">
+                              <div className="text-xs font-medium flex items-center gap-1 mb-1">
+                                <Home className="w-3 h-3 text-home" />
+                                {fixture.home_team?.name || 'Home'}
+                              </div>
+                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
+                                <ReactMarkdown>{h.home_team_news}</ReactMarkdown>
+                              </div>
                             </div>
-                            <div>
-                              <span className="font-medium text-foreground">Away:</span>
-                              <p className="whitespace-pre-wrap">{h.away_team_news || 'N/A'}</p>
+                          )}
+                          {h.away_team_news && (
+                            <div className="p-2 bg-away/10 rounded-lg">
+                              <div className="text-xs font-medium flex items-center gap-1 mb-1">
+                                <Plane className="w-3 h-3 text-away" />
+                                {fixture.away_team?.name || 'Away'}
+                              </div>
+                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
+                                <ReactMarkdown>{h.away_team_news}</ReactMarkdown>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
 

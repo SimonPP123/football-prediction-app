@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3, Newspaper } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3, Newspaper, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
@@ -16,6 +17,16 @@ interface PredictionTableProps {
 
 export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds = [], errorIds = {}, onClearError }: PredictionTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedHomeNews, setExpandedHomeNews] = useState<Record<string, boolean>>({})
+  const [expandedAwayNews, setExpandedAwayNews] = useState<Record<string, boolean>>({})
+
+  const toggleHomeNews = (fixtureId: string) => {
+    setExpandedHomeNews(prev => ({ ...prev, [fixtureId]: !prev[fixtureId] }))
+  }
+
+  const toggleAwayNews = (fixtureId: string) => {
+    setExpandedAwayNews(prev => ({ ...prev, [fixtureId]: !prev[fixtureId] }))
+  }
 
   const getPredictionBadgeColor = (result: string) => {
     switch (result) {
@@ -466,32 +477,54 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
 
                           {/* Team News */}
                           {(prediction.home_team_news || prediction.away_team_news) && (
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-2 lg:col-span-4">
                               <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
                                 <Newspaper className="w-4 h-4 text-blue-500" />
                                 Team News
                               </h4>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* Home Team News */}
-                                <div className="bg-muted/30 rounded-lg p-3">
-                                  <h5 className="text-xs font-medium mb-2 flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-home"></span>
-                                    {fixture.home_team?.name || 'Home'}
-                                  </h5>
-                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                    {prediction.home_team_news || 'No news available'}
-                                  </p>
-                                </div>
-                                {/* Away Team News */}
-                                <div className="bg-muted/30 rounded-lg p-3">
-                                  <h5 className="text-xs font-medium mb-2 flex items-center gap-1">
-                                    <span className="w-2 h-2 rounded-full bg-away"></span>
-                                    {fixture.away_team?.name || 'Away'}
-                                  </h5>
-                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                    {prediction.away_team_news || 'No news available'}
-                                  </p>
-                                </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {/* Home Team News - Collapsible */}
+                                {prediction.home_team_news && (
+                                  <div>
+                                    <button
+                                      onClick={() => toggleHomeNews(fixture.id)}
+                                      className="w-full flex items-center gap-2 p-2 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
+                                    >
+                                      <Home className="w-4 h-4 text-home" />
+                                      <span className="text-xs font-medium">{fixture.home_team?.name || 'Home'} News</span>
+                                      <ChevronDown className={cn(
+                                        "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                                        expandedHomeNews[fixture.id] && "rotate-180"
+                                      )} />
+                                    </button>
+                                    {expandedHomeNews[fixture.id] && (
+                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                                        <ReactMarkdown>{prediction.home_team_news}</ReactMarkdown>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {/* Away Team News - Collapsible */}
+                                {prediction.away_team_news && (
+                                  <div>
+                                    <button
+                                      onClick={() => toggleAwayNews(fixture.id)}
+                                      className="w-full flex items-center gap-2 p-2 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
+                                    >
+                                      <Plane className="w-4 h-4 text-away" />
+                                      <span className="text-xs font-medium">{fixture.away_team?.name || 'Away'} News</span>
+                                      <ChevronDown className={cn(
+                                        "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                                        expandedAwayNews[fixture.id] && "rotate-180"
+                                      )} />
+                                    </button>
+                                    {expandedAwayNews[fixture.id] && (
+                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                                        <ReactMarkdown>{prediction.away_team_news}</ReactMarkdown>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )}
