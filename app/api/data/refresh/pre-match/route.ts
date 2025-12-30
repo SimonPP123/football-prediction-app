@@ -1,6 +1,20 @@
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createSSEStream } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
+
+function isAdmin(): boolean {
+  const cookieStore = cookies()
+  const authCookie = cookieStore.get('football_auth')?.value
+  if (!authCookie) return false
+  try {
+    const authData = JSON.parse(authCookie)
+    return authData.isAdmin === true
+  } catch {
+    return false
+  }
+}
 
 // Pre-match endpoints needed for predictions
 const PRE_MATCH_ENDPOINTS = [
@@ -23,6 +37,10 @@ interface PreMatchOptions {
 }
 
 export async function POST(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 

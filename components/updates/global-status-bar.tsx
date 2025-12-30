@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Settings,
   Info,
+  Square,
 } from 'lucide-react'
 import { usePollerSettings, PollerSettingsPanel } from './update-poller'
 import { LeagueSelector } from '@/components/layout/league-selector'
@@ -224,7 +225,7 @@ export function MobileDataStatus() {
 export function GlobalStatusBar() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
+  const { lastRefreshTimes, isRefreshing, refreshCategory, stopAllRefreshes } = useUpdates()
   const { currentLeague } = useLeague()
   const { settings } = usePollerSettings()
   const anyRefreshing = Object.values(isRefreshing).some(Boolean)
@@ -345,8 +346,22 @@ export function GlobalStatusBar() {
                     )
                   })}
                 </div>
-                <div className="p-2 border-t border-border bg-muted/30 text-[10px] text-muted-foreground text-center">
-                  Click to refresh for {currentLeague?.name || 'current league'}
+                <div className="p-2 border-t border-border bg-muted/30 flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">
+                    Click to refresh for {currentLeague?.name || 'current league'}
+                  </span>
+                  {anyRefreshing && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        stopAllRefreshes()
+                      }}
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 transition-colors font-medium"
+                    >
+                      <Square className="w-3 h-3 fill-current" />
+                      Stop
+                    </button>
+                  )}
                 </div>
               </div>
             </>

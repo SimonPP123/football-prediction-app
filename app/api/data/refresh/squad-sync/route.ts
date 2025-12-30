@@ -1,6 +1,20 @@
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createSSEStream } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
+
+function isAdmin(): boolean {
+  const cookieStore = cookies()
+  const authCookie = cookieStore.get('football_auth')?.value
+  if (!authCookie) return false
+  try {
+    const authData = JSON.parse(authCookie)
+    return authData.isAdmin === true
+  } catch {
+    return false
+  }
+}
 
 // Squad sync endpoints - run during transfer windows or when squad changes occur
 // Updates player-related data that may change due to transfers, injuries, etc.
@@ -13,6 +27,10 @@ const SQUAD_SYNC_ENDPOINTS = [
 ]
 
 export async function POST(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 

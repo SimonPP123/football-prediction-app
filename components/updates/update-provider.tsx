@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react'
 import { DataCategory, RefreshEvent, UpdateContextValue, UpdateState } from '@/types'
 
 const STORAGE_KEY = 'football-ai-update-state'
@@ -28,6 +28,7 @@ interface UpdateProviderProps {
 
 export function UpdateProvider({ children }: UpdateProviderProps) {
   const [state, setState] = useState<UpdateState>(defaultState)
+  const abortControllersRef = useRef<Record<string, AbortController>>({})
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -88,6 +89,10 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
   }, [])
 
   const refreshCategory = useCallback(async (category: DataCategory, leagueId?: string, leagueName?: string) => {
+    // Create abort controller for this request
+    const abortController = new AbortController()
+    abortControllersRef.current[category] = abortController
+
     setRefreshing(category, true)
 
     // Format category name for display (e.g., "team-stats" -> "Team Stats")
@@ -101,7 +106,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
       if (leagueId) params.set('league_id', leagueId)
       const queryString = params.toString()
       const endpoint = `/api/data/refresh/${category}${queryString ? '?' + queryString : ''}`
-      const response = await fetch(endpoint, { method: 'POST' })
+      const response = await fetch(endpoint, { method: 'POST', signal: abortController.signal })
       const data = await response.json()
 
       // Use league name from response if available, otherwise use passed parameter
@@ -137,20 +142,46 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
         })
       }
     } catch (error) {
-      addRefreshEvent({
-        category,
-        type: 'refresh',
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: {
-          league: leagueName,
-          rawResponse: { error: error instanceof Error ? error.message : 'Unknown error' },
-        },
-      })
+      // Don't log abort errors
+      if (error instanceof Error && error.name === 'AbortError') {
+        addRefreshEvent({
+          category,
+          type: 'refresh',
+          status: 'error',
+          message: `${categoryDisplay} refresh cancelled`,
+          details: { league: leagueName },
+        })
+      } else {
+        addRefreshEvent({
+          category,
+          type: 'refresh',
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          details: {
+            league: leagueName,
+            rawResponse: { error: error instanceof Error ? error.message : 'Unknown error' },
+          },
+        })
+      }
     } finally {
+      delete abortControllersRef.current[category]
       setRefreshing(category, false)
     }
   }, [setRefreshing, addRefreshEvent])
+
+  const stopAllRefreshes = useCallback(() => {
+    // Abort all ongoing requests
+    Object.entries(abortControllersRef.current).forEach(([category, controller]) => {
+      controller.abort()
+    })
+    // Clear all abort controllers
+    abortControllersRef.current = {}
+    // Reset all isRefreshing states
+    setState(prev => ({
+      ...prev,
+      isRefreshing: {},
+    }))
+  }, [])
 
   const clearHistory = useCallback(() => {
     setState(prev => ({
@@ -166,6 +197,7 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
     updateLastRefreshTime,
     setRefreshing,
     clearHistory,
+    stopAllRefreshes,
   }
 
   return (

@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server'
+import { headers } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
 import { verifyPassword } from '@/lib/auth/password'
+import { signAuthCookie } from '@/lib/auth/cookie-sign'
+import { checkRateLimit, recordFailedAttempt, clearRateLimitOnSuccess } from '@/lib/auth/rate-limit'
+
+function getClientIP(): string {
+  const headersList = headers()
+  return headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         headersList.get('x-real-ip') ||
+         'unknown'
+}
 
 export async function POST(request: Request) {
   try {
+    const clientIP = getClientIP()
+
     let username, password
     try {
       ({ username, password } = await request.json())
@@ -21,6 +33,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // Check rate limit before processing
+    const rateLimitCheck = checkRateLimit(clientIP, username)
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.reason, retryAfter: rateLimitCheck.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(rateLimitCheck.retryAfter) } }
+      )
+    }
+
     const supabase = createServerClient()
 
     // Get user from database
@@ -31,6 +52,7 @@ export async function POST(request: Request) {
       .single()
 
     if (error || !user) {
+      recordFailedAttempt(clientIP, username)
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
@@ -39,6 +61,7 @@ export async function POST(request: Request) {
 
     // Check if user is active
     if (!user.is_active) {
+      recordFailedAttempt(clientIP, username)
       return NextResponse.json(
         { error: 'Account is deactivated. Please contact an administrator.' },
         { status: 401 }
@@ -48,11 +71,15 @@ export async function POST(request: Request) {
     // Verify password
     const valid = await verifyPassword(password, user.password_hash)
     if (!valid) {
+      recordFailedAttempt(clientIP, username)
       return NextResponse.json(
         { error: 'Invalid username or password' },
         { status: 401 }
       )
     }
+
+    // Clear rate limits on successful login
+    clearRateLimitOnSuccess(clientIP, username)
 
     // Update last login timestamp
     await supabase
@@ -77,15 +104,18 @@ export async function POST(request: Request) {
       }
     })
 
-    response.cookies.set('football_auth', JSON.stringify({
+    // Sign the cookie to prevent tampering
+    const signedCookie = signAuthCookie({
       authenticated: true,
       userId: user.id,
       username: user.username,
       isAdmin: user.is_admin
-    }), {
+    })
+
+    response.cookies.set('football_auth', signedCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict', // Changed from 'lax' to 'strict' for better CSRF protection
+      sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
     })

@@ -374,4 +374,5 @@ export interface UpdateContextValue extends UpdateState {
   updateLastRefreshTime: (category: DataCategory, time: string) => void
   setRefreshing: (category: DataCategory, isRefreshing: boolean) => void
   clearHistory: () => void
+  stopAllRefreshes: () => void
 }

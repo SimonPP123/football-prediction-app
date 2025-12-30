@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import {
   fetchTopScorers,
@@ -12,6 +13,18 @@ import {
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
+
+function isAdmin(): boolean {
+  const cookieStore = cookies()
+  const authCookie = cookieStore.get('football_auth')?.value
+  if (!authCookie) return false
+  try {
+    const authData = JSON.parse(authCookie)
+    return authData.isAdmin === true
+  } catch {
+    return false
+  }
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +46,10 @@ interface LogEntry {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export async function POST(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
   if (wantsStreaming(request)) {
     return handleStreamingRefresh()
   }
