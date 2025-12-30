@@ -14,7 +14,6 @@ export async function GET(
       .select(`
         *,
         venue:venues(*),
-        coach:coaches(*),
         season_stats:team_season_stats(*)
       `)
       .eq('id', id)
@@ -26,6 +25,13 @@ export async function GET(
       }
       throw teamError
     }
+
+    // Fetch coach separately (reverse FK relationship)
+    const { data: coachData } = await supabase
+      .from('coaches')
+      .select('*')
+      .eq('team_id', id)
+      .single()
 
     // Fetch squad
     const { data: squad } = await supabase
@@ -39,7 +45,7 @@ export async function GET(
       .order('number', { ascending: true })
 
     // Fetch recent completed matches
-    const { data: recentMatches } = await supabase
+    const { data: recentMatches, error: recentError } = await supabase
       .from('fixtures')
       .select(`
         *,
@@ -51,8 +57,13 @@ export async function GET(
       .order('match_date', { ascending: false })
       .limit(10)
 
+    if (recentError) {
+      console.error('[Team API] Recent matches error:', recentError)
+    }
+    console.log(`[Team API] Recent matches for team ${id}: ${recentMatches?.length || 0}`)
+
     // Fetch upcoming matches
-    const { data: upcomingMatches } = await supabase
+    const { data: upcomingMatches, error: upcomingError } = await supabase
       .from('fixtures')
       .select(`
         *,
@@ -63,6 +74,11 @@ export async function GET(
       .in('status', ['NS', 'TBD', 'SUSP', 'PST'])
       .order('match_date', { ascending: true })
       .limit(5)
+
+    if (upcomingError) {
+      console.error('[Team API] Upcoming matches error:', upcomingError)
+    }
+    console.log(`[Team API] Upcoming matches for team ${id}: ${upcomingMatches?.length || 0}`)
 
     // Fetch predictions involving this team
     const { data: predictions } = await supabase
@@ -110,6 +126,7 @@ export async function GET(
 
     return NextResponse.json({
       ...team,
+      coach: coachData || null,
       season_stats: transformedStats,
       squad: squad || [],
       recent_matches: recentMatches || [],
