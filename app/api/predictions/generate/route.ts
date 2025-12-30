@@ -156,7 +156,17 @@ export async function POST(request: Request) {
         }, { status: 502 })
       }
 
-      const rawResponse = await webhookResponse.json()
+      let rawResponse
+      try {
+        rawResponse = await webhookResponse.json()
+      } catch (parseError) {
+        console.error('Failed to parse n8n response as JSON:', parseError)
+        return NextResponse.json({
+          success: false,
+          error: 'invalid_response',
+          message: 'n8n returned invalid JSON response',
+        }, { status: 502 })
+      }
 
       // n8n returns an array, extract the first item
       const prediction = Array.isArray(rawResponse) ? rawResponse[0] : rawResponse

@@ -44,6 +44,7 @@ export default function PredictionsPage() {
   const [liveFixtures, setLiveFixtures] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
   const [showStats, setShowStats] = useState(false)
+  const [showLive, setShowLive] = useState(true)
   // Settings state
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
@@ -610,28 +611,40 @@ export default function PredictionsPage() {
         {/* Live Matches - Only show if there are live matches */}
         {liveFixtures.length > 0 && (
           <div className="mb-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            <button
+              onClick={() => setShowLive(!showLive)}
+              className="w-full flex items-center justify-between hover:bg-muted/50 rounded-lg px-2 py-1 -mx-2 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                  </span>
+                  <h2 className="font-semibold text-lg text-red-500">Live Now</h2>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {liveFixtures.length} match{liveFixtures.length > 1 ? 'es' : ''} in progress
                 </span>
-                <h2 className="font-semibold text-lg text-red-500">Live Now</h2>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {liveFixtures.length} match{liveFixtures.length > 1 ? 'es' : ''} in progress
-              </span>
-            </div>
+              {showLive ? (
+                <ChevronUp className="w-5 h-5 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-muted-foreground" />
+              )}
+            </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {liveFixtures.map((fixture: any) => (
-                <PredictionCard
-                  key={fixture.id}
-                  fixture={fixture}
-                  isLive={true}
-                />
-              ))}
-            </div>
+            {showLive && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {liveFixtures.map((fixture: any) => (
+                  <PredictionCard
+                    key={fixture.id}
+                    fixture={fixture}
+                    isLive={true}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
 

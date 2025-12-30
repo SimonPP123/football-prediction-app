@@ -131,7 +131,17 @@ export async function POST(request: Request) {
         }, { status: 502 })
       }
 
-      const result = await webhookResponse.json()
+      let result
+      try {
+        result = await webhookResponse.json()
+      } catch (parseError) {
+        console.error('Failed to parse n8n response as JSON:', parseError)
+        return NextResponse.json({
+          success: false,
+          error: 'invalid_response',
+          message: 'n8n returned invalid JSON response',
+        }, { status: 502 })
+      }
       const analysis = Array.isArray(result) ? result[0] : result
 
       console.log(`Analysis generated for fixture ${fixture_id} using ${selectedModel}`)
