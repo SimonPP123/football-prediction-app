@@ -80,13 +80,25 @@ export async function GET() {
       const normalizedResult = String(predResult).toLowerCase().trim()
 
       // Determine the predicted outcome category
+      // Handle single outcomes: 1, X, 2
+      // Handle double-chance: 1X (home or draw), X2 (draw or away), 12 (home or away)
       let category: string | null = null
+
       if (normalizedResult === '1' || normalizedResult.includes('home') || normalizedResult === 'home win') {
         category = 'home'
       } else if (normalizedResult === 'x' || normalizedResult.includes('draw') || normalizedResult === 'tie') {
         category = 'draw'
       } else if (normalizedResult === '2' || normalizedResult.includes('away') || normalizedResult === 'away win') {
         category = 'away'
+      } else if (normalizedResult === '1x' || normalizedResult === 'x1') {
+        // Double-chance: home or draw - categorize as home (primary)
+        category = 'home'
+      } else if (normalizedResult === 'x2' || normalizedResult === '2x') {
+        // Double-chance: draw or away - categorize as away (primary)
+        category = 'away'
+      } else if (normalizedResult === '12' || normalizedResult === '21') {
+        // Double-chance: home or away - categorize as home (primary)
+        category = 'home'
       }
 
       if (category && byOutcome[category]) {
