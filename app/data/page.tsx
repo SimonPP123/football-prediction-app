@@ -558,12 +558,13 @@ export default function DataManagementPage() {
                 if (data.done) {
                   if (data.success) {
                     const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
-                    addLog('success', 'pre-match', `Pre-match refresh complete: ${data.successful}/${data.endpoints} successful${duration}`)
+                    addLog('success', 'pre-match', `Pre-match refresh complete: ${data.successful}/${data.endpoints || data.total} successful${duration}`)
                     await fetchStats()
                   } else {
-                    addLog('error', 'pre-match', `Pre-match refresh failed: ${data.failed} endpoints had errors`)
+                    addLog('error', 'pre-match', `Pre-match refresh failed: ${data.failed || data.errors} endpoints had errors`)
                   }
                 } else {
+                  // Real-time progress log
                   addLog(data.type || 'info', 'pre-match', data.message, data.details)
                 }
               } catch (parseError) {
@@ -613,34 +614,36 @@ export default function DataManagementPage() {
         // Handle SSE streaming
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
+        let buffer = ''
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
 
-                if (data.type === 'log') {
-                  addLog(data.log.type, 'post-match', data.log.message)
-                } else if (data.type === 'done') {
-                  if (data.result.success) {
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
                     addLog('success', 'post-match',
-                      `Post-match refresh completed: ${data.result.successful}/${data.result.total} successful`
+                      `Post-match refresh complete: ${data.successful}/${data.total} successful${duration}`
                     )
                   } else {
                     addLog('error', 'post-match',
-                      `Post-match refresh completed with ${data.result.failed} failures`
+                      `Post-match refresh completed with ${data.failed || data.errors} failures`
                     )
                   }
                   await fetchStats()
-                } else if (data.type === 'error') {
-                  addLog('error', 'post-match', `Post-match refresh failed: ${data.error}`)
+                } else {
+                  // Real-time progress log
+                  addLog(data.type || 'info', 'post-match', data.message, data.details)
                 }
               } catch (e) {
                 console.error('Failed to parse SSE data:', e)
@@ -689,34 +692,36 @@ export default function DataManagementPage() {
       if (contentType.includes('text/event-stream') && res.body) {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
+        let buffer = ''
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
 
-                if (data.type === 'log') {
-                  addLog(data.log.type, 'season-setup', data.log.message)
-                } else if (data.type === 'done') {
-                  if (data.result.success) {
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
                     addLog('success', 'season-setup',
-                      `Season setup completed: ${data.result.successful}/${data.result.total} successful`
+                      `Season setup complete: ${data.successful}/${data.total} successful${duration}`
                     )
                   } else {
                     addLog('error', 'season-setup',
-                      `Season setup completed with ${data.result.failed} failures`
+                      `Season setup completed with ${data.failed || data.errors} failures`
                     )
                   }
                   await fetchStats()
-                } else if (data.type === 'error') {
-                  addLog('error', 'season-setup', `Season setup failed: ${data.error}`)
+                } else {
+                  // Real-time progress log
+                  addLog(data.type || 'info', 'season-setup', data.message, data.details)
                 }
               } catch (e) {
                 console.error('Failed to parse SSE data:', e)
@@ -764,34 +769,36 @@ export default function DataManagementPage() {
       if (contentType.includes('text/event-stream') && res.body) {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
+        let buffer = ''
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
 
-                if (data.type === 'log') {
-                  addLog(data.log.type, 'weekly-maintenance', data.log.message)
-                } else if (data.type === 'done') {
-                  if (data.result.success) {
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
                     addLog('success', 'weekly-maintenance',
-                      `Weekly maintenance completed: ${data.result.successful}/${data.result.total} successful`
+                      `Weekly maintenance complete: ${data.successful}/${data.total} successful${duration}`
                     )
                   } else {
                     addLog('error', 'weekly-maintenance',
-                      `Weekly maintenance completed with ${data.result.failed} failures`
+                      `Weekly maintenance completed with ${data.failed || data.errors} failures`
                     )
                   }
                   await fetchStats()
-                } else if (data.type === 'error') {
-                  addLog('error', 'weekly-maintenance', `Weekly maintenance failed: ${data.error}`)
+                } else {
+                  // Real-time progress log
+                  addLog(data.type || 'info', 'weekly-maintenance', data.message, data.details)
                 }
               } catch (e) {
                 console.error('Failed to parse SSE data:', e)
@@ -839,34 +846,36 @@ export default function DataManagementPage() {
       if (contentType.includes('text/event-stream') && res.body) {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
+        let buffer = ''
 
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value)
-          const lines = chunk.split('\n')
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6))
 
-                if (data.type === 'log') {
-                  addLog(data.log.type, 'squad-sync', data.log.message)
-                } else if (data.type === 'done') {
-                  if (data.result.success) {
+                if (data.done) {
+                  if (data.success) {
+                    const duration = data.duration ? ` (${(data.duration / 1000).toFixed(1)}s)` : ''
                     addLog('success', 'squad-sync',
-                      `Squad sync completed: ${data.result.successful}/${data.result.total} successful`
+                      `Squad sync complete: ${data.successful}/${data.total} successful${duration}`
                     )
                   } else {
                     addLog('error', 'squad-sync',
-                      `Squad sync completed with ${data.result.failed} failures`
+                      `Squad sync completed with ${data.failed || data.errors} failures`
                     )
                   }
                   await fetchStats()
-                } else if (data.type === 'error') {
-                  addLog('error', 'squad-sync', `Squad sync failed: ${data.error}`)
+                } else {
+                  // Real-time progress log
+                  addLog(data.type || 'info', 'squad-sync', data.message, data.details)
                 }
               } catch (e) {
                 console.error('Failed to parse SSE data:', e)

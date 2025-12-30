@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useUpdates } from './update-provider'
 import { RefreshEvent } from '@/types'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,8 @@ export function ToastNotificationContainer() {
   const { refreshHistory } = useUpdates()
   const [toasts, setToasts] = useState<Toast[]>([])
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null)
+  // Track dismissed toast IDs to prevent them from reappearing
+  const dismissedIdsRef = useRef<Set<string>>(new Set())
 
   // Watch for new events in refresh history
   useEffect(() => {
@@ -25,6 +27,9 @@ export function ToastNotificationContainer() {
 
     const latestEvent = refreshHistory[0]
     if (latestEvent.id === lastProcessedId) return
+
+    // Skip if this toast was already dismissed by user
+    if (dismissedIdsRef.current.has(latestEvent.id)) return
 
     // Add new toast
     setToasts(prev => [
@@ -43,6 +48,15 @@ export function ToastNotificationContainer() {
   }, [refreshHistory, lastProcessedId])
 
   const dismissToast = useCallback((id: string) => {
+    // Track this ID as dismissed so it won't reappear
+    dismissedIdsRef.current.add(id)
+
+    // Keep the set from growing too large (max 100 entries)
+    if (dismissedIdsRef.current.size > 100) {
+      const entries = Array.from(dismissedIdsRef.current)
+      dismissedIdsRef.current = new Set(entries.slice(-50))
+    }
+
     setToasts(prev =>
       prev.map(t => t.id === id ? { ...t, visible: false } : t)
     )
