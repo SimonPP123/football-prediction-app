@@ -97,8 +97,8 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
   leagues: {
     id: 'leagues',
     name: 'Leagues',
-    description: 'League information (Premier League)',
-    longDescription: 'Static league configuration data. Currently only contains Premier League (api_id: 39). Pre-configured in database migrations and not refreshed via API.',
+    description: 'League configuration and settings',
+    longDescription: 'Static league configuration data including API IDs, Odds API sport keys, and display settings. Configured via admin panel and database migrations.',
     externalApi: null,
     endpoints: [],
     tables: [{
@@ -164,7 +164,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'teams',
     name: 'Teams',
     description: 'Club information and logos',
-    longDescription: 'Premier League team data including names, codes, logos, and venue associations. This is foundation data that most other endpoints depend on. Also creates/updates venue records.',
+    longDescription: 'Team data for the selected league including names, codes, logos, and venue associations. This is foundation data that most other endpoints depend on. Also creates/updates venue records.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',
@@ -203,7 +203,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'fixtures',
     name: 'Fixtures',
     description: 'Match schedule and results',
-    longDescription: 'Complete Premier League fixture list for the season. Includes match dates, venues, referees, and final scores. Updated daily to reflect rescheduled matches and completed results.',
+    longDescription: 'Complete fixture list for the selected league and season. Includes match dates, venues, referees, and final scores. Updated daily to reflect rescheduled matches and completed results.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',
@@ -250,7 +250,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'standings',
     name: 'Standings',
     description: 'League table positions',
-    longDescription: 'Current Premier League standings including points, goal difference, form, and home/away splits. Updated daily during the season.',
+    longDescription: 'Current league standings including points, goal difference, form, and home/away splits. Updated daily during the season.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',
@@ -473,7 +473,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'injuries',
     name: 'Injuries',
     description: 'Current injury list',
-    longDescription: 'Active injuries and suspensions for all Premier League players. Includes injury type, expected return date, and player details. Critical for lineup predictions.',
+    longDescription: 'Active injuries and suspensions for all players in the selected league. Includes injury type, expected return date, and player details. Critical for lineup predictions.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',
@@ -727,7 +727,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'coaches',
     name: 'Coaches',
     description: 'Manager information',
-    longDescription: 'Current head coaches for all Premier League teams including career history. Updated when teams change managers.',
+    longDescription: 'Current head coaches for all teams in the selected league including career history. Updated when teams change managers.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',
@@ -895,7 +895,7 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     id: 'transfers',
     name: 'Transfers',
     description: 'Player transfer history',
-    longDescription: 'Player transfer records including dates, clubs, and transfer types (permanent, loan). Historical data for all Premier League teams.',
+    longDescription: 'Player transfer records including dates, clubs, and transfer types (permanent, loan). Historical data for all teams in the selected league.',
     externalApi: API_FOOTBALL,
     endpoints: [{
       method: 'GET',

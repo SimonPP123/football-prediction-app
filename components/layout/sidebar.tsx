@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useLeague, getSeasonDisplay } from '@/contexts/league-context'
 import {
   Home,
   TrendingUp,
@@ -27,6 +28,12 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const { currentLeague } = useLeague()
+
+  // Build subtitle from current league
+  const leagueSubtitle = currentLeague
+    ? `${currentLeague.name} ${getSeasonDisplay(currentLeague.currentSeason)}`
+    : 'Loading...'
 
   return (
     <aside className="w-64 bg-card border-r border-border min-h-screen p-4">
@@ -37,7 +44,7 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="font-bold text-lg">Football AI</h1>
-          <p className="text-xs text-muted-foreground">Premier League 2025</p>
+          <p className="text-xs text-muted-foreground">{leagueSubtitle}</p>
         </div>
       </div>
 
