@@ -33,17 +33,40 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
     return 'bg-red-500/20 text-red-500'
   }
 
+  // Find outcome by type (home team, draw, or away team) - matches by name, not array index
+  const findOutcome = (values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away', homeTeamName: string, awayTeamName: string): OddsOutcome | undefined => {
+    if (!values) return undefined
+    if (type === 'draw') {
+      return values.find(v => v.name?.toLowerCase() === 'draw')
+    }
+    if (type === 'home') {
+      // Home team outcome - match by name or exclude draw and away
+      return values.find(v => {
+        const name = v.name?.toLowerCase() || ''
+        if (name === 'draw') return false
+        // Check if it matches home team name (partial match)
+        return name.includes(homeTeamName.split(' ')[0]) || homeTeamName.includes(name.split(' ')[0])
+      }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(awayTeamName.split(' ')[0]))
+    }
+    // Away team
+    return values.find(v => {
+      const name = v.name?.toLowerCase() || ''
+      if (name === 'draw') return false
+      return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
+    }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
+  }
+
   // Get best odds for h2h
-  const getBestH2HOdds = (odds: OddsMarket[]) => {
+  const getBestH2HOdds = (odds: OddsMarket[], homeTeamName: string, awayTeamName: string) => {
     const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
     let bestHome = { price: 0, bookmaker: '' }
     let bestDraw = { price: 0, bookmaker: '' }
     let bestAway = { price: 0, bookmaker: '' }
 
     h2hOdds.forEach(o => {
-      const homeVal = o.values?.[0] as OddsOutcome | undefined
-      const drawVal = o.values?.[1] as OddsOutcome | undefined
-      const awayVal = o.values?.[2] as OddsOutcome | undefined
+      const homeVal = findOutcome(o.values, 'home', homeTeamName, awayTeamName)
+      const drawVal = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)
+      const awayVal = findOutcome(o.values, 'away', homeTeamName, awayTeamName)
 
       if (homeVal && homeVal.price > bestHome.price) {
         bestHome = { price: homeVal.price, bookmaker: o.bookmaker }
@@ -95,7 +118,9 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
               // Get odds data
               const odds: OddsMarket[] = fixture.odds || []
               const hasOdds = odds.length > 0
-              const { bestHome, bestDraw, bestAway } = hasOdds ? getBestH2HOdds(odds) : { bestHome: { price: 0 }, bestDraw: { price: 0 }, bestAway: { price: 0 } }
+              const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
+              const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
+              const { bestHome, bestDraw, bestAway } = hasOdds ? getBestH2HOdds(odds, homeTeamName, awayTeamName) : { bestHome: { price: 0 }, bestDraw: { price: 0 }, bestAway: { price: 0 } }
 
               return (
                 <>
@@ -207,9 +232,9 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                             </div>
                             <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                               {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
-                                const homePrice = o.values?.[0]?.price || 0
-                                const drawPrice = o.values?.[1]?.price || 0
-                                const awayPrice = o.values?.[2]?.price || 0
+                                const homePrice = findOutcome(o.values, 'home', homeTeamName, awayTeamName)?.price || 0
+                                const drawPrice = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)?.price || 0
+                                const awayPrice = findOutcome(o.values, 'away', homeTeamName, awayTeamName)?.price || 0
                                 return (
                                   <div key={i} className="grid grid-cols-4 gap-1 text-xs">
                                     <span className="text-muted-foreground truncate">{o.bookmaker}</span>
@@ -362,9 +387,9 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                                 {/* Bookmaker rows */}
                                 <div className="max-h-[150px] overflow-y-auto space-y-1">
                                   {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
-                                    const homePrice = o.values?.[0]?.price || 0
-                                    const drawPrice = o.values?.[1]?.price || 0
-                                    const awayPrice = o.values?.[2]?.price || 0
+                                    const homePrice = findOutcome(o.values, 'home', homeTeamName, awayTeamName)?.price || 0
+                                    const drawPrice = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)?.price || 0
+                                    const awayPrice = findOutcome(o.values, 'away', homeTeamName, awayTeamName)?.price || 0
                                     return (
                                       <div key={i} className="grid grid-cols-4 gap-2 text-sm">
                                         <span className="text-muted-foreground truncate text-xs">{o.bookmaker}</span>
