@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
@@ -26,6 +26,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [showScores, setShowScores] = useState(false) // Collapsed by default
   const [showOdds, setShowOdds] = useState(false) // Collapsed by default
+  const [showTeamNews, setShowTeamNews] = useState(false) // Collapsed by default
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null)
@@ -382,6 +383,49 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             overallIndex={prediction.overall_index}
             alwaysExpanded={true}
           />
+        )}
+
+        {/* Team News - Collapsible */}
+        {hasPrediction && (prediction.home_team_news || prediction.away_team_news) && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowTeamNews(!showTeamNews)}
+              className="w-full flex items-center gap-2 p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors text-left"
+            >
+              <Newspaper className="w-4 h-4 text-blue-500" />
+              <span className="text-xs font-medium">Team News</span>
+              <ChevronDown className={cn(
+                "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                showTeamNews && "rotate-180"
+              )} />
+            </button>
+
+            {showTeamNews && (
+              <div className="mt-2 p-3 bg-muted/30 rounded-lg space-y-3">
+                {/* Home Team News */}
+                <div>
+                  <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-home"></span>
+                    {fixture.home_team?.name || 'Home'}
+                  </h5>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                    {prediction.home_team_news || 'No news available'}
+                  </p>
+                </div>
+
+                {/* Away Team News */}
+                <div>
+                  <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-away"></span>
+                    {fixture.away_team?.name || 'Away'}
+                  </h5>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                    {prediction.away_team_news || 'No news available'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Betting Odds - Collapsible */}

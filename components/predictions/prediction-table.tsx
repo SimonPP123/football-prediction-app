@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3 } from 'lucide-react'
+import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3, Newspaper } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
@@ -420,7 +420,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                             <h4 className="text-sm font-medium mb-2">Key Factors</h4>
                             {prediction.key_factors && prediction.key_factors.length > 0 ? (
                               <ul className="text-sm text-muted-foreground space-y-1">
-                                {prediction.key_factors.slice(0, 4).map((factor: string, i: number) => (
+                                {prediction.key_factors.map((factor: string, i: number) => (
                                   <li key={i} className="flex items-start gap-2">
                                     <span className="text-green-500">•</span>
                                     {factor}
@@ -437,7 +437,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                             <h4 className="text-sm font-medium mb-2">Risk Factors</h4>
                             {prediction.risk_factors && prediction.risk_factors.length > 0 ? (
                               <ul className="text-sm text-muted-foreground space-y-1">
-                                {prediction.risk_factors.slice(0, 4).map((factor: string, i: number) => (
+                                {prediction.risk_factors.map((factor: string, i: number) => (
                                   <li key={i} className="flex items-start gap-2">
                                     <span className="text-yellow-500">•</span>
                                     {factor}
@@ -448,6 +448,38 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                               <p className="text-sm text-muted-foreground">No risks identified</p>
                             )}
                           </div>
+
+                          {/* Team News */}
+                          {(prediction.home_team_news || prediction.away_team_news) && (
+                            <div className="md:col-span-2">
+                              <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                <Newspaper className="w-4 h-4 text-blue-500" />
+                                Team News
+                              </h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Home Team News */}
+                                <div className="bg-muted/30 rounded-lg p-3">
+                                  <h5 className="text-xs font-medium mb-2 flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-home"></span>
+                                    {fixture.home_team?.name || 'Home'}
+                                  </h5>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {prediction.home_team_news || 'No news available'}
+                                  </p>
+                                </div>
+                                {/* Away Team News */}
+                                <div className="bg-muted/30 rounded-lg p-3">
+                                  <h5 className="text-xs font-medium mb-2 flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-away"></span>
+                                    {fixture.away_team?.name || 'Away'}
+                                  </h5>
+                                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {prediction.away_team_news || 'No news available'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Full Analysis */}

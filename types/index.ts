@@ -95,6 +95,9 @@ export interface Prediction {
   over_under_2_5: string | null
   btts: string | null
   value_bet: string | null
+  home_team_news: string | null    // Pre-match news/notes about home team
+  away_team_news: string | null    // Pre-match news/notes about away team
+  raw_ai_output: string | null     // Raw unprocessed output from AI agent
   created_at: string
   updated_at: string
 }
@@ -119,6 +122,9 @@ export interface PredictionHistory {
   btts: string | null
   confidence_pct: number | null
   certainty_score: number | null  // AI's independent certainty assessment (1-100%)
+  home_team_news: string | null   // Pre-match news/notes about home team
+  away_team_news: string | null   // Pre-match news/notes about away team
+  raw_ai_output: string | null    // Raw unprocessed output from AI agent
   created_at: string
 }
 
