@@ -10,7 +10,7 @@ import { getLeagueFromCookies } from '@/lib/league-context'
 import { cookies } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { SummaryStats } from '@/components/dashboard/summary-stats'
-import { UpcomingMatchCard } from '@/components/dashboard/upcoming-match-card'
+import { PredictionCard } from '@/components/predictions/prediction-card'
 import { ResultAccuracyCard } from '@/components/dashboard/result-accuracy-card'
 import { QuickInsights } from '@/components/dashboard/quick-insights'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
@@ -27,9 +27,9 @@ export default async function DashboardPage() {
 
   const [stats, upcomingFixtures, standings, recentResults, bestFactor, liveFixtures] = await Promise.all([
     getDashboardStats(leagueId),
-    getUpcomingWithFactors(3, leagueId),
+    getUpcomingWithFactors(6, leagueId),
     getStandings(leagueId),
-    getRecentResultsWithAccuracy(3, leagueId),
+    getRecentResultsWithAccuracy(5, leagueId),
     getBestPerformingFactor(leagueId),
     getLiveFixtures(leagueId),
   ])
@@ -129,12 +129,11 @@ export default async function DashboardPage() {
                 No upcoming matches scheduled
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {upcomingFixtures.map((fixture: any) => (
-                  <UpcomingMatchCard
+                  <PredictionCard
                     key={fixture.id}
                     fixture={fixture}
-                    showFactors={true}
                   />
                 ))}
               </div>
@@ -233,7 +232,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {recentResults.length === 0 ? (
               <div className="col-span-full bg-card border rounded-lg p-8 text-center text-muted-foreground">
                 No recent matches
