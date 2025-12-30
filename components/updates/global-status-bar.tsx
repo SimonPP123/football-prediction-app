@@ -17,8 +17,7 @@ import {
   Brain,
   Loader2,
   RefreshCw,
-  Info,
-  HelpCircle,
+  ChevronDown,
   Settings,
 } from 'lucide-react'
 import { usePollerSettings, PollerSettingsPanel } from './update-poller'
@@ -27,96 +26,93 @@ const CATEGORY_CONFIG: Record<DataCategory, {
   label: string
   icon: typeof Calendar
   color: string
+  bgColor: string
   description: string
-  refreshFrequency: string
 }> = {
   fixtures: {
     label: 'Fixtures',
     icon: Calendar,
     color: 'text-blue-500',
-    description: 'Match schedule, kick-off times, and venue info',
-    refreshFrequency: 'Daily or when new fixtures announced',
+    bgColor: 'bg-blue-500',
+    description: 'Match schedule and venues',
   },
   standings: {
     label: 'Standings',
     icon: Trophy,
     color: 'text-amber-500',
-    description: 'League table with points, goals, and form',
-    refreshFrequency: 'After each matchday',
+    bgColor: 'bg-amber-500',
+    description: 'League table',
   },
   injuries: {
     label: 'Injuries',
     icon: AlertTriangle,
     color: 'text-red-500',
-    description: 'Player injury status and return dates',
-    refreshFrequency: 'Daily before matches',
+    bgColor: 'bg-red-500',
+    description: 'Player injuries',
   },
   odds: {
     label: 'Odds',
     icon: DollarSign,
     color: 'text-green-500',
-    description: 'Pre-match odds from multiple bookmakers',
-    refreshFrequency: 'Every 4 hours on matchdays',
+    bgColor: 'bg-green-500',
+    description: 'Betting odds',
   },
   weather: {
     label: 'Weather',
     icon: CloudRain,
     color: 'text-cyan-500',
-    description: 'Match day weather conditions',
-    refreshFrequency: 'Daily and before kick-off',
+    bgColor: 'bg-cyan-500',
+    description: 'Match weather',
   },
   predictions: {
     label: 'Predictions',
     icon: Target,
     color: 'text-purple-500',
-    description: 'AI-generated match predictions',
-    refreshFrequency: 'Generated on-demand',
+    bgColor: 'bg-purple-500',
+    description: 'AI predictions',
   },
   'team-stats': {
     label: 'Team Stats',
     icon: BarChart3,
     color: 'text-indigo-500',
-    description: 'Season statistics (xG, shots, possession)',
-    refreshFrequency: 'Weekly',
+    bgColor: 'bg-indigo-500',
+    description: 'Team statistics',
   },
   'player-stats': {
     label: 'Player Stats',
     icon: Users,
     color: 'text-pink-500',
-    description: 'Individual player performance stats',
-    refreshFrequency: 'Weekly',
+    bgColor: 'bg-pink-500',
+    description: 'Player statistics',
   },
   lineups: {
     label: 'Lineups',
     icon: UserCheck,
     color: 'text-orange-500',
-    description: 'Confirmed starting XI and formations',
-    refreshFrequency: '~1 hour before kick-off',
+    bgColor: 'bg-orange-500',
+    description: 'Starting XI',
   },
   'match-analysis': {
     label: 'Analysis',
     icon: Brain,
     color: 'text-emerald-500',
-    description: 'Post-match AI analysis of predictions',
-    refreshFrequency: 'After match completion',
+    bgColor: 'bg-emerald-500',
+    description: 'Post-match analysis',
   },
   'top-performers': {
     label: 'Top Performers',
     icon: Trophy,
     color: 'text-amber-500',
-    description: 'Top scorers, assists, and cards',
-    refreshFrequency: 'Weekly',
+    bgColor: 'bg-amber-500',
+    description: 'Top scorers & assists',
   },
 }
 
-// Categories to show in the status bar (most important ones)
 const VISIBLE_CATEGORIES: DataCategory[] = [
   'fixtures',
   'standings',
   'injuries',
-  'odds',
   'predictions',
-  'match-analysis',
 ]
 
 function formatRelativeTime(dateString: string | undefined): string {
@@ -129,187 +125,174 @@ function formatRelativeTime(dateString: string | undefined): string {
   const diffHours = Math.floor(diffMs / 3600000)
   const diffDays = Math.floor(diffMs / 86400000)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m`
-  if (diffHours < 24) return `${diffHours}h`
-  if (diffDays < 7) return `${diffDays}d`
+  if (diffMins < 1) return 'Now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-function getStatusColor(dateString: string | undefined): string {
-  if (!dateString) return 'text-muted-foreground'
+function getStatusInfo(dateString: string | undefined): { color: string; status: string } {
+  if (!dateString) return { color: 'bg-muted', status: 'Never synced' }
 
   const date = new Date(dateString)
   const now = new Date()
   const diffHours = (now.getTime() - date.getTime()) / 3600000
 
-  if (diffHours < 1) return 'text-green-500'
-  if (diffHours < 4) return 'text-amber-500'
-  if (diffHours < 24) return 'text-orange-500'
-  return 'text-red-500'
-}
-
-function StatusItem({ category }: { category: DataCategory }) {
-  const [showTooltip, setShowTooltip] = useState(false)
-  const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
-
-  const config = CATEGORY_CONFIG[category]
-  const Icon = config.icon
-  const lastRefresh = lastRefreshTimes[category]
-  const isLoading = isRefreshing[category]
-
-  return (
-    <div className="relative flex items-center">
-      <button
-        onClick={() => refreshCategory(category)}
-        disabled={isLoading}
-        className={cn(
-          "flex items-center gap-1 text-xs px-2 py-0.5 rounded hover:bg-muted/50 transition-colors",
-          isLoading && "opacity-50 cursor-not-allowed"
-        )}
-        title={`Click to refresh ${config.label}`}
-      >
-        {isLoading ? (
-          <Loader2 className="w-3 h-3 animate-spin" />
-        ) : (
-          <Icon className={cn("w-3 h-3", config.color)} />
-        )}
-        <span className="text-muted-foreground">{config.label}:</span>
-        <span className={getStatusColor(lastRefresh)}>
-          {formatRelativeTime(lastRefresh)}
-        </span>
-      </button>
-
-      {/* Info icon */}
-      <button
-        className="p-0.5 rounded hover:bg-muted transition-colors ml-0.5"
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        onClick={(e) => {
-          e.stopPropagation()
-          setShowTooltip(!showTooltip)
-        }}
-      >
-        <Info className="w-2.5 h-2.5 text-muted-foreground" />
-      </button>
-
-      {/* Tooltip */}
-      {showTooltip && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-56 bg-card border rounded-lg shadow-lg p-3 text-xs">
-          <div className="flex items-center gap-2 mb-1">
-            <Icon className={cn("w-4 h-4", config.color)} />
-            <span className="font-medium">{config.label}</span>
-          </div>
-          <p className="text-muted-foreground mb-2">{config.description}</p>
-          <div className="text-[10px] text-muted-foreground border-t pt-2 space-y-1">
-            <div>
-              <span className="font-medium">Refresh:</span> {config.refreshFrequency}
-            </div>
-            {lastRefresh && (
-              <div>
-                <span className="font-medium">Last:</span> {new Date(lastRefresh).toLocaleString()}
-              </div>
-            )}
-          </div>
-          <div className="text-[10px] text-primary mt-2 pt-2 border-t">
-            Click the badge to refresh this data
-          </div>
-        </div>
-      )}
-    </div>
-  )
+  if (diffHours < 1) return { color: 'bg-green-500', status: 'Fresh' }
+  if (diffHours < 4) return { color: 'bg-amber-500', status: 'Recent' }
+  if (diffHours < 24) return { color: 'bg-orange-500', status: 'Aging' }
+  return { color: 'bg-red-500', status: 'Stale' }
 }
 
 export function GlobalStatusBar() {
-  const [showLegend, setShowLegend] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
-  const { isRefreshing } = useUpdates()
+  const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
   const { settings } = usePollerSettings()
   const anyRefreshing = Object.values(isRefreshing).some(Boolean)
 
+  // Calculate overall status
+  const allCategories = Object.keys(CATEGORY_CONFIG) as DataCategory[]
+  const syncedCount = allCategories.filter(c => lastRefreshTimes[c]).length
+  const freshCount = allCategories.filter(c => {
+    const last = lastRefreshTimes[c]
+    if (!last) return false
+    return (Date.now() - new Date(last).getTime()) < 3600000
+  }).length
+
   return (
     <div className="bg-card/80 backdrop-blur-sm border-b border-border">
-      <div className="flex items-center gap-1 px-4 py-1.5 overflow-x-auto">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-          <RefreshCw className={cn("w-3 h-3", anyRefreshing && "animate-spin")} />
-          <span className="font-medium">Last updated:</span>
-        </div>
-
-        <div className="flex items-center gap-2 ml-2">
-          {VISIBLE_CATEGORIES.map(category => (
-            <StatusItem key={category} category={category} />
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          {/* Auto-refresh settings button */}
-          <div className="relative">
-            <button
-              className={cn(
-                "flex items-center gap-1 text-xs px-2 py-0.5 rounded hover:bg-muted/50 transition-colors",
-                settings.enabled ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setShowSettings(!showSettings)}
-            >
-              <Settings className="w-3 h-3" />
-              <span className="hidden sm:inline">Auto</span>
-              {settings.enabled && (
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              )}
-            </button>
-
-            {showSettings && (
-              <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setShowSettings(false)}
-                />
-                <div className="absolute top-full right-0 mt-1 z-50 w-72 bg-card border rounded-lg shadow-lg p-4">
-                  <PollerSettingsPanel />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Legend button */}
-          <div className="relative">
-            <button
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded hover:bg-muted/50 transition-colors"
-              onMouseEnter={() => setShowLegend(true)}
-              onMouseLeave={() => setShowLegend(false)}
-              onClick={() => setShowLegend(!showLegend)}
-            >
-              <HelpCircle className="w-3 h-3" />
-              <span className="hidden sm:inline">Legend</span>
-            </button>
-
-            {showLegend && (
-              <div className="absolute top-full right-0 mt-1 z-50 w-48 bg-card border rounded-lg shadow-lg p-3 text-xs">
-                <div className="font-medium mb-2">Color Legend</div>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-muted-foreground">Fresh (&lt;1 hour)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    <span className="text-muted-foreground">Recent (1-4 hours)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-orange-500" />
-                    <span className="text-muted-foreground">Aging (4-24 hours)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500" />
-                    <span className="text-muted-foreground">Stale (&gt;24 hours)</span>
-                  </div>
-                </div>
-                <div className="text-[10px] text-muted-foreground mt-2 pt-2 border-t">
-                  Click any badge to refresh that data category
-                </div>
+      <div className="flex items-center justify-between px-4 py-2">
+        {/* Left: Data status summary */}
+        <div className="relative">
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 text-sm hover:bg-muted/50 rounded-lg px-2 py-1 transition-colors"
+          >
+            {anyRefreshing ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            ) : (
+              <div className="flex items-center gap-1">
+                {VISIBLE_CATEGORIES.map(category => {
+                  const { color } = getStatusInfo(lastRefreshTimes[category])
+                  return (
+                    <div
+                      key={category}
+                      className={cn("w-2 h-2 rounded-full", color)}
+                      title={CATEGORY_CONFIG[category].label}
+                    />
+                  )
+                })}
               </div>
             )}
-          </div>
+            <span className="text-muted-foreground">
+              {freshCount}/{syncedCount} fresh
+            </span>
+            <ChevronDown className={cn(
+              "w-3.5 h-3.5 text-muted-foreground transition-transform",
+              showDropdown && "rotate-180"
+            )} />
+          </button>
+
+          {/* Dropdown */}
+          {showDropdown && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute top-full left-0 mt-1 z-50 w-80 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                <div className="p-3 border-b border-border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">Data Status</span>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-green-500" /> Fresh
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-amber-500" /> Recent
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full bg-red-500" /> Stale
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {allCategories.map(category => {
+                    const config = CATEGORY_CONFIG[category]
+                    const Icon = config.icon
+                    const lastRefresh = lastRefreshTimes[category]
+                    const { color, status } = getStatusInfo(lastRefresh)
+                    const loading = isRefreshing[category]
+
+                    return (
+                      <button
+                        key={category}
+                        onClick={() => refreshCategory(category)}
+                        disabled={loading}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
+                      >
+                        <div className={cn("w-2 h-2 rounded-full shrink-0", color)} />
+                        {loading ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Icon className={cn("w-4 h-4 shrink-0", config.color)} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium">{config.label}</div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {config.description}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="text-xs font-medium">{status}</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {formatRelativeTime(lastRefresh)}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="p-2 border-t border-border bg-muted/30 text-[10px] text-muted-foreground text-center">
+                  Click any item to refresh
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right: Auto-refresh toggle */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={cn(
+              "flex items-center gap-1.5 text-sm px-2 py-1 rounded-lg transition-colors",
+              settings.enabled
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:bg-muted/50"
+            )}
+          >
+            <Settings className="w-4 h-4" />
+            <span className="hidden sm:inline">Auto-refresh</span>
+            {settings.enabled && (
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            )}
+          </button>
+
+          {showSettings && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowSettings(false)}
+              />
+              <div className="absolute top-full right-0 mt-1 z-50 w-72 bg-card border rounded-lg shadow-lg p-4">
+                <PollerSettingsPanel />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
