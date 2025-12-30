@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { FormIndicator } from '@/components/stats/form-indicator'
@@ -72,13 +72,15 @@ export default function StandingsPage() {
     )
   }
 
-  // Calculate league stats
-  const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
-  const totalMatches = standings.reduce((sum, s) => sum + (s.played || 0), 0) / 2
-  const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'
-  // Use spread to avoid mutating the original standings array (which needs to stay sorted by rank)
-  const topScorer = [...standings].sort((a, b) => b.goals_for - a.goals_for)[0]
-  const bestDefense = [...standings].sort((a, b) => a.goals_against - b.goals_against)[0]
+  // Memoize league stats calculations to avoid recalculating on every render
+  const { totalGoals, totalMatches, avgGoalsPerMatch, topScorer, bestDefense } = useMemo(() => {
+    const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
+    const totalMatches = standings.reduce((sum, s) => sum + (s.played || 0), 0) / 2
+    const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'
+    const topScorer = [...standings].sort((a, b) => b.goals_for - a.goals_for)[0]
+    const bestDefense = [...standings].sort((a, b) => a.goals_against - b.goals_against)[0]
+    return { totalGoals, totalMatches, avgGoalsPerMatch, topScorer, bestDefense }
+  }, [standings])
 
   return (
     <div className="min-h-screen">

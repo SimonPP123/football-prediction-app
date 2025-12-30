@@ -26,9 +26,7 @@ CREATE POLICY "Service role full access on users" ON users
 -- Index for fast username lookup
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 
--- Insert initial admin user
--- Username: predictme
--- Password: KraskataiMonkata98 (bcrypt hashed)
+-- Insert initial admin user (credentials managed separately)
 INSERT INTO users (username, password_hash, is_admin, is_active)
 VALUES ('predictme', '$2b$10$utOOaN6s2rdBXD/Fnfq1GO2z/uzaT.nWx9M8ibTUPtgFLJhWWMO12', true, true)
 ON CONFLICT (username) DO NOTHING;

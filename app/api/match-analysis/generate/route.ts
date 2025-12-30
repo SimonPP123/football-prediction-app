@@ -1,20 +1,43 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase/client'
 
 const DEFAULT_WEBHOOK_URL = process.env.N8N_ANALYSIS_WEBHOOK ||
   'https://nn.analyserinsights.com/webhook/post-match-analysis'
+const WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET
+
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
   try {
-    const { fixture_id, force_regenerate, model, webhook_url, webhook_secret } = await request.json()
+    // Authentication check
+    const cookieStore = cookies()
+    const authCookie = cookieStore.get('football_auth')?.value
+    if (!authCookie) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
+
+    const { fixture_id, force_regenerate, model } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json({ error: 'fixture_id is required' }, { status: 400 })
     }
 
+    // Validate fixture_id is a valid UUID to prevent injection
+    if (!UUID_REGEX.test(fixture_id)) {
+      return NextResponse.json(
+        { error: 'Invalid fixture_id format' },
+        { status: 400 }
+      )
+    }
+
     const selectedModel = model || 'openai/gpt-5-mini'
-    // Use custom webhook URL if provided, otherwise fall back to default
-    const webhookUrl = webhook_url || DEFAULT_WEBHOOK_URL
+    // Use only the default webhook URL (SSRF protection - no custom URLs allowed)
+    const webhookUrl = DEFAULT_WEBHOOK_URL
 
     // 1. Fetch fixture with FULL details (prediction, stats, events, odds)
     const { data: fixture, error: fixtureError } = await supabase
@@ -87,12 +110,11 @@ export async function POST(request: Request) {
     const timeoutId = setTimeout(() => controller.abort(), 300000)
 
     try {
-      console.log(`Calling analysis webhook: ${webhookUrl}`)
       const webhookResponse = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(webhook_secret && { 'X-Webhook-Secret': webhook_secret }),
+          ...(WEBHOOK_SECRET && { 'X-Webhook-Secret': WEBHOOK_SECRET }),
         },
         body: JSON.stringify(webhookPayload),
         signal: controller.signal

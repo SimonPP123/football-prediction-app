@@ -1,6 +1,19 @@
 import { supabase, createServerClient } from './client'
 import type { Team, Fixture, Standing, Prediction, TopPerformer, TeamSeasonStats, HeadToHead } from '@/types'
 
+// UUID validation regex for SQL injection prevention
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function validateUUID(id: string): boolean {
+  return UUID_REGEX.test(id)
+}
+
+function assertValidUUID(id: string, fieldName: string): void {
+  if (!validateUUID(id)) {
+    throw new Error(`Invalid ${fieldName} format: must be a valid UUID`)
+  }
+}
+
 // Get all teams (optionally filtered by league)
 export async function getTeams(leagueId?: string): Promise<Team[]> {
   let query = supabase
@@ -299,6 +312,10 @@ export async function getTopPerformers(category: 'goals' | 'assists' | 'yellow_c
 
 // Get head to head between two teams
 export async function getHeadToHead(team1Id: string, team2Id: string) {
+  // Validate UUIDs to prevent SQL injection
+  assertValidUUID(team1Id, 'team1Id')
+  assertValidUUID(team2Id, 'team2Id')
+
   const { data, error } = await supabase
     .from('head_to_head')
     .select('*')
@@ -311,6 +328,9 @@ export async function getHeadToHead(team1Id: string, team2Id: string) {
 
 // Get team form (last N matches)
 export async function getTeamForm(teamId: string, limit = 5) {
+  // Validate UUID to prevent SQL injection
+  assertValidUUID(teamId, 'teamId')
+
   const { data, error } = await supabase
     .from('fixtures')
     .select('*')
@@ -631,6 +651,9 @@ export async function getMatchAnalysis(fixtureId: string) {
 
 // Get recent analyses for a team (for memory context)
 export async function getTeamRecentAnalyses(teamId: string, limit = 5) {
+  // Validate UUID to prevent SQL injection
+  assertValidUUID(teamId, 'teamId')
+
   const { data, error } = await supabase
     .from('match_analysis')
     .select('learning_points, key_insights, created_at, fixture_id')

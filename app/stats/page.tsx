@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { StatCard } from '@/components/stats/stat-card'
@@ -82,24 +82,39 @@ export default function StatsPage() {
     }
   }
 
-  // Sort standings for team stats
-  const topScorers = [...standings].sort((a, b) => (b.goals_for || 0) - (a.goals_for || 0))
-  const bestDefense = [...standings].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0))
-  const bestHomeForm = [...standings]
-    .filter(s => s.home_record)
-    .sort((a, b) => {
-      const aPts = (a.home_record?.win || 0) * 3 + (a.home_record?.draw || 0)
-      const bPts = (b.home_record?.win || 0) * 3 + (b.home_record?.draw || 0)
-      return bPts - aPts
-    })
-  const bestAwayForm = [...standings]
-    .filter(s => s.away_record)
-    .sort((a, b) => {
-      const aPts = (a.away_record?.win || 0) * 3 + (a.away_record?.draw || 0)
-      const bPts = (b.away_record?.win || 0) * 3 + (b.away_record?.draw || 0)
-      return bPts - aPts
-    })
-  const bestGoalDiff = [...standings].sort((a, b) => (b.goal_diff || 0) - (a.goal_diff || 0))
+  // Memoize sorted standings for team stats to avoid recalculating on every render
+  const topScorers = useMemo(() =>
+    [...standings].sort((a, b) => (b.goals_for || 0) - (a.goals_for || 0)),
+    [standings]
+  )
+  const bestDefense = useMemo(() =>
+    [...standings].sort((a, b) => (a.goals_against || 0) - (b.goals_against || 0)),
+    [standings]
+  )
+  const bestHomeForm = useMemo(() =>
+    [...standings]
+      .filter(s => s.home_record)
+      .sort((a, b) => {
+        const aPts = (a.home_record?.win || 0) * 3 + (a.home_record?.draw || 0)
+        const bPts = (b.home_record?.win || 0) * 3 + (b.home_record?.draw || 0)
+        return bPts - aPts
+      }),
+    [standings]
+  )
+  const bestAwayForm = useMemo(() =>
+    [...standings]
+      .filter(s => s.away_record)
+      .sort((a, b) => {
+        const aPts = (a.away_record?.win || 0) * 3 + (a.away_record?.draw || 0)
+        const bPts = (b.away_record?.win || 0) * 3 + (b.away_record?.draw || 0)
+        return bPts - aPts
+      }),
+    [standings]
+  )
+  const bestGoalDiff = useMemo(() =>
+    [...standings].sort((a, b) => (b.goal_diff || 0) - (a.goal_diff || 0)),
+    [standings]
+  )
 
   const tabs: { id: TabType; label: string; icon: typeof Users }[] = [
     { id: 'players', label: 'Players', icon: Users },

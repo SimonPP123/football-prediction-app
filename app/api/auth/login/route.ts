@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     }), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict', // Changed from 'lax' to 'strict' for better CSRF protection
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
     })

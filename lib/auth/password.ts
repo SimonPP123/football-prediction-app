@@ -18,16 +18,31 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 /**
  * Validate password requirements:
- * - Minimum 8 characters
+ * - Minimum 12 characters
+ * - At least one uppercase letter
+ * - At least one lowercase letter
  * - At least one number
+ * - At least one special character
  */
 export function validatePassword(password: string): { valid: boolean; error?: string } {
-  if (password.length < 8) {
-    return { valid: false, error: 'Password must be at least 8 characters long' }
+  if (password.length < 12) {
+    return { valid: false, error: 'Password must be at least 12 characters long' }
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' }
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' }
   }
 
   if (!/\d/.test(password)) {
     return { valid: false, error: 'Password must contain at least one number' }
+  }
+
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one special character' }
   }
 
   return { valid: true }

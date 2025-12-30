@@ -29,12 +29,12 @@ function parseAuthCookie(cookieValue: string | undefined): AuthData | null {
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow access to login page, auth API, leagues API, and data refresh endpoints
+  // Allow access to login page, auth API, and leagues API
+  // Note: /api/data/refresh endpoints now require authentication
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/leagues') ||
-    pathname.startsWith('/api/data/refresh')
+    pathname.startsWith('/api/leagues')
   ) {
     return NextResponse.next()
   }
