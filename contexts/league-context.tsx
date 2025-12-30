@@ -156,12 +156,14 @@ export function useLeague() {
 }
 
 // Helper to get season display string (e.g., "2025-2026")
-export function getSeasonDisplay(season: number): string {
+export function getSeasonDisplay(season: number | null | undefined): string {
+  if (season == null) return ''
   return `${season}-${season + 1}`
 }
 
 // Helper to get full league title (e.g., "Premier League 2025-2026")
 export function getLeagueTitle(league: LeagueConfig | null): string {
   if (!league) return 'Loading...'
-  return `${league.name} ${getSeasonDisplay(league.currentSeason)}`
+  const seasonStr = getSeasonDisplay(league.currentSeason)
+  return seasonStr ? `${league.name} ${seasonStr}` : league.name
 }

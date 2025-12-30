@@ -50,6 +50,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useLeague } from '@/contexts/league-context'
 
 // Types
 interface LogEntry {
@@ -206,6 +207,7 @@ function getTimestamp(): string {
 }
 
 export default function DataManagementPage() {
+  const { currentLeague } = useLeague()
   const [stats, setStats] = useState<Record<string, TableStats> | null>(null)
   const [summary, setSummary] = useState<{ totalTables: number; totalRecords: number; lastSync: string | null } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -237,13 +239,19 @@ export default function DataManagementPage() {
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
 
+  // Build league query param helper
+  const getLeagueParam = useCallback(() => {
+    return currentLeague?.id ? `league_id=${currentLeague.id}` : ''
+  }, [currentLeague?.id])
+
   const toggleDetails = (sourceId: string) => {
     setExpandedDetails(prev => ({ ...prev, [sourceId]: !prev[sourceId] }))
   }
 
+  // Fetch stats when league changes
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [currentLeague?.id])
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -253,7 +261,8 @@ export default function DataManagementPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('/api/data/stats')
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/stats${leagueParam}`)
       const data = await res.json()
       const { _summary, ...tableStats } = data
       setStats(tableStats)
@@ -329,7 +338,8 @@ export default function DataManagementPage() {
 
     try {
       // Use streaming endpoint for real-time logs
-      const res = await fetch(`${source.refreshEndpoint}?stream=true`, {
+      const leagueParam = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
+      const res = await fetch(`${source.refreshEndpoint}?stream=true${leagueParam}`, {
         method: 'POST',
         signal: abortController.signal
       })
@@ -448,7 +458,8 @@ export default function DataManagementPage() {
     addLog('info', 'odds', `Starting odds refresh for ${fixtureIds.length} selected matches...`)
 
     try {
-      const res = await fetch('/api/data/refresh/odds?stream=true', {
+      const leagueParam = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/odds?stream=true${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fixture_ids: fixtureIds }),
@@ -526,7 +537,8 @@ export default function DataManagementPage() {
     addLog('info', 'pre-match', 'Starting pre-match data refresh...')
 
     try {
-      const res = await fetch('/api/data/refresh/pre-match', {
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/pre-match${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -594,7 +606,8 @@ export default function DataManagementPage() {
     addLog('info', 'post-match', 'Starting post-match data refresh...')
 
     try {
-      const res = await fetch('/api/data/refresh/post-match', {
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/post-match${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -677,7 +690,8 @@ export default function DataManagementPage() {
     addLog('info', 'season-setup', 'Starting season setup refresh...')
 
     try {
-      const res = await fetch('/api/data/refresh/season-setup', {
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/season-setup${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -754,7 +768,8 @@ export default function DataManagementPage() {
     addLog('info', 'weekly-maintenance', 'Starting weekly maintenance refresh...')
 
     try {
-      const res = await fetch('/api/data/refresh/weekly-maintenance', {
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/weekly-maintenance${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -831,7 +846,8 @@ export default function DataManagementPage() {
     addLog('info', 'squad-sync', 'Starting squad sync refresh...')
 
     try {
-      const res = await fetch('/api/data/refresh/squad-sync', {
+      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const res = await fetch(`/api/data/refresh/squad-sync${leagueParam}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
@@ -927,7 +943,7 @@ export default function DataManagementPage() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Data Management" subtitle="Manage API data and database" />
+      <Header title="Data Management" subtitle={currentLeague ? `${currentLeague.name} Data` : 'Manage API data and database'} />
 
       <div className="p-6 space-y-6">
         {/* Summary Stats */}

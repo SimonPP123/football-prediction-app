@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { usePollerSettings, PollerSettingsPanel } from './update-poller'
 import { LeagueSelector } from '@/components/layout/league-selector'
+import { useLeague } from '@/contexts/league-context'
 
 const CATEGORY_CONFIG: Record<string, {
   label: string
@@ -134,6 +135,7 @@ function getStatusInfo(dateString: string | undefined): { color: string; status:
 export function MobileDataStatus() {
   const [showDropdown, setShowDropdown] = useState(false)
   const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
+  const { currentLeague } = useLeague()
   const anyRefreshing = Object.values(isRefreshing).some(Boolean)
 
   const allCategories = Object.keys(CATEGORY_CONFIG) as DataCategory[]
@@ -191,7 +193,7 @@ export function MobileDataStatus() {
                 return (
                   <button
                     key={category}
-                    onClick={() => refreshCategory(category)}
+                    onClick={() => refreshCategory(category, currentLeague?.id)}
                     disabled={loading}
                     className="w-full flex items-center gap-2 px-2 py-2 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
                   >
@@ -220,6 +222,7 @@ export function GlobalStatusBar() {
   const [showDropdown, setShowDropdown] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const { lastRefreshTimes, isRefreshing, refreshCategory } = useUpdates()
+  const { currentLeague } = useLeague()
   const { settings } = usePollerSettings()
   const anyRefreshing = Object.values(isRefreshing).some(Boolean)
 
@@ -303,7 +306,7 @@ export function GlobalStatusBar() {
                     return (
                       <button
                         key={category}
-                        onClick={() => refreshCategory(category)}
+                        onClick={() => refreshCategory(category, currentLeague?.id)}
                         disabled={loading}
                         className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
                       >

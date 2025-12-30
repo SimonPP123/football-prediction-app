@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useUpdates } from './update-provider'
 import { DataCategory } from '@/types'
+import { useLeague } from '@/contexts/league-context'
 
 const POLLER_SETTINGS_KEY = 'football-ai-poller-settings'
 
@@ -82,6 +83,7 @@ export function usePollerSettings() {
 
 export function UpdatePoller() {
   const { refreshCategory, lastRefreshTimes, isRefreshing, addRefreshEvent } = useUpdates()
+  const { currentLeague } = useLeague()
   const { settings, isLoaded } = usePollerSettings()
   const intervalsRef = useRef<Record<string, NodeJS.Timeout>>({})
 
@@ -114,8 +116,8 @@ export function UpdatePoller() {
       message: `Auto-refreshing ${category}...`,
     })
 
-    await refreshCategory(category)
-  }, [isRefreshing, shouldPoll, addRefreshEvent, refreshCategory])
+    await refreshCategory(category, currentLeague?.id)
+  }, [isRefreshing, shouldPoll, addRefreshEvent, refreshCategory, currentLeague?.id])
 
   // Set up polling intervals
   useEffect(() => {
@@ -147,11 +149,11 @@ export function UpdatePoller() {
       Object.values(intervalsRef.current).forEach(clearInterval)
       intervalsRef.current = {}
     }
-  }, [isLoaded, settings.enabled, settings.intervals, pollCategory])
+  }, [isLoaded, settings.enabled, settings.intervals, pollCategory, currentLeague?.id])
 
-  // Initial check when poller is enabled
+  // Initial check when poller is enabled or league changes
   useEffect(() => {
-    if (!isLoaded || !settings.enabled) return
+    if (!isLoaded || !settings.enabled || !currentLeague?.id) return
 
     // Check all categories on mount (with delay to avoid overwhelming)
     const checkAll = async () => {
@@ -167,7 +169,7 @@ export function UpdatePoller() {
     // Delay initial check by 5 seconds
     const timer = setTimeout(checkAll, 5000)
     return () => clearTimeout(timer)
-  }, [isLoaded, settings.enabled])
+  }, [isLoaded, settings.enabled, currentLeague?.id, shouldPoll, pollCategory])
 
   return null // This is a headless component
 }

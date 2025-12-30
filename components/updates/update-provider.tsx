@@ -87,11 +87,14 @@ export function UpdateProvider({ children }: UpdateProviderProps) {
     }))
   }, [])
 
-  const refreshCategory = useCallback(async (category: DataCategory) => {
+  const refreshCategory = useCallback(async (category: DataCategory, leagueId?: string) => {
     setRefreshing(category, true)
 
     try {
-      const endpoint = `/api/data/refresh/${category}`
+      const params = new URLSearchParams()
+      if (leagueId) params.set('league_id', leagueId)
+      const queryString = params.toString()
+      const endpoint = `/api/data/refresh/${category}${queryString ? '?' + queryString : ''}`
       const response = await fetch(endpoint, { method: 'POST' })
       const data = await response.json()
 

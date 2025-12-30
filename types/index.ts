@@ -330,7 +330,7 @@ export interface UpdateState {
 }
 
 export interface UpdateContextValue extends UpdateState {
-  refreshCategory: (category: DataCategory) => Promise<void>
+  refreshCategory: (category: DataCategory, leagueId?: string) => Promise<void>
   addRefreshEvent: (event: Omit<RefreshEvent, 'id' | 'timestamp'>) => void
   updateLastRefreshTime: (category: DataCategory, time: string) => void
   setRefreshing: (category: DataCategory, isRefreshing: boolean) => void
