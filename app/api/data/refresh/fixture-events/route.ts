@@ -118,6 +118,7 @@ async function handleStreamingRefresh() {
 
             if (error) {
               if (!error.message.includes('duplicate')) {
+                sendLog({ type: 'warning', message: `Event error for ${matchName}: ${error.message}` })
                 errors++
               }
               // Duplicates are silently ignored

@@ -125,11 +125,13 @@ async function handleStreamingRefresh() {
             }, { onConflict: 'team1_id,team2_id' })
 
           if (error) {
+            sendLog({ type: 'error', message: `DB error for ${pairName}: ${error.message}` })
             errors++
           } else {
             imported++
           }
         } catch (err) {
+          sendLog({ type: 'error', message: `Failed for ${pairName}: ${err instanceof Error ? err.message : 'Unknown'}` })
           errors++
         }
       }

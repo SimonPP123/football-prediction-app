@@ -4,7 +4,15 @@ import { verifyPassword } from '@/lib/auth/password'
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json()
+    let username, password
+    try {
+      ({ username, password } = await request.json())
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      )
+    }
 
     if (!username || !password) {
       return NextResponse.json(

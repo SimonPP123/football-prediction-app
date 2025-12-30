@@ -78,7 +78,13 @@ export async function POST(request: Request) {
             // Don't use streaming for internal calls - get JSON response
           })
 
-          const data = await response.json()
+          let data
+          try {
+            data = await response.json()
+          } catch {
+            // Response wasn't JSON (e.g., HTML error page)
+            throw new Error(`Invalid response from ${endpoint.key} endpoint`)
+          }
           const endpointDuration = Date.now() - endpointStart
 
           if (data.success) {

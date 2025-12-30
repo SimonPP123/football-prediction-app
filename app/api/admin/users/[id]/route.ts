@@ -63,19 +63,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
   const adminUserId = getAdminUserId()
 
+  let password, newIsAdmin, isActive
+  try {
+    ({ password, isAdmin: newIsAdmin, isActive } = await request.json())
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
   // Prevent admin from deactivating themselves
-  if (params.id === adminUserId) {
-    const body = await request.json()
-    if (body.isActive === false) {
-      return NextResponse.json(
-        { error: 'Cannot deactivate your own account' },
-        { status: 400 }
-      )
-    }
+  if (params.id === adminUserId && isActive === false) {
+    return NextResponse.json(
+      { error: 'Cannot deactivate your own account' },
+      { status: 400 }
+    )
   }
 
   try {
-    const { password, isAdmin: newIsAdmin, isActive } = await request.json()
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString()

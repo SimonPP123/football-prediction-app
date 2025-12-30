@@ -57,9 +57,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  let username, password, newUserIsAdmin
   try {
-    const { username, password, isAdmin: newUserIsAdmin } = await request.json()
+    ({ username, password, isAdmin: newUserIsAdmin } = await request.json())
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+  }
 
+  try {
     // Validate username
     const usernameValidation = validateUsername(username)
     if (!usernameValidation.valid) {

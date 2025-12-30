@@ -124,6 +124,7 @@ async function handleStreamingRefresh() {
               }, { onConflict: 'fixture_id,team_id' })
 
             if (error) {
+              sendLog({ type: 'warning', message: `Stats error for ${matchName}: ${error.message}` })
               errors++
             } else {
               imported++

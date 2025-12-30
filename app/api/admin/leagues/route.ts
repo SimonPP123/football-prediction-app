@@ -48,8 +48,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  let body
   try {
-    const body = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
+  try {
     const { apiId, name, country, logo, currentSeason, oddsSportKey, isActive, displayOrder } = body
 
     if (!apiId || !name || !country) {
@@ -106,8 +112,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  let body
   try {
-    const body = await request.json()
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
+  try {
     const { id, apiId, name, country, logo, currentSeason, oddsSportKey, isActive, displayOrder } = body
 
     if (!id) {
