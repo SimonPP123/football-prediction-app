@@ -10,6 +10,7 @@ const POLLER_SETTINGS_KEY = 'football-ai-poller-settings'
 interface PollerSettings {
   enabled: boolean
   intervals: Record<string, number> // minutes
+  units?: Record<string, 'minutes' | 'hours' | 'days'> // user's preferred unit display
 }
 
 const DEFAULT_SETTINGS: PollerSettings = {
@@ -78,7 +79,13 @@ export function usePollerSettings() {
     })
   }, [settings.intervals, updateSettings])
 
-  return { settings, isLoaded, setEnabled, setInterval, updateSettings }
+  const setUnit = useCallback((category: string, unit: 'minutes' | 'hours' | 'days') => {
+    updateSettings({
+      units: { ...(settings.units || {}), [category]: unit }
+    })
+  }, [settings.units, updateSettings])
+
+  return { settings, isLoaded, setEnabled, setInterval, setUnit, updateSettings }
 }
 
 export function UpdatePoller() {
@@ -198,7 +205,7 @@ function formatInterval(minutes: number): string {
 }
 
 export function PollerSettingsPanel({ className }: PollerSettingsProps) {
-  const { settings, isLoaded, setEnabled, setInterval } = usePollerSettings()
+  const { settings, isLoaded, setEnabled, setInterval, setUnit } = usePollerSettings()
 
   if (!isLoaded) return null
 
@@ -226,7 +233,20 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
     setInterval(category, clamped)
   }
 
-  const getDisplayValue = (minutes: number): { value: number; unit: 'minutes' | 'hours' | 'days' } => {
+  const getDisplayValue = (minutes: number, category: string): { value: number; unit: 'minutes' | 'hours' | 'days' } => {
+    // Check if user has a stored unit preference
+    const storedUnit = settings.units?.[category]
+    if (storedUnit) {
+      if (storedUnit === 'days') {
+        return { value: Math.round(minutes / 1440) || 1, unit: 'days' }
+      }
+      if (storedUnit === 'hours') {
+        return { value: Math.round(minutes / 60) || 1, unit: 'hours' }
+      }
+      return { value: minutes, unit: 'minutes' }
+    }
+
+    // Fall back to auto-detection for initial display
     if (minutes >= 1440 && minutes % 1440 === 0) {
       return { value: minutes / 1440, unit: 'days' }
     }
@@ -268,7 +288,7 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
             const config = categoryConfig[category]
             const currentMinutes = settings.intervals[category] || DEFAULT_SETTINGS.intervals[category]
             const recommended = RECOMMENDED_INTERVALS[category]
-            const { value, unit } = getDisplayValue(currentMinutes)
+            const { value, unit } = getDisplayValue(currentMinutes, category)
 
             return (
               <div key={category} className="space-y-1">
@@ -293,6 +313,8 @@ export function PollerSettingsPanel({ className }: PollerSettingsProps) {
                     value={unit}
                     onChange={e => {
                       const newUnit = e.target.value as 'minutes' | 'hours' | 'days'
+                      // Save the unit preference
+                      setUnit(category, newUnit)
                       // Convert current value to minutes first
                       const currentMinutes = unit === 'days' ? value * 1440 : unit === 'hours' ? value * 60 : value
                       // Then convert to new unit
