@@ -6,8 +6,8 @@ interface MatchEvent {
   id?: string
   type: string
   detail?: string
-  time_elapsed: number
-  time_extra?: number
+  elapsed: number  // API uses 'elapsed' not 'time_elapsed'
+  extra_time?: number  // API uses 'extra_time' not 'time_extra'
   team_id: string
   player_name?: string
   assist_name?: string
@@ -63,7 +63,7 @@ export function MatchEvents({
   // Filter to relevant events and sort by time
   const relevantEvents = events
     .filter(e => ['Goal', 'Card', 'subst', 'Substitution', 'Var'].includes(e.type))
-    .sort((a, b) => a.time_elapsed - b.time_elapsed)
+    .sort((a, b) => a.elapsed - b.elapsed)
 
   if (relevantEvents.length === 0) {
     return (
@@ -74,16 +74,16 @@ export function MatchEvents({
   }
 
   // Group events by half
-  const firstHalfEvents = relevantEvents.filter(e => e.time_elapsed <= 45 || (e.time_elapsed === 45 && e.time_extra))
-  const secondHalfEvents = relevantEvents.filter(e => e.time_elapsed > 45 && (e.time_elapsed <= 90 || (e.time_elapsed === 90 && e.time_extra)))
-  const extraTimeEvents = relevantEvents.filter(e => e.time_elapsed > 90 && !(e.time_elapsed === 90 && e.time_extra))
+  const firstHalfEvents = relevantEvents.filter(e => e.elapsed <= 45 || (e.elapsed === 45 && e.extra_time))
+  const secondHalfEvents = relevantEvents.filter(e => e.elapsed > 45 && (e.elapsed <= 90 || (e.elapsed === 90 && e.extra_time)))
+  const extraTimeEvents = relevantEvents.filter(e => e.elapsed > 90 && !(e.elapsed === 90 && e.extra_time))
 
   const renderEvent = (event: MatchEvent) => {
     const isHome = event.team_id === homeTeamId
 
     return (
       <div
-        key={`${event.time_elapsed}-${event.player_name}-${event.type}`}
+        key={`${event.elapsed}-${event.player_name}-${event.type}`}
         className={cn(
           "flex items-center gap-3 py-2",
           isHome ? "flex-row" : "flex-row-reverse"
@@ -91,8 +91,8 @@ export function MatchEvents({
       >
         {/* Time */}
         <span className="text-sm text-muted-foreground w-12 shrink-0 text-center">
-          {event.time_elapsed}'
-          {event.time_extra && <span className="text-xs">+{event.time_extra}</span>}
+          {event.elapsed}'
+          {event.extra_time && <span className="text-xs">+{event.extra_time}</span>}
         </span>
 
         {/* Event icon */}

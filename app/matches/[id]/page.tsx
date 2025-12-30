@@ -83,8 +83,9 @@ export default function MatchDetailPage() {
   }
 
   const isCompleted = ['FT', 'AET', 'PEN'].includes(fixture.status)
-  const prediction = fixture.prediction?.[0]
-  const analysis = fixture.match_analysis?.[0]
+  // Handle both array and single object responses
+  const prediction = Array.isArray(fixture.prediction) ? fixture.prediction[0] : fixture.prediction
+  const analysis = Array.isArray(fixture.match_analysis) ? fixture.match_analysis[0] : fixture.match_analysis
 
   // Get match statistics
   const stats = fixture.statistics || []
@@ -94,8 +95,29 @@ export default function MatchDetailPage() {
   // Get events
   const events = fixture.events || []
 
-  // Get odds
-  const odds = fixture.odds || []
+  // Get odds and transform to expected format
+  const rawOdds = fixture.odds || []
+  const odds = rawOdds.map((o: any) => {
+    // Transform values array to flat structure
+    const values = o.values || []
+    const homeValue = values.find((v: any) =>
+      v.name === fixture.home_team?.name || v.name?.toLowerCase().includes('home')
+    )
+    const awayValue = values.find((v: any) =>
+      v.name === fixture.away_team?.name || v.name?.toLowerCase().includes('away')
+    )
+    const drawValue = values.find((v: any) =>
+      v.name?.toLowerCase() === 'draw'
+    )
+
+    return {
+      bookmaker: o.bookmaker,
+      home_win: homeValue?.price,
+      draw: drawValue?.price,
+      away_win: awayValue?.price,
+      updated_at: o.updated_at,
+    }
+  })
 
   // Get weather
   const weather = fixture.weather
@@ -387,10 +409,10 @@ export default function MatchDetailPage() {
               </div>
 
               {/* Recent meetings */}
-              {h2h.recent_matches && h2h.recent_matches.length > 0 && (
+              {h2h.fixture_data && h2h.fixture_data.length > 0 && (
                 <div className="space-y-2 mt-4">
                   <h4 className="font-medium text-sm">Recent Meetings</h4>
-                  {h2h.recent_matches.slice(0, 5).map((match: any, idx: number) => (
+                  {h2h.fixture_data.slice(0, 5).map((match: any, idx: number) => (
                     <div key={idx} className="flex items-center justify-between bg-muted/30 rounded p-2 text-sm">
                       <span className="text-muted-foreground">
                         {new Date(match.date).toLocaleDateString('en-GB', {
@@ -400,7 +422,7 @@ export default function MatchDetailPage() {
                         })}
                       </span>
                       <span className="font-medium">
-                        {match.home_team} {match.home_goals} - {match.away_goals} {match.away_team}
+                        {match.homeTeam} {match.homeGoals} - {match.awayGoals} {match.awayTeam}
                       </span>
                     </div>
                   ))}
