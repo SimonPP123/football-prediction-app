@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
+
+// Use service role for API routes to bypass RLS
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(
   request: NextRequest,
@@ -26,11 +32,14 @@ export async function GET(
       .single()
 
     if (error) {
+      console.error('[Fixture API] Error fetching fixture:', error)
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Fixture not found' }, { status: 404 })
       }
       throw error
     }
+
+    console.log(`[Fixture API] Fixture ${id}: events=${fixture.events?.length || 0}, odds=${fixture.odds?.length || 0}, predictions=${fixture.prediction?.length || 0}, statistics=${fixture.statistics?.length || 0}`)
 
     // Fetch weather if venue has coordinates
     let weather = null
