@@ -49,8 +49,9 @@ export default function StandingsPage() {
   const totalGoals = standings.reduce((sum, s) => sum + (s.goals_for || 0), 0)
   const totalMatches = standings.reduce((sum, s) => sum + (s.played || 0), 0) / 2
   const avgGoalsPerMatch = totalMatches > 0 ? (totalGoals / totalMatches).toFixed(2) : '0'
-  const topScorer = standings.sort((a, b) => b.goals_for - a.goals_for)[0]
-  const bestDefense = standings.sort((a, b) => a.goals_against - b.goals_against)[0]
+  // Use spread to avoid mutating the original standings array (which needs to stay sorted by rank)
+  const topScorer = [...standings].sort((a, b) => b.goals_for - a.goals_for)[0]
+  const bestDefense = [...standings].sort((a, b) => a.goals_against - b.goals_against)[0]
 
   return (
     <div className="min-h-screen">

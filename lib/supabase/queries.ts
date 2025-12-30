@@ -319,6 +319,7 @@ export async function savePredictionToHistory(fixtureId: string) {
       over_under_2_5: current.over_under_2_5 || current.factors?.over_under,
       btts: current.btts || current.factors?.btts,
       confidence_pct: current.confidence_pct || current.overall_index,
+      certainty_score: current.certainty_score,
     })
     .select()
     .single()
@@ -386,6 +387,7 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
       prediction_result: prediction.prediction,
       confidence_level: overallIndex >= 70 ? 'high' : overallIndex >= 50 ? 'medium' : 'low',
       confidence_pct: overallIndex,
+      certainty_score: prediction.certainty_score ? Math.round(prediction.certainty_score) : null,
       factors: factorsData, // Full A-I factor breakdown stored here
       analysis_text: prediction.analysis,
       key_factors: prediction.key_factors,

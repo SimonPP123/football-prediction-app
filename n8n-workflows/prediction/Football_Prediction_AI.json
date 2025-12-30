@@ -1,10 +1,10 @@
 {
-  "name": "Football Prediction AI",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
         "path": "football-prediction",
+        "authentication": "headerAuth",
         "responseMode": "responseNode",
         "options": {}
       },
@@ -12,224 +12,108 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
-      "position": [250, 300],
-      "webhookId": "football-prediction"
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/team_season_stats?team_id=eq.{{ $json.body.home_team_id }}&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-home-stats",
-      "name": "Fetch Home Team Stats",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [450, 200]
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/team_season_stats?team_id=eq.{{ $json.body.away_team_id }}&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-away-stats",
-      "name": "Fetch Away Team Stats",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [450, 400]
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixtures?team_id=eq.{{ $json.body.home_team_id }}&order=fixture_date.desc&limit=5&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-home-form",
-      "name": "Fetch Home Team Form",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [650, 200]
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixtures?team_id=eq.{{ $json.body.away_team_id }}&order=fixture_date.desc&limit=5&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-away-form",
-      "name": "Fetch Away Team Form",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [650, 400]
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/injuries?or=(team_id.eq.{{ $json.body.home_team_id }},team_id.eq.{{ $json.body.away_team_id }})&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-injuries",
-      "name": "Fetch Injuries",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [850, 300]
-    },
-    {
-      "parameters": {
-        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/standings?or=(team_id.eq.{{ $json.body.home_team_id }},team_id.eq.{{ $json.body.away_team_id }})&select=*",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "headers": {
-            "headerParameters": [
-              {
-                "name": "apikey",
-                "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              },
-              {
-                "name": "Authorization",
-                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwZGRjcnZqZWVxYXZxcGN5cG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjMwMjIsImV4cCI6MjA4MjEzOTAyMn0.-QpGyvFoKSn9mTdTy5u9wuUQ_6KoMNwTWt5JtcL9Djc"
-              }
-            ]
-          }
-        }
-      },
-      "id": "fetch-standings",
-      "name": "Fetch Standings",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [850, 500]
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "prompt-field",
-              "name": "ai_prompt",
-              "value": "=You are an expert football analyst. Analyze this Premier League match and provide a detailed prediction.\n\n**MATCH DETAILS:**\n{{ $json.body.home_team }} vs {{ $json.body.away_team }}\nDate: {{ $json.body.match_date }}\nVenue: {{ $json.body.venue }}\nRound: {{ $json.body.round }}\n\n**HOME TEAM ({{ $json.body.home_team }}) STATS:**\n{{ $('Fetch Home Team Stats').item.json }}\n\n**AWAY TEAM ({{ $json.body.away_team }}) STATS:**\n{{ $('Fetch Away Team Stats').item.json }}\n\n**HOME TEAM RECENT FORM (Last 5 Matches):**\n{{ $('Fetch Home Team Form').item.json }}\n\n**AWAY TEAM RECENT FORM (Last 5 Matches):**\n{{ $('Fetch Away Team Form').item.json }}\n\n**INJURIES:**\n{{ $('Fetch Injuries').item.json }}\n\n**CURRENT STANDINGS:**\n{{ $('Fetch Standings').item.json }}\n\nBased on all this data, provide a comprehensive prediction in the following JSON format:\n\n```json\n{\n  \"prediction\": \"1\" | \"X\" | \"2\",\n  \"confidence_pct\": 0-100,\n  \"home_win_pct\": 0-100,\n  \"draw_pct\": 0-100,\n  \"away_win_pct\": 0-100,\n  \"over_under_2_5\": \"Over\" | \"Under\",\n  \"btts\": \"Yes\" | \"No\",\n  \"value_bet\": \"string or null\",\n  \"key_factors\": [\"factor1\", \"factor2\", \"factor3\"],\n  \"risk_factors\": [\"risk1\", \"risk2\"],\n  \"analysis\": \"detailed paragraph explaining the prediction\"\n}\n```\n\nConsider:\n- Team form and momentum\n- Home advantage\n- Injury impact on key players\n- Head-to-head history\n- Tactical matchups\n- League position and motivation\n- Expected goals (xG) trends\n- Defensive and offensive strength\n\nProvide ONLY the JSON response, no additional text.",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "build-prompt",
-      "name": "Build AI Prompt",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [1050, 300]
-    },
-    {
-      "parameters": {
-        "resource": "text",
-        "operation": "message",
-        "modelId": "gpt-4o",
-        "messages": {
-          "values": [
-            {
-              "role": "user",
-              "content": "={{ $json.ai_prompt }}"
-            }
-          ]
-        },
-        "options": {
-          "temperature": 0.7,
-          "maxTokens": 2000
-        }
-      },
-      "id": "openai-analysis",
-      "name": "OpenAI Analysis",
-      "type": "@n8n/n8n-nodes-langchain.openAi",
-      "typeVersion": 1.5,
-      "position": [1250, 300],
+      "position": [
+        -480,
+        -112
+      ],
+      "webhookId": "football-prediction",
       "credentials": {
-        "openAiApi": {
-          "id": "openai-credentials",
-          "name": "OpenAI API"
+        "httpHeaderAuth": {
+          "id": "ooP1FUXwZppEfMfy",
+          "name": "[Predictions] Auth"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json.message.content;\n\n// Extract JSON from markdown code blocks if present\nlet jsonStr = response;\nconst jsonMatch = response.match(/```json\\n([\\s\\S]*?)\\n```/);\nif (jsonMatch) {\n  jsonStr = jsonMatch[1];\n}\n\n// Parse the JSON response\nconst prediction = JSON.parse(jsonStr);\n\n// Get original webhook data\nconst webhookData = $('Webhook').first().json.body;\n\n// Build final response\nreturn {\n  json: {\n    fixture_id: webhookData.fixture_id,\n    home_team: webhookData.home_team,\n    away_team: webhookData.away_team,\n    match_date: webhookData.match_date,\n    venue: webhookData.venue,\n    prediction: prediction.prediction,\n    confidence_pct: prediction.confidence_pct,\n    probabilities: {\n      home_win_pct: prediction.home_win_pct,\n      draw_pct: prediction.draw_pct,\n      away_win_pct: prediction.away_win_pct\n    },\n    over_under_2_5: prediction.over_under_2_5,\n    btts: prediction.btts,\n    value_bet: prediction.value_bet,\n    key_factors: prediction.key_factors,\n    risk_factors: prediction.risk_factors,\n    analysis: prediction.analysis,\n    generated_at: new Date().toISOString()\n  }\n};"
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/team_season_stats?team_id=eq.{{ $json.body.home_team_id }}&season=eq.2025&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "fetch-home-stats",
+      "name": "Fetch Home Team Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        192
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/team_season_stats?team_id=eq.{{ $('Webhook').item.json.body.away_team_id }}&season=eq.2025&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "fetch-away-stats",
+      "name": "Fetch Away Team Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        336
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/standings?or=(team_id.eq.{{ $('Webhook').item.json.body.home_team_id }},team_id.eq.{{ $('Webhook').item.json.body.away_team_id }})&season=eq.2025&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "fetch-standings",
+      "name": "Fetch Standings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        496
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": " // Extract AI response\n     const response = $input.first().json.output || $input.first().json.message?.content || '';\n     let jsonStr = response;\n\n     // Handle markdown code blocks\n     const jsonMatch = response.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n     if (jsonMatch) {\n       jsonStr = jsonMatch[1];\n     }\n\n     // Parse JSON\n     let prediction;\n     try {\n       prediction = JSON.parse(jsonStr.trim());\n     } catch (e) {\n       // Try to find JSON object in the response\n       const jsonObjMatch = response.match(/\\{[\\s\\S]*\\}/);\n       if (jsonObjMatch) {\n         prediction = JSON.parse(jsonObjMatch[0]);\n       } else {\n         throw new Error('Could not parse AI response as JSON');\n       }\n     }\n\n     // Map to database schema\n     return [{\n       json: {\n         prediction: prediction.prediction,\n         certainty_score: prediction.certainty_score,\n         confidence_pct: prediction.confidence_pct,\n         overall_index: prediction.overall_index,\n         home_win_pct: prediction.home_win_pct,\n         draw_pct: prediction.draw_pct,\n         away_win_pct: prediction.away_win_pct,\n         factors: prediction.factors, // A-F factor breakdown\n         score_predictions: prediction.score_predictions,\n         most_likely_score: prediction.most_likely_score,\n         over_under_2_5: prediction.over_under_2_5,\n         btts: prediction.btts,\n         value_bet: prediction.value_bet,\n         key_factors: prediction.key_factors,\n         risk_factors: prediction.risk_factors,\n         analysis: prediction.analysis,\n       }\n     }];"
       },
       "id": "parse-response",
       "name": "Parse AI Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1450, 300]
+      "position": [
+        2960,
+        -112
+      ]
     },
     {
       "parameters": {
@@ -250,7 +134,536 @@
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1650, 300]
+      "position": [
+        3168,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an elite football analyst with access to comprehensive match data AND historical learning from past prediction analyses. Use the weighted 6-factor system (A-F) to analyze this Premier League fixture.\n\n===============================================================================\nMATCH DETAILS\n===============================================================================\n- **Home Team**: {{ $('Webhook').item.json.body.home_team }}\n- **Away Team**: {{ $('Webhook').item.json.body.away_team }}\n- **Venue**: {{ $('Webhook').item.json.body.venue }}\n- **Round**: {{ $('Webhook').item.json.body.round }}\n- **Model**: {{ $('Webhook').item.json.body.model }}\n\n===============================================================================\nDATABASE SOURCES\n===============================================================================\n{{ JSON.stringify($json.data) }}\n{{ JSON.stringify($('Aggregate').item.json.data) }}\n\n===============================================================================\nLIVE TEAM NEWS (from AI Agents)\n===============================================================================\n**HOME TEAM NEWS:**\n{{ $('AI Agent1').item.json.output }}\n\n**AWAY TEAM NEWS:**\n{{ $('AI Agent2').item.json.output }}\n\n===============================================================================\nHISTORICAL LEARNINGS FROM PAST ANALYSES\n===============================================================================\n\n**IMPORTANT**: Use these insights from previous match analyses to improve prediction accuracy. Look for patterns in what we got right and wrong.\n\n**HOME TEAM ({{ $('Webhook').item.json.body.home_team }}) - Recent Analysis History:**\n{{ JSON.stringify($('Webhook').item.json.body.memory_context.home_team_learnings, null, 2) }}\n\n**AWAY TEAM ({{ $('Webhook').item.json.body.away_team }}) - Recent Analysis History:**\n{{ JSON.stringify($('Webhook').item.json.body.memory_context.away_team_learnings, null, 2) }}\n\n**How to Apply Historical Learnings:**\n\n1. **Factor Accuracy Review**:\n   - Check which factors (A-F) were accurate/inaccurate for each team in past analyses\n   - If Factor C (Key Players) was consistently inaccurate for a team, investigate why\n   - Adjust your confidence in factors based on their historical accuracy for each team\n\n2. **Learning Points Application**:\n   - Previous analyses identified specific lessons - apply them here\n   - Example: \"xG underrated for this team\" -> Trust xG less for them\n   - Example: \"Set pieces were decisive\" -> Weight Factor D aerial component higher\n\n3. **Surprise Patterns**:\n   - Teams that frequently surprise predictions may be inherently unpredictable\n   - Reduce confidence when a team has many past surprises\n   - Look for patterns in WHAT surprised us (goalkeeper errors, late goals, etc.)\n\n4. **Performance vs Prediction**:\n   - Compare actual past performance (xG, shots, possession) to what was predicted\n   - Use this to calibrate current expectations\n   - If a team consistently outperforms xG, they may have clinical finishers\n\n5. **Track Record**:\n   - Check prediction_correct field - if predictions for a team are consistently wrong, consider contrarian analysis\n   - High accuracy_score teams are more predictable; low scores indicate volatility\n\n===============================================================================\nFACTOR ANALYSIS (Custom Prompt)\n===============================================================================\n\n{{ $('Webhook').item.json.body.custom_prompt }}\n\n===============================================================================\nOUTPUT FORMAT (JSON)\n===============================================================================\n\nReturn ONLY valid JSON (no markdown, no code blocks):\n\n{\n  \"prediction\": \"1\" | \"X\" | \"2\" | \"1X\" | \"X2\" | \"12\",\n  \"certainty_score\": 0-100,\n  \"confidence_pct\": 0-100,\n  \"overall_index\": 1-100,\n  \"home_win_pct\": 0-100,\n  \"draw_pct\": 0-100,\n  \"away_win_pct\": 0-100,\n  \"factors\": {\n    \"A_base_strength\": {\n      \"score\": 0-100,\n      \"weighted\": 0-24,\n      \"notes\": \"Brief summary including any historical accuracy adjustments\"\n    },\n    \"B_form\": {\n      \"score\": 0-100,\n      \"weighted\": 0-22,\n      \"notes\": \"Include form trends from past analyses\"\n    },\n    \"C_key_players\": {\n      \"score\": 0-100,\n      \"weighted\": 0-11,\n      \"notes\": \"Include injuries and historical player impact accuracy\"\n    },\n    \"D_tactical\": {\n      \"score\": 0-100,\n      \"weighted\": 0-20,\n      \"notes\": \"Tactical matchup with historical pattern insights\"\n    },\n    \"E_table_position\": {\n      \"score\": 0-100,\n      \"weighted\": 0-13,\n      \"notes\": \"Context including historical motivation accuracy\"\n    },\n    \"F_h2h\": {\n      \"score\": 0-100,\n      \"weighted\": 0-10,\n      \"notes\": \"H2H patterns and any surprises from past H2H analyses\"\n    }\n  },\n  \"historical_adjustments\": {\n    \"applied\": true | false,\n    \"confidence_adjusted_by\": 0,\n    \"reason\": \"Explanation of any adjustments made based on historical learnings\",\n    \"factors_adjusted\": [\"B_form\", \"D_tactical\"]\n  },\n  \"score_predictions\": [\n    {\"score\": \"2-1\", \"probability\": 18},\n    {\"score\": \"1-0\", \"probability\": 14},\n    {\"score\": \"1-1\", \"probability\": 12},\n    {\"score\": \"2-0\", \"probability\": 11},\n    {\"score\": \"0-0\", \"probability\": 8},\n    {\"score\": \"0-1\", \"probability\": 7},\n    {\"score\": \"2-2\", \"probability\": 6},\n    {\"score\": \"3-1\", \"probability\": 5},\n    {\"score\": \"1-2\", \"probability\": 5},\n    {\"score\": \"other\", \"probability\": 14}\n  ],\n  \"most_likely_score\": \"2-1\",\n  \"over_under_2_5\": \"Over\" | \"Under\",\n  \"btts\": \"Yes\" | \"No\",\n  \"value_bet\": \"Home Win @ 2.10 (edge: +8%)\" | null,\n  \"key_factors\": [\n    \"Factor A: Home's xG balance +0.6/game better\",\n    \"Factor C: Away missing 2 key defenders (from news)\",\n    \"Historical: Home's Factor D accuracy is 80% - tactical analysis reliable\"\n  ],\n  \"risk_factors\": [\n    \"Factor B: Home's recent form against weak opposition\",\n    \"Historical: Away team has surprised in 3 of last 5 analyses\",\n    \"Factor C accuracy has been low for away team - injury impact uncertain\"\n  ],\n  \"analysis\": \"200-word analysis explaining the prediction, key factors, tactical insights, and confidence level. Reference specific historical learnings that influenced the prediction.\"\n}\n",
+        "options": {
+          "maxIterations": 50
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        2128,
+        -128
+      ],
+      "id": "6d75d403-b577-4a05-a49f-da8d027fc8ab",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -192
+      ],
+      "id": "5f62239e-eed4-4a98-9ba0-6fd8b59239d9",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "numberInputs": 9
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        944,
+        -288
+      ],
+      "id": "706dfe7f-064d-4aca-9691-4883783626c6",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I want you to make a deep research around the news of the home team {{ $('Webhook').item.json.body.home_team }} from {{ $now }} and previous days to make sure you understand all live news around the team which can help you predict better what performance the team will have.\n\nUse the same headings each update cycle and fill them with the newest info.\n\nLatest Match Results (last 5–10 games)\nUnderlying Performance Metrics (xG/xGA, shots, big chances, PPDA)\nHome vs Away Split (form, goals, concessions, tempo)\nGame-State Performance (leading/drawing/trailing trends)\nDropped Points From Winning Positions\nClean Sheet / Defensive Run Tracking\nSet-Piece For & Against (xG from set pieces, conceded patterns)\nKey Tactical Shape(s) Used (4-3-3, 4-2-3-1, etc.)\nIn-Game Management (subs timing, system changes, late-game control)\nPressing & Build-up Effectiveness (press resistance, turnovers, counter-press)\nChance Creation Sources (wide overloads, central combos, counters, long balls)\nFinishing & Conversion (striker form, shot quality, over/underperformance vs xG)\nGoalkeeper Form (PSxG, errors leading to shots/goals, cross claiming)\nDefensive Pairings & Chemistry (CB combos, fullback availability, transitions)\nInjury List (who, what, estimated return dates)\nImpact of Injuries (who replaces them, drop-off level, minutes load)\nSuspensions & Discipline (cards, risk players, tactical fouls)\nPlayer Workload & Fatigue (minutes, recovery time, high-intensity runs)\nSquad Depth by Position (A/B options, youth backups, emergency roles)\nStandout Performers (form players, role changes, development spikes)\nUnderperformers / Form Dips (why, tactical fit, confidence, fitness)\nAcademy/U21 Options Close to First Team\nLoaned-Out Players & Recall Clauses (performance + club intention)\nTransfer Rumours (credibility tier, sources, timeline)\nJanuary Window Needs by Priority (must-have vs nice-to-have)\nContract Situations (expiring deals, renewals, wage structure pressure)\nPSR/FFP & Financial Headroom (what spending is actually possible)\nOwner/Board Signals (investment, strategy shifts, infrastructure spend)\nManager Quotes & Messaging (tone, blame, confidence, tactical hints)\nFan Sentiment & Media Narrative (pressure level, patience, controversy impact)\nRefereeing/VAR Trends Affecting the Team (penalties for/against, key incidents)\nFixture List & Congestion (next 6 games, travel, rest disadvantage)\nOpposition Matchups (style clashes vs press-heavy/low-block teams)\nPerformance vs Top-6 / Midtable / Relegation Teams\nEuropean/Cup Competitions Impact (rotation, priorities, injuries)\nTraining Ground/Facilities Updates (if relevant to performance/rehab)\nLeadership & Dressing Room Indicators (captaincy, mentality, cohesion)\nMarket Value Trends (assets rising/falling; resale strategy)\nData-Based Red Flags (recurring concession patterns, zones targeted by opponents)\nPredicted XI & Bench Strength for Next Match\nScenario Planning (if key player returns / if injury worsens / if signing happens)\nSeason Targets & Table Context (points pace, objective realism)\nComparisons to Previous Season (what improved/declined and why)",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1296,
+        432
+      ],
+      "id": "8322b271-52b7-44fb-a017-b8ef3f10bc06",
+      "name": "AI Agent1",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-search-api",
+          "mode": "list",
+          "cachedResultName": "gpt-5-search-api"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        608
+      ],
+      "id": "0f232b7c-5981-45ec-b7fb-56493a89bf71",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "JRI2IKH0Wb8uUXml",
+          "name": "OpenAi personal account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=I want you to make a deep research around the news of the home team {{ $('Webhook').item.json.body.away_team }} from {{ $now }} and previous days to make sure you understand all live news around the team which can help you predict better what performance the team will have.\n\nUse the same headings each update cycle and fill them with the newest info.\n\nLatest Match Results (last 5–10 games)\nUnderlying Performance Metrics (xG/xGA, shots, big chances, PPDA)\nHome vs Away Split (form, goals, concessions, tempo)\nGame-State Performance (leading/drawing/trailing trends)\nDropped Points From Winning Positions\nClean Sheet / Defensive Run Tracking\nSet-Piece For & Against (xG from set pieces, conceded patterns)\nKey Tactical Shape(s) Used (4-3-3, 4-2-3-1, etc.)\nIn-Game Management (subs timing, system changes, late-game control)\nPressing & Build-up Effectiveness (press resistance, turnovers, counter-press)\nChance Creation Sources (wide overloads, central combos, counters, long balls)\nFinishing & Conversion (striker form, shot quality, over/underperformance vs xG)\nGoalkeeper Form (PSxG, errors leading to shots/goals, cross claiming)\nDefensive Pairings & Chemistry (CB combos, fullback availability, transitions)\nInjury List (who, what, estimated return dates)\nImpact of Injuries (who replaces them, drop-off level, minutes load)\nSuspensions & Discipline (cards, risk players, tactical fouls)\nPlayer Workload & Fatigue (minutes, recovery time, high-intensity runs)\nSquad Depth by Position (A/B options, youth backups, emergency roles)\nStandout Performers (form players, role changes, development spikes)\nUnderperformers / Form Dips (why, tactical fit, confidence, fitness)\nAcademy/U21 Options Close to First Team\nLoaned-Out Players & Recall Clauses (performance + club intention)\nTransfer Rumours (credibility tier, sources, timeline)\nJanuary Window Needs by Priority (must-have vs nice-to-have)\nContract Situations (expiring deals, renewals, wage structure pressure)\nPSR/FFP & Financial Headroom (what spending is actually possible)\nOwner/Board Signals (investment, strategy shifts, infrastructure spend)\nManager Quotes & Messaging (tone, blame, confidence, tactical hints)\nFan Sentiment & Media Narrative (pressure level, patience, controversy impact)\nRefereeing/VAR Trends Affecting the Team (penalties for/against, key incidents)\nFixture List & Congestion (next 6 games, travel, rest disadvantage)\nOpposition Matchups (style clashes vs press-heavy/low-block teams)\nPerformance vs Top-6 / Midtable / Relegation Teams\nEuropean/Cup Competitions Impact (rotation, priorities, injuries)\nTraining Ground/Facilities Updates (if relevant to performance/rehab)\nLeadership & Dressing Room Indicators (captaincy, mentality, cohesion)\nMarket Value Trends (assets rising/falling; resale strategy)\nData-Based Red Flags (recurring concession patterns, zones targeted by opponents)\nPredicted XI & Bench Strength for Next Match\nScenario Planning (if key player returns / if injury worsens / if signing happens)\nSeason Targets & Table Context (points pace, objective realism)\nComparisons to Previous Season (what improved/declined and why)",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        784
+      ],
+      "id": "003e9cc9-0d79-4772-9a1c-5b04016f5539",
+      "name": "AI Agent2",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-search-api",
+          "mode": "list",
+          "cachedResultName": "gpt-5-search-api"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1296,
+        976
+      ],
+      "id": "86c7dc1c-db77-46e6-b588-ae94524eb991",
+      "name": "OpenAI Chat Model2",
+      "credentials": {
+        "openAiApi": {
+          "id": "JRI2IKH0Wb8uUXml",
+          "name": "OpenAi personal account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('Webhook').item.json.body.model }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2128,
+        48
+      ],
+      "id": "881cbeeb-605d-423d-a0ce-ef73792e85b7",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "fkzXPPBnNzmHoZRE",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixtures?or=(home_team_id.eq.{{ $json.body.home_team_id }},away_team_id.eq.{{ $json.body.home_team_id }})&status=eq.FT&order=match_date.desc&limit=10&select=id,match_date,home_team_id,away_team_id,goals_home,goals_away,round",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "c2018231-25b4-4339-b032-ae3e8aee5a27",
+      "name": "Recent Form Home",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixtures?or=(home_team_id.eq.{{ $json.body.away_team_id }},away_team_id.eq.{{ $json.body.away_team_id }})&status=eq.FT&order=match_date.desc&limit=10&select=id,match_date,home_team_id,away_team_id,goals_home,goals_away,round",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "375564ed-91b7-4c0a-aaaf-c586af0d7134",
+      "name": "Recent Form Away",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        -176
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixture_statistics?team_id=eq.{{ $json.body.home_team_id }}&select=fixture_id,expected_goals,shots_total,shots_on_goal,ball_possession,passes_total,passes_accurate,passes_pct,corners,offsides,fouls&order=fixture_id.desc&limit=10",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "bff965f7-f5ed-435f-866d-1446ee6af33e",
+      "name": "Fixture Statistics Home",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        -352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixture_statistics?team_id=eq.{{ $json.body.away_team_id }}&select=fixture_id,expected_goals,shots_total,shots_on_goal,ball_possession,passes_total,passes_accurate,passes_pct,corners,offsides,fouls&order=fixture_id.desc&limit=10",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "439597dc-2e3d-499f-91fd-f54bf14edaea",
+      "name": "Fixture Statistics Away",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        -512
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixtures?id=eq.{{ $json.body.fixture_id }}&select=*,home_team:teams!fixtures_home_team_id_fkey(*,venue:venues(*)),away_team:teams!fixtures_away_team_id_fkey(*,venue:venues(*)),venue:venues(*),weather(*),odds(*),lineups(*),fixture_statistics(*)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "a4dd8bcf-aa1e-4e5d-b65d-3efe4bb226b0",
+      "name": "Odds and other information",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        -688
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/head_to_head?or=(and(team1_id.eq.{{ $json.body.home_team_id }},team2_id.eq.{{ $json.body.away_team_id }}),and(team1_id.eq.{{ $json.body.away_team_id }},team2_id.eq.{{ $json.body.home_team_id }}))&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "32b1e1ac-c149-4403-972a-3c9d4a51f631",
+      "name": "Head to Head",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        464,
+        -848
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/player_match_stats?team_id=eq.{{ $('Webhook').item.json.body.home_team_id }}&order=fixture_id.desc&limit=50&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "a1d68965-1e30-4668-9277-363dfa8803aa",
+      "name": "Player Match Stats Home",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        -592
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/player_match_stats?team_id=eq.{{ $('Webhook').item.json.body.away_team_id }}&order=fixture_id.desc&limit=50&select=*",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "d044bfff-55f6-4200-a1af-02a10ad18d04",
+      "name": "Player Match Stats Away",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        -432
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/player_season_stats?team_id=eq.{{ $('Webhook').item.json.body.home_team_id }}&season=eq.2025&order=rating.desc&limit=15&select=player_id,position,appearances,minutes,rating,goals,assists,yellow_cards,red_cards,penalties_scored",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "e934b295-5160-4c48-a9b6-172ad13cb079",
+      "name": "Player Season Stats Home",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        -288
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/player_season_stats?team_id=eq.{{ $('Webhook').item.json.body.away_team_id }}&season=eq.2025&order=rating.desc&limit=15&select=player_id,position,appearances,minutes,rating,goals,assists,yellow_cards,red_cards,penalties_scored",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "2d93370f-84d0-4595-97fc-cf2d39a06d83",
+      "name": "Player Season Stats Away",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        -128
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixture_events?team_id=eq.{{ $('Webhook').item.json.body.home_team_id }}&type=in.(Goal,Card)&order=fixture_id.desc&limit=100&select=fixture_id,elapsed,type,detail,player_name",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "267a0bad-26de-4027-8774-8089baf12206",
+      "name": "Fixture Events Home",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        64
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://ypddcrvjeeqavqpcypoa.supabase.co/rest/v1/fixture_events?team_id=eq.{{ $('Webhook').item.json.body.away_team_id }}&type=in.(Goal,Card)&order=fixture_id.desc&limit=100&select=fixture_id,elapsed,type,detail,player_name",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {}
+      },
+      "id": "e2c16813-dce9-4ba7-803a-c21d68d64250",
+      "name": "Fixture Events Home1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1328,
+        256
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "XULC0NdwpAaJ6Hml",
+          "name": "Team-GPT Webhook Secret"
+        },
+        "supabaseApi": {
+          "id": "Pr2zqGn57Owe0u08",
+          "name": "Supabase account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 9
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1680,
+        -272
+      ],
+      "id": "7d68b843-6bb6-4552-a63e-47bb8ce67456",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1920,
+        -160
+      ],
+      "id": "f1bcfcc0-4f96-48d5-89de-7d0e09702490",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "onn6B2VH2epao3Ep",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/onn6B2VH2epao3Ep",
+          "cachedResultName": "Save to Supabase"
+        },
+        "workflowInputs": {
+          "mappingMode": "autoMapInputData",
+          "value": "={{ $json }}"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2960,
+        80
+      ],
+      "id": "00bb3b7f-b918-44f2-bab8-4c4ec5e2cdcb",
+      "name": "Call 'Save to Supabase'"
+    },
+    {
+      "parameters": {
+        "jsCode": "  const output = $input.first().json.output || $input.first().json.message?.content || '';\n  const fixtureId = $('Webhook').first().json.body.fixture_id;\n  const model = $('Webhook').first().json.body.model;\n\n  // Parse JSON from AI response\n  let jsonStr = output;\n  const jsonMatch = output.match(/```(?:json)?\\n?([\\s\\S]*?)\\n?```/);\n  if (jsonMatch) {\n    jsonStr = jsonMatch[1];\n  }\n\n  let prediction;\n  try {\n    prediction = JSON.parse(jsonStr.trim());\n  } catch (e) {\n    const jsonObjMatch = output.match(/\\{[\\s\\S]*\\}/);\n    if (jsonObjMatch) {\n      prediction = JSON.parse(jsonObjMatch[0]);\n    } else {\n      throw new Error('Could not parse AI response as JSON');\n    }\n  }\n\n  return [{\n    json: {\n      fixture_id: fixtureId,\n      model_used: model,\n      prediction_result: prediction.prediction,\n      certainty_score: prediction.certainty_score,\n      confidence_pct: prediction.confidence_pct,\n      overall_index: prediction.overall_index,\n      home_win_pct: prediction.home_win_pct,\n      draw_pct: prediction.draw_pct,\n      away_win_pct: prediction.away_win_pct,\n      factors: prediction.factors,\n      score_predictions: prediction.score_predictions,\n      most_likely_score: prediction.most_likely_score,\n      over_under_2_5: prediction.over_under_2_5,\n      btts: prediction.btts,\n      value_bet: prediction.value_bet,\n      key_factors: prediction.key_factors,\n      risk_factors: prediction.risk_factors,\n      analysis_text: prediction.analysis\n    }\n  }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        -16
+      ],
+      "id": "d394ac97-2193-47e0-934c-dd2eb87944ed",
+      "name": "Code in JavaScript"
     }
   ],
   "connections": {
@@ -266,6 +679,41 @@
             "node": "Fetch Away Team Stats",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Fetch Standings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Recent Form Home",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Recent Form Away",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fixture Statistics Home",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fixture Statistics Away",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Odds and other information",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Head to Head",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -274,9 +722,9 @@
       "main": [
         [
           {
-            "node": "Fetch Home Team Form",
+            "node": "Merge",
             "type": "main",
-            "index": 0
+            "index": 6
           }
         ]
       ]
@@ -285,42 +733,9 @@
       "main": [
         [
           {
-            "node": "Fetch Away Team Form",
+            "node": "Merge",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Home Team Form": {
-      "main": [
-        [
-          {
-            "node": "Fetch Injuries",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Away Team Form": {
-      "main": [
-        [
-          {
-            "node": "Fetch Injuries",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Injuries": {
-      "main": [
-        [
-          {
-            "node": "Fetch Standings",
-            "type": "main",
-            "index": 0
+            "index": 7
           }
         ]
       ]
@@ -329,31 +744,9 @@
       "main": [
         [
           {
-            "node": "Build AI Prompt",
+            "node": "Merge",
             "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build AI Prompt": {
-      "main": [
-        [
-          {
-            "node": "OpenAI Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "OpenAI Analysis": {
-      "main": [
-        [
-          {
-            "node": "Parse AI Response",
-            "type": "main",
-            "index": 0
+            "index": 8
           }
         ]
       ]
@@ -368,15 +761,304 @@
           }
         ]
       ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Player Match Stats Home",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Player Match Stats Away",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Player Season Stats Home",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Player Season Stats Away",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fixture Events Home",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fixture Events Home1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recent Form Home": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Recent Form Away": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Fixture Statistics Home": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Fixture Statistics Away": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Odds and other information": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Head to Head": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Player Match Stats Home": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Player Match Stats Away": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Player Season Stats Home": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Player Season Stats Away": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Fixture Events Home": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Fixture Events Home1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Call 'Save to Supabase'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "pinData": {},
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "staticData": null,
-  "tags": [],
-  "triggerCount": 1,
-  "updatedAt": "2025-12-24T00:00:00.000Z",
-  "versionId": "1"
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6ba2e537cba590f05ed8b8eac9c819bda9a9c1ea78a56a14b9e2849f77317d88"
+  }
 }

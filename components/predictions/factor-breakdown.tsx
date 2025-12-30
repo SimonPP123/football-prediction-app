@@ -256,6 +256,33 @@ export function FactorBreakdown({ factors, overallIndex, compact = false, always
               <span>Neutral</span>
               <span>Home favored</span>
             </div>
+
+            {/* Threshold explanation */}
+            <div className="mt-3 pt-2 border-t border-border/50">
+              <p className="text-[10px] text-muted-foreground mb-1 font-medium">How the index determines the prediction:</p>
+              <div className="grid grid-cols-5 gap-1 text-[9px]">
+                <div className="text-center p-1 rounded bg-away/10">
+                  <span className="font-bold text-away">&lt;40</span>
+                  <span className="block text-muted-foreground">Away (2)</span>
+                </div>
+                <div className="text-center p-1 rounded bg-away/5">
+                  <span className="font-bold text-away/70">40-44</span>
+                  <span className="block text-muted-foreground">X2</span>
+                </div>
+                <div className="text-center p-1 rounded bg-draw/10">
+                  <span className="font-bold text-draw">45-54</span>
+                  <span className="block text-muted-foreground">Draw (X)</span>
+                </div>
+                <div className="text-center p-1 rounded bg-home/5">
+                  <span className="font-bold text-home/70">55-59</span>
+                  <span className="block text-muted-foreground">1X</span>
+                </div>
+                <div className="text-center p-1 rounded bg-home/10">
+                  <span className="font-bold text-home">60+</span>
+                  <span className="block text-muted-foreground">Home (1)</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

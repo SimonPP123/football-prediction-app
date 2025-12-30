@@ -356,28 +356,60 @@ Scoring:
 FACTOR E: TABLE POSITION & CONTEXT (13% Total Weight)
 ===============================================================================
 
-**E1. Table Stakes - Points Need (10%)**
-Question: Who needs the points more based on league position?
+**E1. Table Position Strength (10%)**
+Question: Which team demonstrates stronger league quality based on standings?
 
-DATA SOURCE: standings (rank, points, description)
+DATA SOURCE: standings (rank, points, goal_diff, description, home_record, away_record)
 
-Analysis:
-- Home: Current position, points from target (top-4, relegation, etc.)
-- Away: Current position, points from target
-- Pressure and motivation from table position
+**IMPORTANT: This factor rewards QUALITY (better league position) not desperation.
+Higher-ranked teams have proven they are better over the season.**
 
-Scoring:
-- Home desperate (relegation zone or must-win for Europe), away coasting = 85-100
-- Home fighting for key target (top-4/survival), away mid-table comfort = 70-84
-- Home moderate motivational edge from table position = 56-69
-- Both need points equally or both mid-table = 45-55
-- Away moderate motivational edge from table position = 31-44
-- Away fighting for key target, home mid-table comfort = 16-30
-- Away desperate (relegation/Europe must-win), home coasting = 1-15
+Analysis Components (combine all four):
+
+1. **Absolute League Position (40% of E1)**
+   - Top 4 (Champions League) = Elite tier
+   - 5th-6th (Europa) = High tier
+   - 7th-10th = Upper mid-table
+   - 11th-14th = Mid-table
+   - 15th-17th = Lower mid-table
+   - 18th-20th = Relegation zone
+
+2. **Points Per Game (25% of E1)**
+   - Calculate: points / played for each team
+   - Higher PPG = better sustained performance
+   - Accounts for games in hand
+
+3. **Goal Difference (20% of E1)**
+   - Large positive GD (+15 or more) = elite dominance
+   - Positive GD = winning team
+   - Negative GD = struggling team
+
+4. **Zone Security (15% of E1)**
+   - Points gap to next zone up/down
+   - Secure position (5+ pts buffer) = stable
+   - Precarious (1-2 pts) = under pressure
+
+Scoring (Home perspective - higher = favors home):
+- Home is top 4, away is bottom half; home has +15 GD advantage = 90-100
+- Home is top 6, away is lower half; home has better PPG (+0.5) and GD = 80-89
+- Home is top 8, away is bottom 10; clear quality gap across metrics = 70-79
+- Home ranked higher with better PPG and positive GD advantage = 60-69
+- Home has slight overall edge (1-3 rank gap, similar PPG, slight GD advantage) = 55-59
+- Teams evenly matched across all metrics (similar rank, PPG, GD) = 45-54
+- Away has slight overall edge (1-3 rank gap, similar PPG, slight GD advantage) = 41-44
+- Away ranked higher with better PPG and positive GD advantage = 31-40
+- Away is top 8, home is bottom 10; clear quality gap across metrics = 21-30
+- Away is top 6, home is lower half; away has better PPG (+0.5) and GD = 11-20
+- Away is top 4, home is bottom half; away has +15 GD advantage = 1-10
+
+Example Calculations:
+- Arsenal (2nd, 40pts, +25 GD) vs Brighton (9th, 28pts, +5 GD) = 82 (Home strongly favored)
+- Burnley (19th, 12pts, -15 GD) vs Newcastle (5th, 35pts, +12 GD) = 8 (Away heavily favored)
+- Wolves (10th, 24pts, +2 GD) vs Fulham (11th, 23pts, +1 GD) = 52 (Neutral - very similar)
 
 ---
 
-**E2. Club Context & Morale (2%)**
+**E2. Club Context & Morale (3%)**
 **IMPORTANT: Extract club context from the LIVE TEAM NEWS sections above**
 
 Question: Are there off-field issues affecting performance?
