@@ -367,6 +367,7 @@ export async function savePredictionToHistory(fixtureId: string) {
     .from('prediction_history')
     .insert({
       fixture_id: current.fixture_id,
+      league_id: current.league_id,
       model_used: current.model_used || current.model_version,
       prediction_result: current.prediction_result,
       overall_index: current.overall_index,
@@ -383,6 +384,9 @@ export async function savePredictionToHistory(fixtureId: string) {
       btts: current.btts || current.factors?.btts,
       confidence_pct: current.confidence_pct || current.overall_index,
       certainty_score: current.certainty_score,
+      home_team_news: current.home_team_news,
+      away_team_news: current.away_team_news,
+      raw_ai_output: current.raw_ai_output,
     })
     .select()
     .single()
@@ -459,6 +463,7 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
     .from('predictions')
     .upsert({
       fixture_id: fixtureId,
+      league_id: prediction.league_id || null,
       overall_index: overallIndex,
       prediction_result: prediction.prediction,
       confidence_level: overallIndex >= 70 ? 'high' : overallIndex >= 50 ? 'medium' : 'low',
@@ -478,6 +483,9 @@ export async function savePrediction(fixtureId: string, prediction: any, modelUs
       over_under_2_5: prediction.over_under_2_5,
       btts: prediction.btts,
       value_bet: prediction.value_bet,
+      home_team_news: prediction.home_team_news || null,
+      away_team_news: prediction.away_team_news || null,
+      raw_ai_output: prediction.raw_ai_output || null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'fixture_id' })
     .select()
@@ -515,6 +523,7 @@ export async function deletePrediction(fixtureId: string) {
       .from('predictions')
       .insert({
         fixture_id: fixtureId,
+        league_id: history.league_id,
         prediction_result: history.prediction_result,
         overall_index: history.overall_index,
         confidence_level: history.overall_index >= 70 ? 'high' : history.overall_index >= 50 ? 'medium' : 'low',
@@ -533,6 +542,9 @@ export async function deletePrediction(fixtureId: string) {
         away_win_pct: history.away_win_pct,
         over_under_2_5: history.over_under_2_5,
         btts: history.btts,
+        home_team_news: history.home_team_news,
+        away_team_news: history.away_team_news,
+        raw_ai_output: history.raw_ai_output,
         updated_at: new Date().toISOString(),
       })
 

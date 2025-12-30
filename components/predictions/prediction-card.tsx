@@ -952,6 +952,26 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                         </div>
                       )}
 
+                      {/* Team News */}
+                      {(h.home_team_news || h.away_team_news) && (
+                        <div>
+                          <h5 className="text-xs font-medium mb-1 flex items-center gap-1">
+                            <Newspaper className="w-3 h-3 text-blue-500" />
+                            Team News
+                          </h5>
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            <div>
+                              <span className="font-medium text-foreground">Home:</span>
+                              <p className="whitespace-pre-wrap">{h.home_team_news || 'N/A'}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium text-foreground">Away:</span>
+                              <p className="whitespace-pre-wrap">{h.away_team_news || 'N/A'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Value Bet */}
                       {(h.value_bet || h.factors?.value_bet) && (
                         <div className="p-2 bg-primary/10 rounded text-xs">
