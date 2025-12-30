@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Header } from '@/components/layout/header'
 import {
   Calendar,
+  CalendarPlus,
   Trophy,
   BarChart3,
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Trash2,
   Database,
   Users,
+  UsersRound,
   Target,
   ChevronDown,
   ChevronRight,
@@ -35,12 +37,19 @@ import {
   Square,
   Zap,
   CheckCircle,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
 import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
 import { DataSourceDetails } from '@/components/data/data-source-details'
 import { OddsMatchSelector } from '@/components/data-management/odds-match-selector'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 // Types
 interface LogEntry {
@@ -221,6 +230,9 @@ export default function DataManagementPage() {
   const [includeLineups, setIncludeLineups] = useState(false)
   const [isPostMatchRefreshing, setIsPostMatchRefreshing] = useState(false)
   const [includePostMatchLineups, setIncludePostMatchLineups] = useState(false)
+  const [isSeasonSetupRefreshing, setIsSeasonSetupRefreshing] = useState(false)
+  const [isWeeklyMaintenanceRefreshing, setIsWeeklyMaintenanceRefreshing] = useState(false)
+  const [isSquadSyncRefreshing, setIsSquadSyncRefreshing] = useState(false)
   const logContainerRef = useRef<HTMLDivElement>(null)
   const abortControllersRef = useRef<Record<string, AbortController>>({})
   const stopAllRef = useRef(false)
@@ -657,6 +669,231 @@ export default function DataManagementPage() {
     }
   }
 
+  const handleSeasonSetupRefresh = async () => {
+    setIsSeasonSetupRefreshing(true)
+    addLog('info', 'season-setup', 'Starting season setup refresh...')
+
+    try {
+      const res = await fetch('/api/data/refresh/season-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.type === 'log') {
+                  addLog(data.log.type, 'season-setup', data.log.message)
+                } else if (data.type === 'done') {
+                  if (data.result.success) {
+                    addLog('success', 'season-setup',
+                      `Season setup completed: ${data.result.successful}/${data.result.total} successful`
+                    )
+                  } else {
+                    addLog('error', 'season-setup',
+                      `Season setup completed with ${data.result.failed} failures`
+                    )
+                  }
+                  await fetchStats()
+                } else if (data.type === 'error') {
+                  addLog('error', 'season-setup', `Season setup failed: ${data.error}`)
+                }
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e)
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        if (data.success) {
+          addLog('success', 'season-setup',
+            `Season setup completed: ${data.successful}/${data.total} successful`
+          )
+          await fetchStats()
+        } else {
+          addLog('error', 'season-setup', `Season setup failed: ${data.error || 'Unknown error'}`)
+        }
+      }
+    } catch (error) {
+      addLog('error', 'season-setup',
+        `Season setup failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    } finally {
+      setIsSeasonSetupRefreshing(false)
+    }
+  }
+
+  const handleWeeklyMaintenanceRefresh = async () => {
+    setIsWeeklyMaintenanceRefreshing(true)
+    addLog('info', 'weekly-maintenance', 'Starting weekly maintenance refresh...')
+
+    try {
+      const res = await fetch('/api/data/refresh/weekly-maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.type === 'log') {
+                  addLog(data.log.type, 'weekly-maintenance', data.log.message)
+                } else if (data.type === 'done') {
+                  if (data.result.success) {
+                    addLog('success', 'weekly-maintenance',
+                      `Weekly maintenance completed: ${data.result.successful}/${data.result.total} successful`
+                    )
+                  } else {
+                    addLog('error', 'weekly-maintenance',
+                      `Weekly maintenance completed with ${data.result.failed} failures`
+                    )
+                  }
+                  await fetchStats()
+                } else if (data.type === 'error') {
+                  addLog('error', 'weekly-maintenance', `Weekly maintenance failed: ${data.error}`)
+                }
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e)
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        if (data.success) {
+          addLog('success', 'weekly-maintenance',
+            `Weekly maintenance completed: ${data.successful}/${data.total} successful`
+          )
+          await fetchStats()
+        } else {
+          addLog('error', 'weekly-maintenance', `Weekly maintenance failed: ${data.error || 'Unknown error'}`)
+        }
+      }
+    } catch (error) {
+      addLog('error', 'weekly-maintenance',
+        `Weekly maintenance failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    } finally {
+      setIsWeeklyMaintenanceRefreshing(false)
+    }
+  }
+
+  const handleSquadSyncRefresh = async () => {
+    setIsSquadSyncRefreshing(true)
+    addLog('info', 'squad-sync', 'Starting squad sync refresh...')
+
+    try {
+      const res = await fetch('/api/data/refresh/squad-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`HTTP ${res.status}: ${errorText || res.statusText}`)
+      }
+
+      const contentType = res.headers.get('content-type') || ''
+
+      if (contentType.includes('text/event-stream') && res.body) {
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n')
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6))
+
+                if (data.type === 'log') {
+                  addLog(data.log.type, 'squad-sync', data.log.message)
+                } else if (data.type === 'done') {
+                  if (data.result.success) {
+                    addLog('success', 'squad-sync',
+                      `Squad sync completed: ${data.result.successful}/${data.result.total} successful`
+                    )
+                  } else {
+                    addLog('error', 'squad-sync',
+                      `Squad sync completed with ${data.result.failed} failures`
+                    )
+                  }
+                  await fetchStats()
+                } else if (data.type === 'error') {
+                  addLog('error', 'squad-sync', `Squad sync failed: ${data.error}`)
+                }
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e)
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json()
+        if (data.success) {
+          addLog('success', 'squad-sync',
+            `Squad sync completed: ${data.successful}/${data.total} successful`
+          )
+          await fetchStats()
+        } else {
+          addLog('error', 'squad-sync', `Squad sync failed: ${data.error || 'Unknown error'}`)
+        }
+      }
+    } catch (error) {
+      addLog('error', 'squad-sync',
+        `Squad sync failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      )
+    } finally {
+      setIsSquadSyncRefreshing(false)
+    }
+  }
+
   const getLogColor = (type: LogEntry['type']) => {
     switch (type) {
       case 'success': return 'text-green-500'
@@ -685,118 +922,272 @@ export default function DataManagementPage() {
 
       <div className="p-6 space-y-6">
         {/* Summary Stats */}
-        <div className="bg-card border border-border rounded-lg p-4">
-          <div className="flex flex-wrap items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <Database className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Tables:</span>
-              <span className="font-bold">{summary?.totalTables || 24}</span>
+        <TooltipProvider delayDuration={200}>
+          <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+            {/* Stats Row */}
+            <div className="flex flex-wrap items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Tables:</span>
+                <span className="font-bold">{summary?.totalTables || 24}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Total Records:</span>
+                <span className="font-bold">{summary?.totalRecords?.toLocaleString() || '-'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Last Sync:</span>
+                <span className="font-bold">{formatRelativeTime(summary?.lastSync)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Refreshable:</span>
+                <span className="font-bold">{totalRefreshable} endpoints</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Total Records:</span>
-              <span className="font-bold">{summary?.totalRecords?.toLocaleString() || '-'}</span>
+
+            {/* Primary Action Buttons */}
+            <div className="flex flex-wrap gap-2">
+              {/* Season Setup */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSeasonSetupRefresh}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    <CalendarPlus className={cn("w-4 h-4", isSeasonSetupRefreshing && "animate-pulse")} />
+                    {isSeasonSetupRefreshing ? 'Running...' : 'Season Setup'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold">Run once at season start or first-time setup</p>
+                  <p className="text-xs mt-1">Populates teams, venues, fixtures, standings, managers, and squad rosters.</p>
+                  <p className="text-xs text-muted-foreground mt-1">~5-10 min</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Pre-Match */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handlePreMatchRefresh}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
+                    {isPreMatchRefreshing ? 'Running...' : 'Matchday Prep'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold">Run 3-4 hours before first match</p>
+                  <p className="text-xs mt-1">Updates standings, injuries, team stats, H2H, weather, and odds. Essential before generating predictions.</p>
+                  <p className="text-xs text-muted-foreground mt-1">~3-5 min</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Post-Match */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handlePostMatchRefresh}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    <CheckCircle className={cn("w-4 h-4", isPostMatchRefreshing && "animate-pulse")} />
+                    {isPostMatchRefreshing ? 'Running...' : 'Post-Match Sync'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold">Run 1-2 hours after matches finish</p>
+                  <p className="text-xs mt-1">Syncs results, detailed statistics (shots, xG), events (goals, cards), lineups, and updates standings.</p>
+                  <p className="text-xs text-muted-foreground mt-1">~2-3 min</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Weekly Stats */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleWeeklyMaintenanceRefresh}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    <BarChart3 className={cn("w-4 h-4", isWeeklyMaintenanceRefreshing && "animate-pulse")} />
+                    {isWeeklyMaintenanceRefreshing ? 'Running...' : 'Weekly Stats'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold">Run every Sunday afternoon</p>
+                  <p className="text-xs mt-1">Refreshes team stats, player stats, top performers, referee tendencies, and H2H history.</p>
+                  <p className="text-xs text-muted-foreground mt-1">~10-15 min</p>
+                </TooltipContent>
+              </Tooltip>
+
+              {/* Squad Sync */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSquadSyncRefresh}
+                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 text-sm font-medium"
+                  >
+                    <UsersRound className={cn("w-4 h-4", isSquadSyncRefreshing && "animate-pulse")} />
+                    {isSquadSyncRefreshing ? 'Running...' : 'Squad Sync'}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-semibold">Run during transfer windows or squad changes</p>
+                  <p className="text-xs mt-1">Updates squad rosters, recent transfers, injury status, and manager changes.</p>
+                  <p className="text-xs text-muted-foreground mt-1">~2-3 min</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <div className="flex items-center gap-2 ml-auto">
+                {/* Stop Button */}
+                {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing || isSeasonSetupRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing) && (
+                  <button
+                    onClick={handleStopAll}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
+                  >
+                    <Square className="w-4 h-4 fill-current" />
+                    Stop
+                  </button>
+                )}
+
+                {/* Refresh All */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={handleRefreshAll}
+                      disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 text-sm font-medium"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", Object.values(refreshing).some(Boolean) && "animate-spin")} />
+                      Refresh All
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Refresh all 19 endpoints sequentially</p>
+                    <p className="text-xs mt-1 text-amber-500">Warning: Takes a long time and uses many API calls. Use specific buttons instead.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Last Sync:</span>
-              <span className="font-bold">{formatRelativeTime(summary?.lastSync)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-4 h-4 text-primary" />
-              <span className="text-muted-foreground">Refreshable:</span>
-              <span className="font-bold">{totalRefreshable} endpoints</span>
-            </div>
-            <div className="ml-auto flex items-center gap-2">
-              {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing) && (
-                <button
-                  onClick={handleStopAll}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
-                >
-                  <Square className="w-4 h-4 fill-current" />
-                  Stop
-                </button>
-              )}
-              <button
-                onClick={handlePreMatchRefresh}
-                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                title="Refresh critical pre-match data (standings, injuries, stats, odds)"
-              >
-                <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
-                {isPreMatchRefreshing ? 'Refreshing...' : 'Pre-Match'}
-              </button>
-              <button
-                onClick={handlePostMatchRefresh}
-                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                title="Refresh completed match data (fixtures, statistics, events)"
-              >
-                <CheckCircle className={cn("w-4 h-4", isPostMatchRefreshing && "animate-pulse")} />
-                {isPostMatchRefreshing ? 'Refreshing...' : 'Post-Match'}
-              </button>
-              <button
-                onClick={handleRefreshAll}
-                disabled={Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm font-medium"
-              >
-                <RefreshCw className={cn("w-4 h-4", Object.values(refreshing).some(Boolean) && "animate-spin")} />
-                Refresh All
-              </button>
+
+            {/* Endpoint Details - Collapsible sections */}
+            <div className="border-t border-border pt-3 space-y-3">
+              {/* Pre-Match Options */}
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-amber-500" />
+                    Matchday Prep:
+                  </span>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">standings</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">injuries</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">team-stats</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">head-to-head</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">fixture-statistics</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">weather</code>
+                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">odds</code>
+                </div>
+                <div className="flex items-center gap-4 ml-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeRefereeStats}
+                      onChange={(e) => setIncludeRefereeStats(e.target.checked)}
+                      className="w-4 h-4 rounded border-border"
+                    />
+                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">referee-stats</code></span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeLineups}
+                      onChange={(e) => setIncludeLineups(e.target.checked)}
+                      className="w-4 h-4 rounded border-border"
+                    />
+                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">lineups</code> <span className="text-xs">(~1hr before)</span></span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Post-Match Options */}
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3 text-emerald-500" />
+                    Post-Match Sync:
+                  </span>
+                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixtures?recent_only</code>
+                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixture-statistics?recent_only</code>
+                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixture-events?recent_only</code>
+                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">standings</code>
+                </div>
+                <div className="ml-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includePostMatchLineups}
+                      onChange={(e) => setIncludePostMatchLineups(e.target.checked)}
+                      className="w-4 h-4 rounded border-border"
+                    />
+                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">lineups?recent_only</code></span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Season Setup */}
+              <div className="text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <CalendarPlus className="w-3 h-3 text-blue-500" />
+                    Season Setup:
+                  </span>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">teams</code>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">fixtures</code>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">standings</code>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">team-stats</code>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">coaches</code>
+                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">player-squads</code>
+                </div>
+              </div>
+
+              {/* Weekly Stats */}
+              <div className="text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <BarChart3 className="w-3 h-3 text-purple-500" />
+                    Weekly Stats:
+                  </span>
+                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">team-stats</code>
+                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">player-stats</code>
+                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">top-performers</code>
+                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">referee-stats</code>
+                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">head-to-head</code>
+                </div>
+              </div>
+
+              {/* Squad Sync */}
+              <div className="text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium flex items-center gap-1">
+                    <UsersRound className="w-3 h-3 text-cyan-500" />
+                    Squad Sync:
+                  </span>
+                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">player-squads</code>
+                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">transfers</code>
+                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">injuries</code>
+                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">coaches</code>
+                </div>
+              </div>
             </div>
           </div>
-          {/* Pre-Match Options */}
-          <div className="mt-3 pt-3 border-t border-border space-y-2 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-muted-foreground font-medium">Pre-Match endpoints:</span>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/standings</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/injuries</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/team-stats</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/head-to-head</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-statistics</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/weather</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/odds</code>
-            </div>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeRefereeStats}
-                  onChange={(e) => setIncludeRefereeStats(e.target.checked)}
-                  className="w-4 h-4 rounded border-border"
-                />
-                <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/referee-stats</code></span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={includeLineups}
-                  onChange={(e) => setIncludeLineups(e.target.checked)}
-                  className="w-4 h-4 rounded border-border"
-                />
-                <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/lineups</code> <span className="text-xs">(~1hr before)</span></span>
-              </label>
-            </div>
-          </div>
-          {/* Post-Match Options */}
-          <div className="mt-2 space-y-2 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-muted-foreground font-medium">Post-Match endpoints:</span>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixtures?recent_only=true</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-statistics?recent_only=true</code>
-              <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/fixture-events?recent_only=true</code>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includePostMatchLineups}
-                onChange={(e) => setIncludePostMatchLineups(e.target.checked)}
-                className="w-4 h-4 rounded border-border"
-              />
-              <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">/api/data/refresh/lineups?recent_only=true</code></span>
-            </label>
-          </div>
-        </div>
+        </TooltipProvider>
 
         {/* Categories */}
         <div className="space-y-4">

@@ -2,79 +2,54 @@ import { createSSEStream } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
-// Post-match endpoints for completed fixtures
-const POST_MATCH_ENDPOINTS = [
-  // Required (always run)
-  { key: 'fixtures', name: 'Fixtures', required: true },
-  { key: 'fixture-statistics', name: 'Match Statistics', required: true },
-  { key: 'fixture-events', name: 'Match Events', required: true },
-  { key: 'standings', name: 'League Table', required: true },
-  // Optional (user toggles)
-  { key: 'lineups', name: 'Lineups', required: false },
+// Weekly maintenance endpoints - run every Sunday to refresh aggregated stats
+// These endpoints update cumulative statistics that change over time
+const WEEKLY_MAINTENANCE_ENDPOINTS = [
+  { key: 'team-stats', name: 'Team Statistics', description: 'Full team season stats (goals, xG, form)' },
+  { key: 'player-stats', name: 'Player Statistics', description: 'Individual player performance data' },
+  { key: 'top-performers', name: 'Top Performers', description: 'Top scorers, assists, clean sheets' },
+  { key: 'referee-stats', name: 'Referee Statistics', description: 'Referee tendencies (cards, fouls)' },
+  { key: 'head-to-head', name: 'Head-to-Head', description: 'Historical H2H records for all teams' },
 ]
-
-interface PostMatchOptions {
-  includeLineups?: boolean
-}
 
 export async function POST(request: Request) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
-  // Parse options from request body
-  let options: PostMatchOptions = {}
-  try {
-    const body = await request.clone().json()
-    options = {
-      includeLineups: body.includeLineups ?? false,
-    }
-  } catch {
-    // No body or invalid JSON - use defaults
-  }
-
-  // Determine which endpoints to run
-  const endpointsToRun = POST_MATCH_ENDPOINTS.filter(ep => {
-    if (ep.required) return true
-    if (ep.key === 'lineups' && options.includeLineups) return true
-    return false
-  })
-
   ;(async () => {
     try {
-      const totalEndpoints = endpointsToRun.length
+      const totalEndpoints = WEEKLY_MAINTENANCE_ENDPOINTS.length
       sendLog({
         type: 'info',
-        message: `Starting post-match refresh (${totalEndpoints} endpoints)...`
+        message: `Starting weekly maintenance (${totalEndpoints} endpoints)...`
+      })
+      sendLog({
+        type: 'info',
+        message: 'This refreshes all aggregated statistics. Run every Sunday.'
       })
 
       const results: Record<string, { success: boolean; inserted?: number; updated?: number; errors?: number; duration?: number }> = {}
       let successCount = 0
       let failCount = 0
 
-      for (let i = 0; i < endpointsToRun.length; i++) {
-        const endpoint = endpointsToRun[i]
+      for (let i = 0; i < WEEKLY_MAINTENANCE_ENDPOINTS.length; i++) {
+        const endpoint = WEEKLY_MAINTENANCE_ENDPOINTS[i]
         const stepNum = i + 1
 
         sendLog({
           type: 'info',
-          message: `[${stepNum}/${totalEndpoints}] Refreshing ${endpoint.name}...`
+          message: `[${stepNum}/${totalEndpoints}] ${endpoint.name}: ${endpoint.description}...`
         })
 
         const endpointStart = Date.now()
 
         try {
-          // Call the individual refresh endpoint
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-          // Add recent_only parameter to filter last 7 days
-          const url = `${baseUrl}/api/data/refresh/${endpoint.key}?recent_only=true`
-
-          const response = await fetch(url, {
+          const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            // Don't use streaming for internal calls - get JSON response
           })
 
           const data = await response.json()
@@ -90,7 +65,6 @@ export async function POST(request: Request) {
               duration: endpointDuration,
             }
 
-            // Format result message
             const inserted = data.inserted ?? data.imported ?? 0
             const updated = data.updated ?? 0
             const errors = data.errors ?? 0
@@ -136,7 +110,7 @@ export async function POST(request: Request) {
 
       sendLog({
         type: successCount === totalEndpoints ? 'success' : 'warning',
-        message: `Post-match refresh complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
+        message: `Weekly maintenance complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
       })
 
       close({

@@ -2,79 +2,55 @@ import { createSSEStream } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
 
-// Post-match endpoints for completed fixtures
-const POST_MATCH_ENDPOINTS = [
-  // Required (always run)
-  { key: 'fixtures', name: 'Fixtures', required: true },
-  { key: 'fixture-statistics', name: 'Match Statistics', required: true },
-  { key: 'fixture-events', name: 'Match Events', required: true },
-  { key: 'standings', name: 'League Table', required: true },
-  // Optional (user toggles)
-  { key: 'lineups', name: 'Lineups', required: false },
+// Season setup endpoints - run once at start of season or first-time setup
+// Order matters: teams must be first (foundation), then dependent data
+const SEASON_SETUP_ENDPOINTS = [
+  { key: 'teams', name: 'Teams & Venues', description: 'Foundation data for all teams and stadiums' },
+  { key: 'fixtures', name: 'Season Fixtures', description: 'Full fixture list for the season' },
+  { key: 'standings', name: 'League Table', description: 'Initial standings and positions' },
+  { key: 'team-stats', name: 'Team Statistics', description: 'Season-to-date team stats' },
+  { key: 'coaches', name: 'Managers', description: 'Coach/manager information' },
+  { key: 'player-squads', name: 'Squad Rosters', description: 'Current squad assignments' },
 ]
-
-interface PostMatchOptions {
-  includeLineups?: boolean
-}
 
 export async function POST(request: Request) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
-  // Parse options from request body
-  let options: PostMatchOptions = {}
-  try {
-    const body = await request.clone().json()
-    options = {
-      includeLineups: body.includeLineups ?? false,
-    }
-  } catch {
-    // No body or invalid JSON - use defaults
-  }
-
-  // Determine which endpoints to run
-  const endpointsToRun = POST_MATCH_ENDPOINTS.filter(ep => {
-    if (ep.required) return true
-    if (ep.key === 'lineups' && options.includeLineups) return true
-    return false
-  })
-
   ;(async () => {
     try {
-      const totalEndpoints = endpointsToRun.length
+      const totalEndpoints = SEASON_SETUP_ENDPOINTS.length
       sendLog({
         type: 'info',
-        message: `Starting post-match refresh (${totalEndpoints} endpoints)...`
+        message: `Starting season setup (${totalEndpoints} endpoints)...`
+      })
+      sendLog({
+        type: 'info',
+        message: 'This will populate foundational data. Run once per season or on first-time setup.'
       })
 
       const results: Record<string, { success: boolean; inserted?: number; updated?: number; errors?: number; duration?: number }> = {}
       let successCount = 0
       let failCount = 0
 
-      for (let i = 0; i < endpointsToRun.length; i++) {
-        const endpoint = endpointsToRun[i]
+      for (let i = 0; i < SEASON_SETUP_ENDPOINTS.length; i++) {
+        const endpoint = SEASON_SETUP_ENDPOINTS[i]
         const stepNum = i + 1
 
         sendLog({
           type: 'info',
-          message: `[${stepNum}/${totalEndpoints}] Refreshing ${endpoint.name}...`
+          message: `[${stepNum}/${totalEndpoints}] ${endpoint.name}: ${endpoint.description}...`
         })
 
         const endpointStart = Date.now()
 
         try {
-          // Call the individual refresh endpoint
           const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-          // Add recent_only parameter to filter last 7 days
-          const url = `${baseUrl}/api/data/refresh/${endpoint.key}?recent_only=true`
-
-          const response = await fetch(url, {
+          const response = await fetch(`${baseUrl}/api/data/refresh/${endpoint.key}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            // Don't use streaming for internal calls - get JSON response
           })
 
           const data = await response.json()
@@ -90,7 +66,6 @@ export async function POST(request: Request) {
               duration: endpointDuration,
             }
 
-            // Format result message
             const inserted = data.inserted ?? data.imported ?? 0
             const updated = data.updated ?? 0
             const errors = data.errors ?? 0
@@ -136,7 +111,7 @@ export async function POST(request: Request) {
 
       sendLog({
         type: successCount === totalEndpoints ? 'success' : 'warning',
-        message: `Post-match refresh complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
+        message: `Season setup complete: ${successCount}/${totalEndpoints} successful (${(totalDuration / 1000).toFixed(1)}s)`
       })
 
       close({
