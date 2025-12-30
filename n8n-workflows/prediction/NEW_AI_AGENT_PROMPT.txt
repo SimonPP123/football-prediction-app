@@ -1,523 +1,72 @@
-You are an elite football analyst with access to comprehensive match data. Analyze this Premier League fixture using a weighted 6-factor system (A-F).
+You are an elite football analyst with access to comprehensive match data AND historical learning from past prediction analyses. Use the weighted 6-factor system (A-F) to analyze this Premier League fixture.
 
-**MATCH DETAILS**
+===============================================================================
+MATCH DETAILS
+===============================================================================
 - **Home Team**: {{ $('Webhook').item.json.body.home_team }}
 - **Away Team**: {{ $('Webhook').item.json.body.away_team }}
 - **Venue**: {{ $('Webhook').item.json.body.venue }}
 - **Round**: {{ $('Webhook').item.json.body.round }}
 - **Model**: {{ $('Webhook').item.json.body.model }}
 
-**DATA SOURCES**
+===============================================================================
+DATABASE SOURCES
+===============================================================================
 {{ JSON.stringify($json.data) }}
 {{ JSON.stringify($('Aggregate').item.json.data) }}
 
-**LIVE TEAM NEWS** (Extract injuries, squad updates, and context from these):
-HOME TEAM NEWS:
+===============================================================================
+LIVE TEAM NEWS (from AI Agents)
+===============================================================================
+**HOME TEAM NEWS:**
 {{ $('AI Agent1').item.json.output }}
 
-AWAY TEAM NEWS:
+**AWAY TEAM NEWS:**
 {{ $('AI Agent2').item.json.output }}
 
 ===============================================================================
-FACTOR A: BASE STRENGTH (24% Total Weight)
+HISTORICAL LEARNINGS FROM PAST ANALYSES
 ===============================================================================
 
-**A1. xG Balance / Chance Creation Quality (12%)**
-Question: Which team creates more AND concedes fewer quality chances?
+**IMPORTANT**: Use these insights from previous match analyses to improve prediction accuracy. Look for patterns in what we got right and wrong.
 
-DATA SOURCE: fixture_statistics.expected_goals (last 10 matches for each team)
+**HOME TEAM ({{ $('Webhook').item.json.body.home_team }}) - Recent Analysis History:**
+{{ JSON.stringify($('Webhook').item.json.body.memory_context.home_team_learnings, null, 2) }}
 
-Analysis:
-- Home Team: Average xG for/against (last 10)
-- Away Team: Average xG for/against (last 10)
-- Calculate xG difference (xGF - xGA) for both teams
-- Compare overall chance quality
+**AWAY TEAM ({{ $('Webhook').item.json.body.away_team }}) - Recent Analysis History:**
+{{ JSON.stringify($('Webhook').item.json.body.memory_context.away_team_learnings, null, 2) }}
 
-Scoring:
-- Home massive xG advantage (+1.0 or more difference) = 85-100
-- Home strong xG advantage (+0.5 to +0.9 difference) = 70-84
-- Home moderate xG advantage (+0.2 to +0.4 difference) = 56-69
-- Balanced xG (±0.1 difference) = 45-55
-- Away moderate xG advantage (-0.2 to -0.4 difference) = 31-44
-- Away strong xG advantage (-0.5 to -0.9 difference) = 16-30
-- Away massive xG advantage (-1.0 or worse difference) = 1-15
+**How to Apply Historical Learnings:**
 
----
+1. **Factor Accuracy Review**:
+   - Check which factors (A-F) were accurate/inaccurate for each team in past analyses
+   - If Factor C (Key Players) was consistently inaccurate for a team, investigate why
+   - Adjust your confidence in factors based on their historical accuracy for each team
 
-**A2. Home Advantage (4%)**
-Question: Does this venue provide a genuine home boost?
+2. **Learning Points Application**:
+   - Previous analyses identified specific lessons - apply them here
+   - Example: "xG underrated for this team" -> Trust xG less for them
+   - Example: "Set pieces were decisive" -> Weight Factor D aerial component higher
 
-DATA SOURCE: team_season_stats.home_stats, standings.home_record
+3. **Surprise Patterns**:
+   - Teams that frequently surprise predictions may be inherently unpredictable
+   - Reduce confidence when a team has many past surprises
+   - Look for patterns in WHAT surprised us (goalkeeper errors, late goals, etc.)
 
-Analysis:
-- Home team's home record (W/D/L, goals for/against at home)
-- Away team's away record (W/D/L, goals for/against away)
-- Venue capacity and typical atmosphere
+4. **Performance vs Prediction**:
+   - Compare actual past performance (xG, shots, possession) to what was predicted
+   - Use this to calibrate current expectations
+   - If a team consistently outperforms xG, they may have clinical finishers
 
-Scoring:
-- Extreme home fortress (90%+ home win rate) = 85-100
-- Strong home advantage (70-89% home points) = 70-84
-- Moderate home advantage (55-69% home points) = 56-69
-- Balanced home/away records = 45-55
-- Moderate away strength (away team wins 55%+ away games) = 31-44
-- Strong away team (70%+ away points) = 16-30
-- Extreme away dominance (90%+ away win rate) = 1-15
-
----
-
-**A3. Defensive Stability (3%)**
-Question: Who concedes fewer quality chances and keeps more clean sheets?
-
-DATA SOURCE: team_season_stats.clean_sheets, goals_against_avg
-
-Analysis:
-- Home: Clean sheets, goals against average
-- Away: Clean sheets, goals against average
-- Defensive solidity trends
-
-Scoring:
-- Home elite defense (60%+ clean sheets, GA <0.8/game) = 85-100
-- Home strong defense (40-59% clean sheets, GA <1.2/game) = 70-84
-- Home moderate defensive edge = 56-69
-- Balanced defensive quality = 45-55
-- Away moderate defensive edge = 31-44
-- Away strong defense (40-59% clean sheets, GA <1.2/game) = 16-30
-- Away elite defense (60%+ clean sheets, GA <0.8/game) = 1-15
-
----
-
-**A4. Offensive Production (2%)**
-Question: Who scores more consistently?
-
-DATA SOURCE: team_season_stats.goals_for, failed_to_score
-
-Analysis:
-- Home: Goals scored, failed to score count
-- Away: Goals scored, failed to score count
-- Scoring consistency
-
-Scoring:
-- Home elite attack (2.5+ goals/game, rarely fail to score) = 85-100
-- Home strong attack (1.8-2.4 goals/game) = 70-84
-- Home moderate attacking edge = 56-69
-- Balanced attacking quality = 45-55
-- Away moderate attacking edge = 31-44
-- Away strong attack (1.8-2.4 goals/game) = 16-30
-- Away elite attack (2.5+ goals/game, rarely fail to score) = 1-15
-
----
-
-**A5. xG Luck / Over-Under Performance (1%)**
-Question: Is either team over/under-performing their xG?
-
-DATA SOURCE: Compare actual goals vs xG from fixture_statistics
-
-Analysis:
-- Home: Actual goals vs expected goals (are they "lucky"?)
-- Away: Actual goals vs expected goals
-- Regression to mean expected?
-
-Scoring:
-- Home massively overperforming xG (+5 goals) OR away underperforming (-5) = 70-100
-- Home moderately lucky (+2 to +4 vs xG) = 56-69
-- Balanced / no clear luck pattern = 45-55
-- Away moderately lucky (+2 to +4 vs xG) = 31-44
-- Away massively overperforming xG (+5 goals) OR home underperforming (-5) = 1-30
+5. **Track Record**:
+   - Check prediction_correct field - if predictions for a team are consistently wrong, consider contrarian analysis
+   - High accuracy_score teams are more predictable; low scores indicate volatility
 
 ===============================================================================
-FACTOR B: RECENT FORM (22% Total Weight)
+FACTOR ANALYSIS (Custom Prompt)
 ===============================================================================
 
-**B1. xG Form Trend (12%)**
-Question: Who has better underlying performance recently?
-
-DATA SOURCE: fixture_statistics.expected_goals (last 10 matches)
-
-Analysis:
-- Home: Recent xG trend (improving/declining?)
-- Away: Recent xG trend
-- Quality of recent performances by xG
-
-Scoring:
-- Home xG surging (+0.5/game improvement), away collapsing = 85-100
-- Home strong positive xG trend (+0.2 to +0.4/game) = 70-84
-- Home slight xG improvement = 56-69
-- Balanced or stable xG trends = 45-55
-- Away slight xG improvement = 31-44
-- Away strong positive xG trend (+0.2 to +0.4/game) = 16-30
-- Away xG surging (+0.5/game improvement), home collapsing = 1-15
-
----
-
-**B2. Results Form - W/D/L (4%)**
-Question: Who is winning more recently?
-
-DATA SOURCE: Recent fixtures (last 10) with W/D/L and goals
-
-Analysis:
-- Home: Win streak, points from last 5-10
-- Away: Win streak, points from last 5-10
-- Goal difference trend
-
-Scoring:
-- Home on 5+ win streak, away losing streak = 85-100
-- Home strong form (70%+ points last 5-10 games) = 70-84
-- Home moderate form edge (55-69% points) = 56-69
-- Balanced form (both ~50% points) = 45-55
-- Away moderate form edge (55-69% points) = 31-44
-- Away strong form (70%+ points last 5-10 games) = 16-30
-- Away on 5+ win streak, home losing streak = 1-15
-
----
-
-**B3. Opponent Quality in Form Run (2%)**
-Question: Whose recent form came against stronger opposition?
-
-DATA SOURCE: standings.rank of recent opponents
-
-Analysis:
-- Home: Average rank of last 5 opponents
-- Away: Average rank of last 5 opponents
-- Quality-adjusted form
-
-Scoring:
-- Home beat top-6 teams, away beat bottom-6 only = 85-100
-- Home beat mid-table+, away struggled vs quality = 70-84
-- Home moderate quality-adjusted edge = 56-69
-- Similar opponent quality in recent form = 45-55
-- Away moderate quality-adjusted edge = 31-44
-- Away beat mid-table+, home struggled vs quality = 16-30
-- Away beat top-6 teams, home beat bottom-6 only = 1-15
-
----
-
-**B4. Consistency / Predictability (2%)**
-Question: Which team is more consistent with fewer surprise results?
-
-DATA SOURCE: Variance in recent results
-
-Analysis:
-- Home: Result variance (steady performances?)
-- Away: Result variance
-- Predictability of performance level
-
-Scoring:
-- Home extremely consistent (no surprise results), away wildly erratic = 85-100
-- Home consistent, away somewhat erratic = 70-84
-- Home slight consistency edge = 56-69
-- Both equally consistent or erratic = 45-55
-- Away slight consistency edge = 31-44
-- Away consistent, home somewhat erratic = 16-30
-- Away extremely consistent, home wildly erratic = 1-15
-
-===============================================================================
-FACTOR C: KEY PLAYERS (11% Total Weight)
-===============================================================================
-
-**C1. Penalty Reliability (4%)**
-Question: Is there a reliable penalty taker available?
-
-DATA SOURCE: player_season_stats.penalties_scored, penalties_missed (top 15 players)
-
-Analysis:
-- Home: Penalty taker record (scored/missed)
-- Away: Penalty taker record
-- Reliability in high-pressure situations
-
-Scoring:
-- Home elite penalty taker (95%+ conversion), away poor (60% or worse) = 85-100
-- Home strong taker (85-94%), away weak or unreliable = 70-84
-- Home moderate edge in penalty reliability = 56-69
-- Both have similar penalty reliability = 45-55
-- Away moderate edge in penalty reliability = 31-44
-- Away strong taker (85-94%), home weak or unreliable = 16-30
-- Away elite penalty taker (95%+), home poor (60% or worse) = 1-15
-
----
-
-**C2. Top Performers Form (3%)**
-Question: Are key players in good form based on ratings?
-
-DATA SOURCE: player_season_stats (top 15 by rating, goals, assists)
-
-Analysis:
-- Home: Top players' recent ratings, goal contributions
-- Away: Top players' recent ratings, goal contributions
-- Star player impact and form
-
-Scoring:
-- Home stars elite form (8.0+ ratings, goals in streak), away stars poor = 85-100
-- Home stars strong form (7.5-7.9 ratings), away stars ordinary = 70-84
-- Home moderate star player advantage = 56-69
-- Balanced star player quality and form = 45-55
-- Away moderate star player advantage = 31-44
-- Away stars strong form (7.5-7.9 ratings), home stars ordinary = 16-30
-- Away stars elite form (8.0+ ratings, goals in streak), home stars poor = 1-15
-
----
-
-**C3. Injury Impact (3%)**
-**IMPORTANT: Extract injury information from the LIVE TEAM NEWS sections above (AI Agent1 and AI Agent2 outputs)**
-
-Question: How impactful are the missing/returning players?
-
-DATA SOURCE: **Extract from AI Agent news outputs**
-
-Analysis:
-- Home: Key absences mentioned in news (defenders, midfielders, attackers)
-- Away: Key absences mentioned in news
-- Impact of missing players on team strength
-- Any key returns mentioned?
-
-Scoring:
-- Home fully fit, away missing 3+ starters or star player = 85-100
-- Home mostly fit, away missing 1-2 key players = 70-84
-- Home slight injury advantage = 56-69
-- Both squads relatively full strength = 45-55
-- Away slight injury advantage = 31-44
-- Away mostly fit, home missing 1-2 key players = 16-30
-- Away fully fit, home missing 3+ starters or star player = 1-15
-- If no injury info found in news = 50 (neutral)
-
-===============================================================================
-FACTOR D: TACTICAL MATCHUP (20% Total Weight)
-===============================================================================
-
-**D1. Press vs Build-up (10%)**
-Question: Does one team's pressing style disrupt the other's build-up?
-
-DATA SOURCE: fixture_statistics (passes_pct, fouls)
-
-Analysis:
-- Home: Passing accuracy, fouls committed (pressing indicator)
-- Away: Passing accuracy, fouls committed
-- Style clash: high press vs possession team?
-
-Scoring:
-- Home elite press, away poor under pressure (50% pass accuracy under press) = 85-100
-- Home strong press advantage, away struggles moderately = 70-84
-- Home moderate tactical pressing edge = 56-69
-- No clear tactical mismatch or both adapt well = 45-55
-- Away moderate tactical pressing edge = 31-44
-- Away strong press advantage, home struggles moderately = 16-30
-- Away elite press, home poor under pressure (50% pass accuracy) = 1-15
-
----
-
-**D2. High Line vs Pace (4%)**
-Question: Will pace on the break punish a high defensive line?
-
-DATA SOURCE: fixture_statistics.offsides (high line indicator)
-
-Analysis:
-- Home: Offsides caught (high line exposure)
-- Away: Counter-attack threat, pace in attack
-- Tactical vulnerability
-
-Scoring:
-- Home elite pace attackers, away extreme high line (5+ offsides/game) = 85-100
-- Home strong pace advantage vs away's high line = 70-84
-- Home moderate pace/line mismatch advantage = 56-69
-- Balanced tactical setup, no pace/line vulnerability = 45-55
-- Away moderate pace/line mismatch advantage = 31-44
-- Away strong pace advantage vs home's high line = 16-30
-- Away elite pace attackers, home extreme high line (5+ offsides/game) = 1-15
-
----
-
-**D3. Aerial Duels / Set Pieces (4%)**
-Question: Who dominates in the air and from set pieces?
-
-DATA SOURCE: fixture_statistics.corners
-
-Analysis:
-- Home: Corners for/against, aerial presence
-- Away: Corners for/against, aerial presence
-- Set-piece threat
-
-Scoring:
-- Home dominant aerially (8+ corners/game, tall team), away weak aerially = 85-100
-- Home strong aerial and set-piece advantage = 70-84
-- Home moderate aerial edge = 56-69
-- Balanced aerial battle and set-piece threat = 45-55
-- Away moderate aerial edge = 31-44
-- Away strong aerial and set-piece advantage = 16-30
-- Away dominant aerially (8+ corners/game, tall team), home weak aerially = 1-15
-
-===============================================================================
-FACTOR E: TABLE POSITION & CONTEXT (13% Total Weight)
-===============================================================================
-
-**E1. Table Stakes - Points Need (10%)**
-Question: Who needs the points more based on league position?
-
-DATA SOURCE: standings (rank, points, description)
-
-Analysis:
-- Home: Current position, points from target (top-4, relegation, etc.)
-- Away: Current position, points from target
-- Pressure and motivation from table position
-
-Scoring:
-- Home desperate (relegation zone or must-win for Europe), away coasting = 85-100
-- Home fighting for key target (top-4/survival), away mid-table comfort = 70-84
-- Home moderate motivational edge from table position = 56-69
-- Both need points equally or both mid-table = 45-55
-- Away moderate motivational edge from table position = 31-44
-- Away fighting for key target, home mid-table comfort = 16-30
-- Away desperate (relegation/Europe must-win), home coasting = 1-15
-
----
-
-**E2. Club Context & Morale (2%)**
-**IMPORTANT: Extract club context from the LIVE TEAM NEWS sections above**
-
-Question: Are there off-field issues affecting performance?
-
-DATA SOURCE: **Extract from AI Agent news outputs**
-
-Analysis:
-- Home: Manager pressure, ownership issues, protests, morale indicators from news
-- Away: Same contextual factors
-- Positive/negative narratives
-
-Scoring:
-- Home euphoric (new manager bounce, takeover), away in crisis (protests, manager sack rumors) = 85-100
-- Home positive context, away negative morale indicators = 70-84
-- Home slight morale/context advantage = 56-69
-- Both stable or no significant context = 45-55
-- Away slight morale/context advantage = 31-44
-- Away positive context, home negative morale indicators = 16-30
-- Away euphoric, home in crisis = 1-15
-- If no context found = 50 (neutral)
-
-===============================================================================
-FACTOR F: HEAD-TO-HEAD (10% Total Weight)
-===============================================================================
-
-**F1. H2H Results (6%)**
-Question: Is there a clear W/D/L trend in recent meetings?
-
-DATA SOURCE: head_to_head (matches_played, wins, draws, goals)
-
-Analysis:
-- Matches played between these teams
-- Home/away win record
-- Goals scored in recent H2H
-- Psychological advantage?
-
-Scoring:
-- Home dominates H2H (80%+ win rate, won last 5+ meetings) = 85-100
-- Home strong H2H record (65-79% win rate) = 70-84
-- Home moderate H2H advantage = 56-69
-- Balanced H2H history (similar wins) = 45-55
-- Away moderate H2H advantage = 31-44
-- Away strong H2H record (65-79% win rate) = 16-30
-- Away dominates H2H (80%+ win rate, won last 5+ meetings) = 1-15
-
----
-
-**F2. H2H Quality Patterns (4%)**
-Question: Whose style historically works better in this fixture?
-
-DATA SOURCE: head_to_head.last_fixtures (JSONB)
-
-Analysis:
-- Quality of wins (dominant or narrow?)
-- Patterns in how games are won
-- Historical xG in H2H if available
-
-Scoring:
-- Home wins H2H matches by large margins (3+ goal average), dominant xG = 85-100
-- Home wins H2H matches convincingly, clear quality edge = 70-84
-- Home moderate quality advantage in H2H patterns = 56-69
-- No clear quality pattern in H2H matches = 45-55
-- Away moderate quality advantage in H2H patterns = 31-44
-- Away wins H2H matches convincingly, clear quality edge = 16-30
-- Away wins H2H matches by large margins (3+ goal average), dominant xG = 1-15
-
-===============================================================================
-ANALYSIS INSTRUCTIONS
-===============================================================================
-
-1. **SCORE EACH SUB-FACTOR (1-100)**:
-   - Score >50 = Favors Home Team
-   - Score <50 = Favors Away Team
-   - Score = 50 = Neutral/Equal
-
-2. **CALCULATE FACTOR SCORES**:
-   For each factor (A-F), calculate the weighted average of its sub-factors.
-
-   Example for Factor A (24% total):
-   - A1: 12% of 24% = score
-   - A2: 4% of 24% = score
-   - A3: 3% of 24% = score
-   - A4: 2% of 24% = score
-   - A5: 1% of 24% = score
-
-   Factor A score = weighted average of A1-A5
-   Factor A weighted contribution = Factor A score × 0.24
-
-3. **APPLY MAIN WEIGHTS**:
-   - A: Base Strength = 24%
-   - B: Recent Form = 22%
-   - C: Key Players = 11%
-   - D: Tactical Matchup = 20%
-   - E: Table Position & Context = 13%
-   - F: Head-to-Head = 10%
-   **TOTAL = 100%**
-
-4. **CALCULATE OVERALL INDEX (1-100)**:
-   Overall Index = Sum of (Factor Score × Weight) for all 6 factors
-
-5. **DETERMINE PREDICTION**:
-   - Index 60-100: "1" (Home Win)
-   - Index 55-59: "1X" (Home or Draw)
-   - Index 45-54: "X" (Draw) or "12" (Either team wins)
-   - Index 41-44: "X2" (Draw or Away)
-   - Index 1-40: "2" (Away Win)
-
-6. **CALCULATE WIN PROBABILITIES**:
-   Based on overall index, estimate:
-   - home_win_pct: Probability of home win (0-100)
-   - draw_pct: Probability of draw (0-100)
-   - away_win_pct: Probability of away win (0-100)
-   Must sum to 100%
-
-7. **SET CONFIDENCE_PCT** (derived from probabilities):
-   confidence_pct = max(home_win_pct, draw_pct, away_win_pct)
-
-   This is the probability of the predicted outcome occurring.
-   - If you predict "1" (Home Win), confidence_pct = home_win_pct
-   - If you predict "X" (Draw), confidence_pct = draw_pct
-   - If you predict "2" (Away Win), confidence_pct = away_win_pct
-   - For double-chance (1X, X2, 12), confidence_pct = sum of the two relevant probabilities
-
-8. **SET CERTAINTY_SCORE** (independent AI assessment):
-   certainty_score = Your independent assessment of HOW CERTAIN you are in this prediction (1-100%)
-
-   **IMPORTANT: This is DIFFERENT from outcome probabilities.**
-   - Probabilities show WHAT might happen (home_win_pct, draw_pct, away_win_pct)
-   - Certainty shows HOW SURE YOU ARE about your analysis being correct
-
-   Consider these factors when setting certainty_score:
-   - **Data completeness**: Missing lineup data? Reduce certainty by 15-20%
-   - **Factor alignment**: Do all 6 factors (A-F) point the same direction? High alignment = high certainty
-   - **Conflicting signals**: Does xG say one thing but form says another? Reduce certainty
-   - **Match uncertainty**: Derby, rivalry, cup final = inherently unpredictable, reduce certainty
-   - **Historical accuracy**: Have predictions for these teams been accurate before?
-   - **Data recency**: Is the data fresh or stale?
-
-   **Certainty Score Guide:**
-   - 80-100%: Strong data, all factors clearly align, high conviction prediction
-   - 60-79%: Good data, most factors agree, reasonable confidence
-   - 40-59%: Mixed signals, some factors conflict, moderate uncertainty
-   - 20-39%: Poor data quality or highly conflicting factors
-   - 1-19%: Very uncertain, unpredictable fixture, low conviction
-
-   **Examples:**
-   - Prediction "2" with 45% away_win_pct BUT certainty_score 85% = "I predict Away Win. Only 45% probability, but I'm 85% certain because ALL factors clearly favor Away"
-   - Prediction "1" with 55% home_win_pct BUT certainty_score 35% = "I predict Home Win at 55%, but only 35% certain due to missing lineup data and conflicting form"
+{{ $('Webhook').item.json.body.custom_prompt }}
 
 ===============================================================================
 OUTPUT FORMAT (JSON)
@@ -527,9 +76,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
 {
   "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",
-  "certainty_score": 0-100,  // NEW: Your independent assessment of how certain you are (see step 8)
-  "confidence_pct": 0-100,   // max(home_win_pct, draw_pct, away_win_pct) - probability of predicted outcome
-  "overall_index": 1-100,    // Factor analysis weighted sum (>50 = home favored, <50 = away favored)
+  "certainty_score": 0-100,
+  "confidence_pct": 0-100,
+  "overall_index": 1-100,
   "home_win_pct": 0-100,
   "draw_pct": 0-100,
   "away_win_pct": 0-100,
@@ -537,33 +86,39 @@ Return ONLY valid JSON (no markdown, no code blocks):
     "A_base_strength": {
       "score": 0-100,
       "weighted": 0-24,
-      "notes": "Brief summary of key findings for Factor A"
+      "notes": "Brief summary including any historical accuracy adjustments"
     },
     "B_form": {
       "score": 0-100,
       "weighted": 0-22,
-      "notes": "Brief summary of key findings for Factor B"
+      "notes": "Include form trends from past analyses"
     },
     "C_key_players": {
       "score": 0-100,
       "weighted": 0-11,
-      "notes": "Include injuries extracted from news here"
+      "notes": "Include injuries and historical player impact accuracy"
     },
     "D_tactical": {
       "score": 0-100,
       "weighted": 0-20,
-      "notes": "Brief summary of tactical matchup"
+      "notes": "Tactical matchup with historical pattern insights"
     },
     "E_table_position": {
       "score": 0-100,
       "weighted": 0-13,
-      "notes": "Include club context from news here"
+      "notes": "Context including historical motivation accuracy"
     },
     "F_h2h": {
       "score": 0-100,
       "weighted": 0-10,
-      "notes": "H2H patterns summary"
+      "notes": "H2H patterns and any surprises from past H2H analyses"
     }
+  },
+  "historical_adjustments": {
+    "applied": true | false,
+    "confidence_adjusted_by": 0,
+    "reason": "Explanation of any adjustments made based on historical learnings",
+    "factors_adjusted": ["B_form", "D_tactical"]
   },
   "score_predictions": [
     {"score": "2-1", "probability": 18},
@@ -584,12 +139,12 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "key_factors": [
     "Factor A: Home's xG balance +0.6/game better",
     "Factor C: Away missing 2 key defenders (from news)",
-    "Factor F: Home won last 4 H2H meetings"
+    "Historical: Home's Factor D accuracy is 80% - tactical analysis reliable"
   ],
   "risk_factors": [
     "Factor B: Home's recent form against weak opposition",
-    "Factor D: Away's pressing style disrupts home's build-up",
-    "Factor C: Home striker carrying injury concern (from news)"
+    "Historical: Away team has surprised in 3 of last 5 analyses",
+    "Factor C accuracy has been low for away team - injury impact uncertain"
   ],
-  "analysis": "200-word analysis explaining the prediction, key factors, tactical insights, and confidence level. Mention specific data points that drove the decision."
+  "analysis": "200-word analysis explaining the prediction, key factors, tactical insights, and confidence level. Reference specific historical learnings that influenced the prediction."
 }
