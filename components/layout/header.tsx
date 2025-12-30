@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Bell, Shield, LogOut, User } from 'lucide-react'
+import { Shield, LogOut, User } from 'lucide-react'
 
 interface HeaderProps {
   title: string
@@ -86,11 +86,6 @@ export function Header({ title, subtitle }: HeaderProps) {
               <span className="hidden sm:inline">{authData.username}</span>
             </div>
           )}
-
-          {/* Notifications */}
-          <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-            <Bell className="w-5 h-5 text-muted-foreground" />
-          </button>
 
           {/* Logout */}
           <button
