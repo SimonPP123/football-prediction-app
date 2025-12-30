@@ -27,9 +27,9 @@ export default async function DashboardPage() {
 
   const [stats, upcomingFixtures, standings, recentResults, bestFactor, liveFixtures] = await Promise.all([
     getDashboardStats(leagueId),
-    getUpcomingWithFactors(6, leagueId),
+    getUpcomingWithFactors(3, leagueId),
     getStandings(leagueId),
-    getRecentResultsWithAccuracy(5, leagueId),
+    getRecentResultsWithAccuracy(3, leagueId),
     getBestPerformingFactor(leagueId),
     getLiveFixtures(leagueId),
   ])
@@ -129,7 +129,7 @@ export default async function DashboardPage() {
                 No upcoming matches scheduled
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {upcomingFixtures.map((fixture: any) => (
                   <UpcomingMatchCard
                     key={fixture.id}
@@ -233,7 +233,7 @@ export default async function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {recentResults.length === 0 ? (
               <div className="col-span-full bg-card border rounded-lg p-8 text-center text-muted-foreground">
                 No recent matches
