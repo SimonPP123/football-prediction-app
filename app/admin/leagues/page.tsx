@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { Plus, RefreshCw, Check, X, Play, Pause, Edit2, Save, Globe, Loader2 } from 'lucide-react'
+import { Plus, RefreshCw, Check, X, Play, Edit2, Save, Globe, Loader2, RotateCcw, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface League {
@@ -16,6 +16,25 @@ interface League {
   is_active: boolean
   display_order: number
   created_at: string
+}
+
+// Season Setup Steps
+const SETUP_STEPS = [
+  { key: 'teams', name: 'Teams & Venues', description: 'Foundation data for all teams' },
+  { key: 'fixtures', name: 'Season Fixtures', description: 'Full fixture list' },
+  { key: 'standings', name: 'League Table', description: 'Current standings' },
+  { key: 'team-stats', name: 'Team Statistics', description: 'Season stats' },
+  { key: 'coaches', name: 'Managers', description: 'Coach information' },
+  { key: 'player-squads', name: 'Squad Rosters', description: 'Player assignments' },
+]
+
+interface SetupStep {
+  key: string
+  name: string
+  status: 'pending' | 'running' | 'success' | 'error'
+  message?: string
+  duration?: string
+  counts?: string
 }
 
 // Popular leagues for quick add
@@ -37,8 +56,16 @@ export default function AdminLeaguesPage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<League>>({})
-  const [runningSetup, setRunningSetup] = useState<string | null>(null)
+
+  // Setup modal state
+  const [setupLeague, setSetupLeague] = useState<League | null>(null)
+  const [setupSteps, setSetupSteps] = useState<SetupStep[]>([])
   const [setupLogs, setSetupLogs] = useState<string[]>([])
+  const [setupRunning, setSetupRunning] = useState(false)
+  const [setupComplete, setSetupComplete] = useState(false)
+  const [showDetailedLogs, setShowDetailedLogs] = useState(false)
+  const [retryingStep, setRetryingStep] = useState<string | null>(null)
+  const logsEndRef = useRef<HTMLDivElement>(null)
 
   // New league form state
   const [newLeague, setNewLeague] = useState({
@@ -50,6 +77,13 @@ export default function AdminLeaguesPage() {
     isActive: false,
   })
   const [creating, setCreating] = useState(false)
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (logsEndRef.current && showDetailedLogs) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [setupLogs, showDetailedLogs])
 
   // Fetch leagues
   const fetchLeagues = async () => {
@@ -89,6 +123,29 @@ export default function AdminLeaguesPage() {
       fetchLeagues()
     } catch (err) {
       alert('An error occurred')
+    }
+  }
+
+  // Activate league
+  const activateLeague = async (leagueId: string) => {
+    try {
+      const res = await fetch('/api/admin/leagues', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: leagueId, isActive: true }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to activate league')
+      }
+
+      setSetupLogs(prev => [...prev, '✓ League activated successfully!'])
+      fetchLeagues()
+      return true
+    } catch (err) {
+      setSetupLogs(prev => [...prev, `✗ Failed to activate: ${err instanceof Error ? err.message : 'Unknown error'}`])
+      return false
     }
   }
 
@@ -175,14 +232,43 @@ export default function AdminLeaguesPage() {
     }
   }
 
+  // Parse step info from message
+  const parseStepFromMessage = (message: string): { stepIndex: number; isStart: boolean; isComplete: boolean; counts?: string; duration?: string } | null => {
+    // Match step start: "[1/6] Teams & Venues: ..."
+    const startMatch = message.match(/^\[(\d+)\/6\]\s+(.+?):\s*(.*)$/)
+    if (startMatch) {
+      return { stepIndex: parseInt(startMatch[1]) - 1, isStart: true, isComplete: false }
+    }
+
+    // Match completion with counts: "Teams: 20 inserted, 0 updated (2.3s)"
+    const completeMatch = message.match(/^(Teams|Fixtures|Standings|Team Stats|Coaches|Player Squads):\s*(.+?)\s*\((\d+\.?\d*)s\)$/i)
+    if (completeMatch) {
+      const stepName = completeMatch[1].toLowerCase()
+      const stepMap: Record<string, number> = {
+        'teams': 0, 'fixtures': 1, 'standings': 2, 'team stats': 3, 'coaches': 4, 'player squads': 5
+      }
+      const idx = stepMap[stepName]
+      if (idx !== undefined) {
+        return { stepIndex: idx, isStart: false, isComplete: true, counts: completeMatch[2], duration: `${completeMatch[3]}s` }
+      }
+    }
+
+    return null
+  }
+
   // Run season setup for a league
   const runSeasonSetup = async (league: League) => {
     if (!confirm(`Run Season Setup for ${league.name}? This will fetch all foundational data.`)) {
       return
     }
 
-    setRunningSetup(league.id)
+    // Initialize modal state
+    setSetupLeague(league)
+    setSetupSteps(SETUP_STEPS.map(s => ({ key: s.key, name: s.name, status: 'pending' as const })))
     setSetupLogs([`Starting season setup for ${league.name}...`])
+    setSetupRunning(true)
+    setSetupComplete(false)
+    setShowDetailedLogs(false)
 
     try {
       const res = await fetch(`/api/data/refresh/season-setup?league_id=${league.id}`, {
@@ -195,6 +281,7 @@ export default function AdminLeaguesPage() {
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
+      let currentStepIndex = -1
 
       while (true) {
         const { done, value } = await reader.read()
@@ -206,13 +293,60 @@ export default function AdminLeaguesPage() {
         for (const line of lines) {
           try {
             const data = JSON.parse(line.slice(6))
-            // Backend sends type: 'info'|'success'|'error'|'warning'|'progress', not 'log'
+
             if (data.message) {
               setSetupLogs(prev => [...prev, data.message])
+
+              // Parse step progress
+              const stepInfo = parseStepFromMessage(data.message)
+              if (stepInfo) {
+                if (stepInfo.isStart) {
+                  currentStepIndex = stepInfo.stepIndex
+                  setSetupSteps(prev => prev.map((s, i) =>
+                    i === stepInfo.stepIndex ? { ...s, status: 'running' } : s
+                  ))
+                } else if (stepInfo.isComplete) {
+                  setSetupSteps(prev => prev.map((s, i) =>
+                    i === stepInfo.stepIndex ? {
+                      ...s,
+                      status: 'success',
+                      counts: stepInfo.counts,
+                      duration: stepInfo.duration
+                    } : s
+                  ))
+                }
+              }
+
+              // Check for errors in message
+              if (data.type === 'error' || data.message.toLowerCase().includes('error') || data.message.toLowerCase().includes('failed')) {
+                if (currentStepIndex >= 0) {
+                  setSetupSteps(prev => prev.map((s, i) =>
+                    i === currentStepIndex && s.status === 'running' ? {
+                      ...s,
+                      status: 'error',
+                      message: data.message
+                    } : s
+                  ))
+                }
+              }
             }
-            // Backend sends done: true in final summary, not type: 'complete'
+
+            // Final summary
             if (data.done) {
-              setSetupLogs(prev => [...prev, `Setup complete!`])
+              setSetupRunning(false)
+              setSetupComplete(true)
+
+              // Check if all steps succeeded
+              const allSucceeded = data.failed === 0
+
+              if (allSucceeded) {
+                setSetupLogs(prev => [...prev, `✓ All ${data.successful}/${data.endpoints} steps completed successfully!`])
+                // Auto-activate the league
+                setSetupLogs(prev => [...prev, 'Activating league...'])
+                await activateLeague(league.id)
+              } else {
+                setSetupLogs(prev => [...prev, `⚠ ${data.successful}/${data.endpoints} steps completed. ${data.failed} failed.`])
+              }
             }
           } catch {
             // Ignore parse errors
@@ -221,15 +355,112 @@ export default function AdminLeaguesPage() {
       }
     } catch (err) {
       setSetupLogs(prev => [...prev, `Error: ${err instanceof Error ? err.message : 'Unknown error'}`])
-    } finally {
-      setRunningSetup(null)
+      setSetupRunning(false)
+      setSetupComplete(true)
     }
+  }
+
+  // Retry a single failed step
+  const retryStep = async (stepKey: string) => {
+    if (!setupLeague) return
+
+    setRetryingStep(stepKey)
+    setSetupSteps(prev => prev.map(s =>
+      s.key === stepKey ? { ...s, status: 'running', message: undefined } : s
+    ))
+    setSetupLogs(prev => [...prev, `Retrying ${SETUP_STEPS.find(s => s.key === stepKey)?.name}...`])
+
+    try {
+      const res = await fetch(`/api/data/refresh/${stepKey}?league_id=${setupLeague.id}`, {
+        method: 'POST',
+      })
+
+      if (!res.body) {
+        throw new Error('No response body')
+      }
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let lastMessage = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line.slice(6))
+            if (data.message) {
+              lastMessage = data.message
+              setSetupLogs(prev => [...prev, data.message])
+            }
+
+            if (data.done || data.success !== undefined) {
+              const success = data.success !== false && !lastMessage.toLowerCase().includes('error')
+              setSetupSteps(prev => prev.map(s =>
+                s.key === stepKey ? {
+                  ...s,
+                  status: success ? 'success' : 'error',
+                  message: success ? undefined : lastMessage
+                } : s
+              ))
+
+              if (success) {
+                setSetupLogs(prev => [...prev, `✓ ${SETUP_STEPS.find(s => s.key === stepKey)?.name} completed!`])
+
+                // Check if all steps are now successful
+                const updatedSteps = setupSteps.map(s =>
+                  s.key === stepKey ? { ...s, status: 'success' as const } : s
+                )
+                const allSuccess = updatedSteps.every(s => s.status === 'success')
+                if (allSuccess && !setupLeague.is_active) {
+                  setSetupLogs(prev => [...prev, 'All steps completed! Activating league...'])
+                  await activateLeague(setupLeague.id)
+                }
+              }
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+      }
+    } catch (err) {
+      setSetupSteps(prev => prev.map(s =>
+        s.key === stepKey ? {
+          ...s,
+          status: 'error',
+          message: err instanceof Error ? err.message : 'Unknown error'
+        } : s
+      ))
+      setSetupLogs(prev => [...prev, `✗ Retry failed: ${err instanceof Error ? err.message : 'Unknown error'}`])
+    } finally {
+      setRetryingStep(null)
+    }
+  }
+
+  // Close setup modal
+  const closeSetupModal = () => {
+    setSetupLeague(null)
+    setSetupSteps([])
+    setSetupLogs([])
+    setSetupRunning(false)
+    setSetupComplete(false)
+    setShowDetailedLogs(false)
+    fetchLeagues()
   }
 
   // Get leagues not yet added
   const availablePresets = POPULAR_LEAGUES.filter(
     preset => !leagues.some(l => l.api_id === preset.apiId)
   )
+
+  // Calculate setup progress
+  const completedSteps = setupSteps.filter(s => s.status === 'success').length
+  const failedSteps = setupSteps.filter(s => s.status === 'error').length
+  const progressPercent = (completedSteps / SETUP_STEPS.length) * 100
 
   return (
     <div className="space-y-6">
@@ -387,36 +618,178 @@ export default function AdminLeaguesPage() {
         </div>
       )}
 
-      {/* Setup Logs Modal */}
-      {runningSetup && (
+      {/* Season Setup Modal */}
+      {setupLeague && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-border flex items-center gap-2">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-              <h3 className="font-semibold">Running Season Setup</h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 bg-muted/30 font-mono text-sm">
-              {setupLogs.map((log, idx) => (
-                <div key={idx} className={cn(
-                  "py-1",
-                  log.includes('Error') && "text-red-500",
-                  log.includes('complete') && "text-green-500",
-                  log.includes('success') && "text-green-500"
-                )}>
-                  {log}
+          <div className="bg-card border border-border rounded-lg w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                {setupLeague.logo && (
+                  <Image
+                    src={setupLeague.logo}
+                    alt={setupLeague.name}
+                    width={40}
+                    height={40}
+                    className="rounded"
+                  />
+                )}
+                <div>
+                  <h3 className="font-semibold text-lg">Season Setup: {setupLeague.name}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {setupRunning ? 'Importing data...' : setupComplete ?
+                      (failedSteps === 0 ? 'Setup complete!' : `${failedSteps} step(s) failed`) :
+                      'Preparing...'}
+                  </p>
                 </div>
-              ))}
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mt-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>{completedSteps}/{SETUP_STEPS.length} steps completed</span>
+                  {failedSteps > 0 && <span className="text-red-500">{failedSteps} failed</span>}
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full transition-all duration-300",
+                      failedSteps > 0 ? "bg-yellow-500" : "bg-green-500"
+                    )}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="p-4 border-t border-border">
+
+            {/* Steps List */}
+            <div className="p-4 border-b border-border">
+              <div className="space-y-2">
+                {setupSteps.map((step, idx) => (
+                  <div
+                    key={step.key}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border",
+                      step.status === 'success' && "bg-green-500/10 border-green-500/30",
+                      step.status === 'error' && "bg-red-500/10 border-red-500/30",
+                      step.status === 'running' && "bg-blue-500/10 border-blue-500/30",
+                      step.status === 'pending' && "bg-muted/30 border-border"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      {/* Status Icon */}
+                      {step.status === 'pending' && (
+                        <Clock className="w-5 h-5 text-muted-foreground" />
+                      )}
+                      {step.status === 'running' && (
+                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                      )}
+                      {step.status === 'success' && (
+                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                      )}
+                      {step.status === 'error' && (
+                        <XCircle className="w-5 h-5 text-red-500" />
+                      )}
+
+                      <div>
+                        <div className="font-medium">
+                          {idx + 1}. {step.name}
+                        </div>
+                        {step.status === 'success' && step.counts && (
+                          <div className="text-xs text-green-600">
+                            {step.counts} {step.duration && `(${step.duration})`}
+                          </div>
+                        )}
+                        {step.status === 'error' && step.message && (
+                          <div className="text-xs text-red-500 truncate max-w-md">
+                            {step.message}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Retry Button */}
+                    {step.status === 'error' && setupComplete && (
+                      <button
+                        onClick={() => retryStep(step.key)}
+                        disabled={retryingStep !== null}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                      >
+                        {retryingStep === step.key ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="w-4 h-4" />
+                        )}
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Detailed Logs Toggle */}
+            <div className="border-b border-border">
               <button
-                onClick={() => {
-                  setRunningSetup(null)
-                  setSetupLogs([])
-                  fetchLeagues()
-                }}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                onClick={() => setShowDetailedLogs(!showDetailedLogs)}
+                className="w-full p-3 flex items-center justify-between text-sm hover:bg-muted/50 transition-colors"
               >
-                Close
+                <span className="text-muted-foreground">
+                  {showDetailedLogs ? 'Hide' : 'Show'} detailed logs ({setupLogs.length} entries)
+                </span>
+                {showDetailedLogs ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+
+            {/* Detailed Logs */}
+            {showDetailedLogs && (
+              <div className="flex-1 overflow-y-auto max-h-[200px] p-4 bg-muted/30 font-mono text-xs">
+                {setupLogs.map((log, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "py-0.5",
+                      log.includes('Error') || log.includes('✗') || log.includes('failed') ? "text-red-500" :
+                      log.includes('✓') || log.includes('complete') || log.includes('success') ? "text-green-500" :
+                      log.includes('⚠') ? "text-yellow-500" :
+                      "text-muted-foreground"
+                    )}
+                  >
+                    {log}
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            )}
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-border flex items-center justify-between">
+              <div>
+                {setupComplete && failedSteps > 0 && !setupLeague.is_active && (
+                  <button
+                    onClick={() => activateLeague(setupLeague.id)}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-600 rounded-lg hover:bg-yellow-500/30 transition-colors"
+                  >
+                    <Check className="w-4 h-4" />
+                    Activate Anyway
+                  </button>
+                )}
+              </div>
+              <button
+                onClick={closeSetupModal}
+                disabled={setupRunning}
+                className={cn(
+                  "px-4 py-2 rounded-lg transition-colors",
+                  setupRunning
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                )}
+              >
+                {setupRunning ? 'Please wait...' : 'Close'}
               </button>
             </div>
           </div>
@@ -556,7 +929,7 @@ export default function AdminLeaguesPage() {
                           </button>
                           <button
                             onClick={() => runSeasonSetup(league)}
-                            disabled={!!runningSetup}
+                            disabled={!!setupLeague}
                             className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors disabled:opacity-50"
                             title="Run Season Setup"
                           >
@@ -586,8 +959,8 @@ export default function AdminLeaguesPage() {
         <ol className="list-decimal list-inside space-y-1">
           <li>Add a new league using API-Football league ID</li>
           <li>Run &quot;Season Setup&quot; to import teams, fixtures, and standings</li>
-          <li>Configure the Odds API sport key for betting odds</li>
-          <li>Activate the league to make it available in the selector</li>
+          <li>League will be <strong>auto-activated</strong> when all 6 steps complete successfully</li>
+          <li>If any step fails, you can retry individually or activate manually</li>
         </ol>
       </div>
     </div>
