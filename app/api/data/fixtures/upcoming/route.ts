@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getLeagueFromRequest } from '@/lib/league-context'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,9 +9,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { data: fixtures, error } = await supabase
+    // Get league from request (query param or cookie)
+    const league = await getLeagueFromRequest(request)
+
+    let query = supabase
       .from('fixtures')
       .select(`
         id, api_id, match_date, round,
@@ -21,6 +25,13 @@ export async function GET() {
       .eq('status', 'NS')
       .order('match_date', { ascending: true })
       .limit(20)
+
+    // Filter by league if available
+    if (league?.id) {
+      query = query.eq('league_id', league.id)
+    }
+
+    const { data: fixtures, error } = await query
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

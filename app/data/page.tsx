@@ -1507,6 +1507,7 @@ export default function DataManagementPage() {
         onClose={() => setOddsModalOpen(false)}
         onRefresh={handleOddsSelectedRefresh}
         isRefreshing={oddsSelectedRefreshing}
+        leagueId={currentLeague?.id}
       />
     </div>
   )

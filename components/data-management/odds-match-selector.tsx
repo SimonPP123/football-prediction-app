@@ -18,9 +18,10 @@ interface OddsMatchSelectorProps {
   onClose: () => void
   onRefresh: (fixtureIds: string[]) => void
   isRefreshing: boolean
+  leagueId?: string
 }
 
-export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing }: OddsMatchSelectorProps) {
+export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing, leagueId }: OddsMatchSelectorProps) {
   const [fixtures, setFixtures] = useState<Fixture[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,13 +31,14 @@ export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing }: 
     if (isOpen) {
       fetchFixtures()
     }
-  }, [isOpen])
+  }, [isOpen, leagueId])
 
   const fetchFixtures = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/data/fixtures/upcoming')
+      const params = leagueId ? `?league_id=${leagueId}` : ''
+      const res = await fetch(`/api/data/fixtures/upcoming${params}`)
       const data = await res.json()
       if (data.error) {
         setError(data.error)

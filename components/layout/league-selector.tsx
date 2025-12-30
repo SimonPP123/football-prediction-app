@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ChevronDown, Check, Loader2 } from 'lucide-react'
 import { useLeague, LeagueConfig, getSeasonDisplay } from '@/contexts/league-context'
 import { cn } from '@/lib/utils'
 
 export function LeagueSelector() {
+  const router = useRouter()
   const { currentLeague, leagues, isLoading, setCurrentLeague } = useLeague()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -36,6 +38,8 @@ export function LeagueSelector() {
   const handleSelect = (league: LeagueConfig) => {
     setCurrentLeague(league)
     setIsOpen(false)
+    // Refresh Server Components to pick up new league from cookie
+    router.refresh()
   }
 
   if (isLoading) {
