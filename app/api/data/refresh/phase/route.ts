@@ -220,7 +220,12 @@ export async function POST(request: Request) {
   // Get display info for the phase
   const phaseInfo = getPhaseDisplayInfo({
     phase: phase as any,
+    nextMatch: null,
+    nextMatchTime: null,
     hoursUntilNext: null,
+    liveMatches: phase === 'live' ? 1 : 0,
+    upcomingToday: phase === 'imminent' || phase === 'pre-match' ? 1 : 0,
+    recentlyCompleted: phase === 'post-match' ? 1 : 0,
     recommendation: {
       required: phaseConfig.required,
       optional: phaseConfig.optional,
