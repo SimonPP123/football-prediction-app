@@ -43,7 +43,7 @@ import {
   PauseCircle,
   BarChart,
 } from 'lucide-react'
-import { useDataStatus, useSmartRefresh, getUrgencyClasses, formatTimeUntil, MatchPhase, DataStatus } from '@/hooks/use-data-status'
+import { useDataStatus, getUrgencyClasses, formatTimeUntil, MatchPhase, DataStatus } from '@/hooks/use-data-status'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
 import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
@@ -948,9 +948,12 @@ export default function DataManagementPage() {
 
   const totalRefreshable = categories.flatMap(c => c.dataSources.filter(s => s.refreshEndpoint)).length
 
-  // Smart refresh hooks
+  // Data status hook (for phase detection)
   const { status: dataStatus, loading: statusLoading, refetch: refetchStatus } = useDataStatus(currentLeague?.id)
-  const { refreshing: smartRefreshing, executeSmartRefresh, result: smartResult } = useSmartRefresh(currentLeague?.id)
+
+  // Phase-based refresh state
+  const [isPhaseRefreshing, setIsPhaseRefreshing] = useState(false)
+  const [phaseRefreshResult, setPhaseRefreshResult] = useState<any>(null)
 
   // Get phase icon
   const getPhaseIcon = (phase: string) => {
@@ -972,21 +975,21 @@ export default function DataManagementPage() {
       <Header title="Data Management" subtitle={currentLeague ? `${currentLeague.name} Data` : 'Manage API data and database'} />
 
       <div className="p-6 space-y-6">
-        {/* Smart Refresh Section */}
+        {/* Phase-Based Refresh Section */}
         {currentLeague && (
           <div className="bg-card border border-border rounded-lg overflow-hidden">
             <div className="p-4 border-b border-border bg-muted/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Zap className="w-5 h-5 text-primary" />
-                  <h2 className="font-semibold">Smart Refresh</h2>
+                  <h2 className="font-semibold">Phase-Based Refresh</h2>
                   {dataStatus && (
                     <span className={cn(
                       'px-2 py-0.5 rounded-full text-xs font-medium',
                       getUrgencyClasses(dataStatus.phase.display.urgency).bg,
                       getUrgencyClasses(dataStatus.phase.display.urgency).text
                     )}>
-                      {dataStatus.phase.display.title}
+                      {dataStatus.phase.current}
                     </span>
                   )}
                 </div>
@@ -1000,133 +1003,133 @@ export default function DataManagementPage() {
               </div>
             </div>
 
-            <div className="p-4">
-              {statusLoading && !dataStatus ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Loading status...</span>
+            <div className="p-4 space-y-4">
+              {/* Phase Buttons */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries (upcoming)'] },
+                  { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
+                  { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
+                  { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 5)', 'statistics', 'events', 'standings'] },
+                ].map(({ phase, label, color, endpoints }) => (
+                  <Tooltip key={phase}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={async () => {
+                          setIsPhaseRefreshing(true)
+                          addLog('info', 'phase', `Starting ${phase} phase refresh...`)
+                          try {
+                            const res = await fetch(`/api/data/refresh/phase?phase=${phase}&league_id=${currentLeague.id}`, {
+                              method: 'POST',
+                              credentials: 'include',
+                            })
+                            const data = await res.json()
+                            setPhaseRefreshResult(data)
+                            if (data.success) {
+                              addLog('success', 'phase', `${label}: ${data.summary.successful}/${data.summary.total} endpoints (${(data.summary.duration/1000).toFixed(1)}s)`)
+                            } else {
+                              addLog('error', 'phase', `${label} failed: ${data.failed?.map((f: any) => f.endpoint).join(', ')}`)
+                            }
+                            await fetchStats()
+                          } catch (err) {
+                            addLog('error', 'phase', `${label} failed: ${err instanceof Error ? err.message : 'Unknown'}`)
+                          } finally {
+                            setIsPhaseRefreshing(false)
+                          }
+                        }}
+                        disabled={isPhaseRefreshing}
+                        className={cn(
+                          'flex flex-col items-center gap-1 p-3 rounded-lg text-white transition-colors disabled:opacity-50',
+                          color
+                        )}
+                      >
+                        <span className="font-medium">{label}</span>
+                        <span className="text-xs opacity-80">{endpoints.length} endpoints</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="font-semibold mb-1">{label} Phase</p>
+                      <p className="text-xs">Endpoints: {endpoints.join(', ')}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+
+              {/* Endpoint Documentation */}
+              <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-2">
+                <div className="font-medium text-sm mb-2">API Endpoints by Phase</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <span className="font-medium text-blue-600">Pre-Match:</span>
+                    <div className="text-muted-foreground ml-2">
+                      <div><code>fixtures?mode=next&count=10</code></div>
+                      <div><code>standings</code></div>
+                      <div><code>injuries?mode=upcoming</code></div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-amber-600">Imminent (1hr before):</span>
+                    <div className="text-muted-foreground ml-2">
+                      <div><code>lineups?mode=prematch</code></div>
+                      <div><code>odds</code></div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-red-600">Live:</span>
+                    <div className="text-muted-foreground ml-2">
+                      <div><code>fixtures?mode=live</code></div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-emerald-600">Post-Match:</span>
+                    <div className="text-muted-foreground ml-2">
+                      <div><code>fixtures?mode=last&count=5</code></div>
+                      <div><code>fixture-statistics?mode=smart</code></div>
+                      <div><code>fixture-events?mode=smart</code></div>
+                      <div><code>standings</code></div>
+                    </div>
+                  </div>
                 </div>
-              ) : dataStatus ? (
-                <div className="space-y-4">
-                  {/* Phase Info */}
-                  <div className="flex items-start gap-4">
-                    <div className={cn(
-                      'p-3 rounded-lg',
-                      getUrgencyClasses(dataStatus.phase.display.urgency).bg
-                    )}>
-                      {(() => {
-                        const Icon = getPhaseIcon(dataStatus.phase.current)
-                        return <Icon className={cn('w-6 h-6', getUrgencyClasses(dataStatus.phase.display.urgency).text)} />
-                      })()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{dataStatus.phase.display.subtitle}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {dataStatus.phase.recommendation.description}
-                      </p>
-                      <div className="flex flex-wrap gap-4 mt-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Live: <span className={dataStatus.fixtures.live > 0 ? 'text-red-600 font-bold' : ''}>{dataStatus.fixtures.live}</span>
-                        </span>
-                        <span className="text-muted-foreground">
-                          Upcoming: <span className="font-medium">{dataStatus.fixtures.upcoming}</span>
-                        </span>
-                        <span className="text-muted-foreground">
-                          Missing Stats: <span className={dataStatus.fixtures.missingStats > 0 ? 'text-amber-600 font-bold' : ''}>{dataStatus.fixtures.missingStats}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+              </div>
 
-                  {/* Smart Refresh Button */}
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => executeSmartRefresh()}
-                      disabled={smartRefreshing || Object.values(refreshing).some(Boolean)}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
-                    >
-                      {smartRefreshing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Running Smart Refresh...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="w-4 h-4" />
-                          Smart Refresh
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => executeSmartRefresh({ includeOptional: true })}
-                      disabled={smartRefreshing || Object.values(refreshing).some(Boolean)}
-                      className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 text-sm"
-                    >
-                      + Include Optional
-                    </button>
-                  </div>
-
-                  {/* Recommendations */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Required:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {dataStatus.phase.recommendation.required.length > 0 ? (
-                          dataStatus.phase.recommendation.required.map(r => (
-                            <span key={r} className="px-2 py-0.5 bg-green-100 text-green-700 rounded">{r}</span>
-                          ))
-                        ) : (
-                          <span className="text-muted-foreground">None</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Optional:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {dataStatus.phase.recommendation.optional.slice(0, 3).map(r => (
-                          <span key={r} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{r}</span>
-                        ))}
-                        {dataStatus.phase.recommendation.optional.length > 3 && (
-                          <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded">+{dataStatus.phase.recommendation.optional.length - 3}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Next check:</span>
-                      <div className="mt-1 font-medium">{dataStatus.phase.recommendation.nextCheckMinutes} min</div>
-                    </div>
-                  </div>
-
-                  {/* Smart Refresh Result */}
-                  {smartResult && (
-                    <div className={cn(
-                      'p-3 rounded-lg text-sm',
-                      smartResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-                    )}>
-                      <div className="flex items-center gap-2 mb-1">
-                        {smartResult.success ? (
-                          <Check className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <X className="w-4 h-4 text-red-600" />
-                        )}
-                        <span className="font-medium">
-                          {smartResult.success ? 'Smart Refresh Complete' : 'Smart Refresh Failed'}
-                        </span>
-                        <span className="text-muted-foreground">
-                          ({(smartResult.summary.duration / 1000).toFixed(1)}s)
-                        </span>
-                      </div>
-                      <p className="text-muted-foreground">
-                        Refreshed: {smartResult.refreshed.join(', ') || 'None'} |
-                        Success: {smartResult.summary.successful}/{smartResult.summary.total}
-                      </p>
-                    </div>
-                  )}
+              {/* Current Status */}
+              {dataStatus && (
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <span className="text-muted-foreground">
+                    Live: <span className={dataStatus.fixtures.live > 0 ? 'text-red-600 font-bold' : 'font-medium'}>{dataStatus.fixtures.live}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Upcoming: <span className="font-medium">{dataStatus.fixtures.upcoming}</span>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Missing Stats: <span className={dataStatus.fixtures.missingStats > 0 ? 'text-amber-600 font-bold' : 'font-medium'}>{dataStatus.fixtures.missingStats}</span>
+                  </span>
                 </div>
-              ) : (
-                <p className="text-muted-foreground">Unable to load status</p>
+              )}
+
+              {/* Result */}
+              {phaseRefreshResult && (
+                <div className={cn(
+                  'p-3 rounded-lg text-sm',
+                  phaseRefreshResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                )}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {phaseRefreshResult.success ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <X className="w-4 h-4 text-red-600" />
+                    )}
+                    <span className="font-medium">
+                      {phaseRefreshResult.phase} phase: {phaseRefreshResult.summary.successful}/{phaseRefreshResult.summary.total} successful
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({(phaseRefreshResult.summary.duration / 1000).toFixed(1)}s)
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    Refreshed: {phaseRefreshResult.refreshed?.join(', ') || 'None'}
+                  </p>
+                </div>
               )}
             </div>
           </div>
