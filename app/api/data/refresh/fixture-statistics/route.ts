@@ -1,26 +1,14 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { fetchFixtureStats, ENDPOINTS } from '@/lib/api-football'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 import { getFixtureWindows, DATE_WINDOWS } from '@/lib/api/fixture-windows'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // Refresh modes for statistics
 type StatsRefreshMode = 'smart' | 'recent' | 'missing' | 'all'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

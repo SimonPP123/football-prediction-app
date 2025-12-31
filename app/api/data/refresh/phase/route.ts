@@ -25,7 +25,7 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
     optional: ['fixture-statistics', 'fixture-events'],
   },
   'post-match': {
-    required: ['fixtures?mode=last&count=5', 'fixture-statistics?mode=smart', 'fixture-events?mode=smart', 'standings'],
+    required: ['fixtures?mode=last&count=20', 'fixture-statistics?mode=smart', 'fixture-events?mode=smart', 'standings'],
     optional: [],
   },
 }

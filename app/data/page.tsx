@@ -1011,7 +1011,7 @@ export default function DataManagementPage() {
                     { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries (upcoming)'] },
                     { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
                     { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
-                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 5)', 'statistics', 'events', 'standings'] },
+                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 20)', 'statistics', 'events', 'standings'] },
                   ].map(({ phase, label, color, endpoints }) => (
                     <Tooltip key={phase}>
                       <TooltipTrigger asChild>
@@ -1085,7 +1085,7 @@ export default function DataManagementPage() {
                   <div>
                     <span className="font-medium text-emerald-600">Post-Match:</span>
                     <div className="text-muted-foreground ml-2">
-                      <div><code>fixtures?mode=last&count=5</code></div>
+                      <div><code>fixtures?mode=last&count=20</code></div>
                       <div><code>fixture-statistics?mode=smart</code></div>
                       <div><code>fixture-events?mode=smart</code></div>
                       <div><code>standings</code></div>
