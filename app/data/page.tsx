@@ -1005,15 +1005,16 @@ export default function DataManagementPage() {
 
             <div className="p-4 space-y-4">
               {/* Phase Buttons */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries (upcoming)'] },
-                  { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
-                  { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
-                  { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 5)', 'statistics', 'events', 'standings'] },
-                ].map(({ phase, label, color, endpoints }) => (
-                  <Tooltip key={phase}>
-                    <TooltipTrigger asChild>
+              <TooltipProvider delayDuration={200}>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries (upcoming)'] },
+                    { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
+                    { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
+                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 5)', 'statistics', 'events', 'standings'] },
+                  ].map(({ phase, label, color, endpoints }) => (
+                    <Tooltip key={phase}>
+                      <TooltipTrigger asChild>
                       <button
                         onClick={async () => {
                           setIsPhaseRefreshing(true)
@@ -1051,9 +1052,10 @@ export default function DataManagementPage() {
                       <p className="font-semibold mb-1">{label} Phase</p>
                       <p className="text-xs">Endpoints: {endpoints.join(', ')}</p>
                     </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
+                    </Tooltip>
+                  ))}
+                </div>
+              </TooltipProvider>
 
               {/* Endpoint Documentation */}
               <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-2">
