@@ -1008,11 +1008,35 @@ export default function DataManagementPage() {
               <TooltipProvider delayDuration={200}>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries', 'teams'] },
-                    { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
-                    { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
-                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 20)', 'statistics', 'events', 'standings', 'team-stats', 'player-stats'] },
-                  ].map(({ phase, label, color, endpoints }) => (
+                    {
+                      phase: 'pre-match',
+                      label: 'Pre-Match',
+                      color: 'bg-blue-500 hover:bg-blue-600',
+                      endpoints: ['/fixtures?next=10', '/standings', '/injuries', '/teams'],
+                      apiEndpoints: ['GET /fixtures?league=X&season=Y&next=10', 'GET /standings?league=X&season=Y', 'GET /injuries?league=X&season=Y', 'GET /teams?league=X&season=Y']
+                    },
+                    {
+                      phase: 'imminent',
+                      label: 'Imminent',
+                      color: 'bg-amber-500 hover:bg-amber-600',
+                      endpoints: ['/fixtures/lineups', 'Odds API'],
+                      apiEndpoints: ['GET /fixtures/lineups?fixture={id}', 'The Odds API (external)']
+                    },
+                    {
+                      phase: 'live',
+                      label: 'Live',
+                      color: 'bg-red-500 hover:bg-red-600',
+                      endpoints: ['/fixtures?live'],
+                      apiEndpoints: ['GET /fixtures?live={league_id}']
+                    },
+                    {
+                      phase: 'post-match',
+                      label: 'Post-Match',
+                      color: 'bg-emerald-500 hover:bg-emerald-600',
+                      endpoints: ['/fixtures?last=20', '/fixtures/statistics', '/fixtures/events', '/standings', '/teams/statistics', '/players'],
+                      apiEndpoints: ['GET /fixtures?league=X&season=Y&last=20', 'GET /fixtures/statistics?fixture={id}', 'GET /fixtures/events?fixture={id}', 'GET /standings?league=X&season=Y', 'GET /teams/statistics?team={id}', 'GET /players?league=X&season=Y']
+                    },
+                  ].map(({ phase, label, color, endpoints, apiEndpoints }) => (
                     <Tooltip key={phase}>
                       <TooltipTrigger asChild>
                       <button
@@ -1048,9 +1072,13 @@ export default function DataManagementPage() {
                         <span className="text-xs opacity-80">{endpoints.length} endpoints</span>
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
+                    <TooltipContent side="bottom" className="max-w-sm">
                       <p className="font-semibold mb-1">{label} Phase</p>
-                      <p className="text-xs">Endpoints: {endpoints.join(', ')}</p>
+                      <div className="text-xs space-y-0.5">
+                        {apiEndpoints.map((ep, i) => (
+                          <div key={i} className="font-mono text-[10px] text-muted-foreground">{ep}</div>
+                        ))}
+                      </div>
                     </TooltipContent>
                     </Tooltip>
                   ))}
@@ -1059,39 +1087,83 @@ export default function DataManagementPage() {
 
               {/* Endpoint Documentation */}
               <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-2">
-                <div className="font-medium text-sm mb-2">API Endpoints by Phase</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="font-medium text-sm mb-2">API-Football Endpoints by Phase</div>
+                <div className="text-[10px] text-muted-foreground mb-2">
+                  Base URL: <code className="bg-muted px-1 rounded">https://v3.football.api-sports.io</code>
+                  {currentLeague && <span className="ml-2">• League: {currentLeague.apiId} • Season: {currentLeague.currentSeason}</span>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <span className="font-medium text-blue-600">Pre-Match:</span>
-                    <div className="text-muted-foreground ml-2">
-                      <div><code>fixtures?mode=next&count=10</code></div>
-                      <div><code>standings</code></div>
-                      <div><code>injuries?mode=upcoming</code></div>
-                      <div><code>teams</code></div>
+                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}&next=10</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all">/standings?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all">/injuries?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all">/teams?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
                     </div>
                   </div>
                   <div>
                     <span className="font-medium text-amber-600">Imminent (1hr before):</span>
-                    <div className="text-muted-foreground ml-2">
-                      <div><code>lineups?mode=prematch</code></div>
-                      <div><code>odds</code></div>
+                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
+                      <div className="flex items-start gap-1">
+                        <span className="text-amber-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures/lineups?fixture=&#123;fixture_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-amber-500 shrink-0">→</span>
+                        <code className="break-all text-purple-600">The Odds API</code>
+                        <span className="text-[9px]">(external)</span>
+                      </div>
                     </div>
                   </div>
                   <div>
                     <span className="font-medium text-red-600">Live:</span>
-                    <div className="text-muted-foreground ml-2">
-                      <div><code>fixtures?mode=live</code></div>
+                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
+                      <div className="flex items-start gap-1">
+                        <span className="text-red-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures?live={currentLeague?.apiId || 39}</code>
+                      </div>
                     </div>
                   </div>
                   <div>
                     <span className="font-medium text-emerald-600">Post-Match:</span>
-                    <div className="text-muted-foreground ml-2">
-                      <div><code>fixtures?mode=last&count=20</code></div>
-                      <div><code>fixture-statistics?mode=smart</code></div>
-                      <div><code>fixture-events?mode=smart</code></div>
-                      <div><code>standings</code></div>
-                      <div><code>team-stats</code></div>
-                      <div><code>player-stats</code></div>
+                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}&last=20</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures/statistics?fixture=&#123;fixture_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures/events?fixture=&#123;fixture_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/standings?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/teams/statistics?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}&team=&#123;team_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/players?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
                     </div>
                   </div>
                 </div>
