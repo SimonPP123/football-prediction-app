@@ -29,17 +29,18 @@ const LeagueContext = createContext<LeagueContextType | undefined>(undefined)
 const STORAGE_KEY = 'football-prediction-league'
 
 // Transform API response to LeagueConfig
+// Note: API returns camelCase (already transformed), but handle both cases for safety
 function transformLeague(data: any): LeagueConfig {
   return {
     id: data.id,
-    apiId: data.api_id,
+    apiId: data.apiId ?? data.api_id,
     name: data.name,
     country: data.country,
     logo: data.logo,
-    currentSeason: data.current_season,
-    oddsSportKey: data.odds_sport_key,
-    isActive: data.is_active ?? false,
-    displayOrder: data.display_order ?? 999,
+    currentSeason: data.currentSeason ?? data.current_season,
+    oddsSportKey: data.oddsSportKey ?? data.odds_sport_key,
+    isActive: data.isActive ?? data.is_active ?? false,
+    displayOrder: data.displayOrder ?? data.display_order ?? 999,
   }
 }
 
