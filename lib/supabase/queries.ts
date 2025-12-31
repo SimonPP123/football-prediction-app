@@ -153,6 +153,11 @@ export async function getLiveFixtures(leagueId?: string) {
 
 // Get live fixtures with predictions and full details (for PredictionCard display)
 export async function getLiveFixturesWithFactors(limit = 6, leagueId?: string) {
+  // A match can only be "live" if it started within the last 3 hours
+  // (football matches are ~2 hours max with extra time)
+  const now = new Date()
+  const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+
   let query = supabase
     .from('fixtures')
     .select(`
@@ -165,6 +170,8 @@ export async function getLiveFixturesWithFactors(limit = 6, leagueId?: string) {
       weather:weather(*)
     `)
     .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
+    .lte('match_date', now.toISOString())           // Match has started
+    .gte('match_date', threeHoursAgo.toISOString()) // Started within last 3 hours
     .order('match_date', { ascending: true })
     .limit(limit)
 
