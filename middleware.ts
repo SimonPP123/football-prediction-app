@@ -39,6 +39,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Allow API key authenticated requests (for n8n and external automation)
+  const apiKey = request.headers.get('x-api-key')
+  if (apiKey && process.env.ADMIN_API_KEY && apiKey === process.env.ADMIN_API_KEY) {
+    return NextResponse.next()
+  }
+
   // Allow static files and Next.js internals
   // Use explicit extension matching instead of includes('.') to avoid matching API routes like /api/v1.0
   const staticExtensions = /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff|woff2|ttf|eot|map|json|txt|xml|webmanifest)$/i
