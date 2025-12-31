@@ -13,8 +13,8 @@ type OrchestratablePhase = 'pre-match' | 'imminent' | 'live' | 'post-match'
 // Endpoint configuration for each phase
 const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optional: string[] }> = {
   'pre-match': {
-    required: ['fixtures?mode=next&count=10', 'standings', 'injuries?mode=upcoming'],
-    optional: ['head-to-head', 'team-stats', 'weather', 'odds'],
+    required: ['fixtures?mode=next&count=10', 'standings', 'injuries?mode=upcoming', 'teams'],
+    optional: ['head-to-head', 'team-stats', 'weather', 'odds', 'player-stats'],
   },
   'imminent': {
     required: ['lineups?mode=prematch', 'odds'],
@@ -25,8 +25,8 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
     optional: ['fixture-statistics', 'fixture-events'],
   },
   'post-match': {
-    required: ['fixtures?mode=last&count=20', 'fixture-statistics?mode=smart', 'fixture-events?mode=smart', 'standings'],
-    optional: [],
+    required: ['fixtures?mode=last&count=20', 'fixture-statistics?mode=smart', 'fixture-events?mode=smart', 'standings', 'team-stats', 'player-stats'],
+    optional: ['top-performers'],
   },
 }
 

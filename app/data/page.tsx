@@ -1008,10 +1008,10 @@ export default function DataManagementPage() {
               <TooltipProvider delayDuration={200}>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries (upcoming)'] },
+                    { phase: 'pre-match', label: 'Pre-Match', color: 'bg-blue-500 hover:bg-blue-600', endpoints: ['fixtures (next 10)', 'standings', 'injuries', 'teams'] },
                     { phase: 'imminent', label: 'Imminent', color: 'bg-amber-500 hover:bg-amber-600', endpoints: ['lineups', 'odds'] },
                     { phase: 'live', label: 'Live', color: 'bg-red-500 hover:bg-red-600', endpoints: ['fixtures (live)'] },
-                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 20)', 'statistics', 'events', 'standings'] },
+                    { phase: 'post-match', label: 'Post-Match', color: 'bg-emerald-500 hover:bg-emerald-600', endpoints: ['fixtures (last 20)', 'statistics', 'events', 'standings', 'team-stats', 'player-stats'] },
                   ].map(({ phase, label, color, endpoints }) => (
                     <Tooltip key={phase}>
                       <TooltipTrigger asChild>
@@ -1067,6 +1067,7 @@ export default function DataManagementPage() {
                       <div><code>fixtures?mode=next&count=10</code></div>
                       <div><code>standings</code></div>
                       <div><code>injuries?mode=upcoming</code></div>
+                      <div><code>teams</code></div>
                     </div>
                   </div>
                   <div>
@@ -1089,6 +1090,8 @@ export default function DataManagementPage() {
                       <div><code>fixture-statistics?mode=smart</code></div>
                       <div><code>fixture-events?mode=smart</code></div>
                       <div><code>standings</code></div>
+                      <div><code>team-stats</code></div>
+                      <div><code>player-stats</code></div>
                     </div>
                   </div>
                 </div>
