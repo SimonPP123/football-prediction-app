@@ -263,6 +263,30 @@ export async function GET(request: Request) {
     })))
     const displayInfo = getPhaseDisplayInfo(phaseResult)
 
+    // Fetch upcoming matches with team names
+    const upcomingIds = upcomingFixtures.slice(0, 5).map(f => f.id)
+    let upcomingMatchesWithTeams: any[] = []
+
+    if (upcomingIds.length > 0) {
+      const { data: upcomingWithTeams } = await supabase
+        .from('fixtures')
+        .select(`
+          id, match_date, status,
+          home_team:teams!fixtures_home_team_id_fkey(name, logo),
+          away_team:teams!fixtures_away_team_id_fkey(name, logo)
+        `)
+        .in('id', upcomingIds)
+        .order('match_date', { ascending: true })
+
+      upcomingMatchesWithTeams = (upcomingWithTeams || []).map(f => ({
+        id: f.id,
+        matchDate: f.match_date,
+        status: f.status,
+        homeTeam: f.home_team,
+        awayTeam: f.away_team,
+      }))
+    }
+
     return NextResponse.json({
       league: league.name,
       leagueId: league.id,
@@ -275,11 +299,7 @@ export async function GET(request: Request) {
       },
       fixtures: fixtureStats,
       dataSources,
-      upcomingMatches: upcomingFixtures.slice(0, 5).map(f => ({
-        id: f.id,
-        matchDate: f.match_date,
-        status: f.status,
-      })),
+      upcomingMatches: upcomingMatchesWithTeams,
     })
   } catch (error) {
     console.error('Status check error:', error)

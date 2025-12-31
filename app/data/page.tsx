@@ -43,12 +43,15 @@ import {
   PauseCircle,
   BarChart,
 } from 'lucide-react'
-import { useDataStatus, useSmartRefresh, getUrgencyClasses, formatTimeUntil } from '@/hooks/use-data-status'
+import { useDataStatus, useSmartRefresh, getUrgencyClasses, formatTimeUntil, MatchPhase, DataStatus } from '@/hooks/use-data-status'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
 import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
 import { DataSourceDetails } from '@/components/data/data-source-details'
 import { OddsMatchSelector } from '@/components/data-management/odds-match-selector'
+import { QuickActionCard, CardStatus } from '@/components/data/quick-action-card'
+import { DataStatusPanel } from '@/components/data/data-status-panel'
+import { ManualRefreshSection } from '@/components/data/manual-refresh-section'
 import {
   Tooltip,
   TooltipContent,
@@ -186,6 +189,88 @@ const categories: Category[] = [
     ],
   },
 ]
+
+// Quick Action cards configuration
+interface QuickAction {
+  id: string
+  title: string
+  description: string
+  icon: any
+  endpoints: string[]
+  estimatedTime: string
+  route: string
+  highlightPhases: MatchPhase[]
+}
+
+const quickActions: QuickAction[] = [
+  {
+    id: 'season-setup',
+    title: 'Season Setup',
+    description: 'First-time or season start',
+    icon: CalendarPlus,
+    endpoints: ['teams', 'fixtures', 'standings', 'team-stats', 'coaches', 'player-squads'],
+    estimatedTime: '~5-10 min',
+    route: '/api/data/refresh/season-setup',
+    highlightPhases: [],
+  },
+  {
+    id: 'matchday-prep',
+    title: 'Matchday Prep',
+    description: 'Before predictions',
+    icon: Zap,
+    endpoints: ['standings', 'injuries', 'team-stats', 'h2h', 'fixture-stats', 'weather', 'odds'],
+    estimatedTime: '~3-5 min',
+    route: '/api/data/refresh/pre-match',
+    highlightPhases: ['day-before', 'matchday-morning', 'pre-match', 'imminent'],
+  },
+  {
+    id: 'post-match',
+    title: 'Post-Match',
+    description: 'After match completion',
+    icon: CheckCircle,
+    endpoints: ['fixtures', 'fixture-statistics', 'fixture-events', 'standings'],
+    estimatedTime: '~2-3 min',
+    route: '/api/data/refresh/post-match',
+    highlightPhases: ['post-match', 'day-after'],
+  },
+  {
+    id: 'weekly-stats',
+    title: 'Weekly Stats',
+    description: 'Every Sunday',
+    icon: BarChart3,
+    endpoints: ['team-stats', 'player-stats', 'top-performers', 'referee-stats', 'h2h'],
+    estimatedTime: '~10-15 min',
+    route: '/api/data/refresh/weekly-maintenance',
+    highlightPhases: [],
+  },
+]
+
+// Helper to determine card status based on phase and data status
+function getQuickActionStatus(
+  actionId: string,
+  currentPhase: MatchPhase | undefined,
+  dataStatus: DataStatus | null,
+  isRunning: boolean
+): CardStatus {
+  if (isRunning) return 'running'
+
+  const action = quickActions.find(a => a.id === actionId)
+  if (!action || !currentPhase) return 'ready'
+
+  // Post-Match: needs attention if missing stats/events
+  if (actionId === 'post-match' && dataStatus) {
+    if (dataStatus.fixtures.missingStats > 0 || dataStatus.fixtures.missingEvents > 0) {
+      return 'needs-attention'
+    }
+  }
+
+  // Check if current phase is in highlight phases
+  if (action.highlightPhases.includes(currentPhase)) {
+    return 'recommended'
+  }
+
+  return 'ready'
+}
 
 function formatRelativeTime(dateString: string | null | undefined): string {
   if (!dateString) return 'Never'
@@ -1047,6 +1132,83 @@ export default function DataManagementPage() {
           </div>
         )}
 
+        {/* Quick Actions */}
+        {currentLeague && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-lg">Quick Actions</h2>
+              {dataStatus?.upcomingMatches?.[0] && (
+                <div className="text-sm text-muted-foreground">
+                  Next: <span className="font-medium text-foreground">
+                    {dataStatus.upcomingMatches[0].homeTeam?.name || 'TBD'} vs {dataStatus.upcomingMatches[0].awayTeam?.name || 'TBD'}
+                  </span>
+                  <span className="ml-2">
+                    {(() => {
+                      const matchDate = new Date(dataStatus.upcomingMatches[0].matchDate)
+                      const now = new Date()
+                      const hours = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60)
+                      if (hours < 0) return 'In progress'
+                      if (hours < 1) return `${Math.round(hours * 60)}m away`
+                      if (hours < 24) return `${hours.toFixed(1)}h away`
+                      return `${Math.floor(hours / 24)}d away`
+                    })()}
+                  </span>
+                </div>
+              )}
+            </div>
+            <TooltipProvider delayDuration={200}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {quickActions.map((action) => {
+                  const isRunning =
+                    (action.id === 'season-setup' && isSeasonSetupRefreshing) ||
+                    (action.id === 'matchday-prep' && isPreMatchRefreshing) ||
+                    (action.id === 'post-match' && isPostMatchRefreshing) ||
+                    (action.id === 'weekly-stats' && isWeeklyMaintenanceRefreshing)
+
+                  const handleClick = () => {
+                    switch (action.id) {
+                      case 'season-setup':
+                        handleSeasonSetupRefresh()
+                        break
+                      case 'matchday-prep':
+                        handlePreMatchRefresh()
+                        break
+                      case 'post-match':
+                        handlePostMatchRefresh()
+                        break
+                      case 'weekly-stats':
+                        handleWeeklyMaintenanceRefresh()
+                        break
+                    }
+                  }
+
+                  return (
+                    <QuickActionCard
+                      key={action.id}
+                      title={action.title}
+                      description={action.description}
+                      icon={action.icon}
+                      endpoints={action.endpoints}
+                      estimatedTime={action.estimatedTime}
+                      status={getQuickActionStatus(action.id, dataStatus?.phase?.current, dataStatus, isRunning)}
+                      onClick={handleClick}
+                      disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
+                      targetDisplay={getTargetLeaguesDisplay()}
+                    />
+                  )
+                })}
+              </div>
+            </TooltipProvider>
+          </div>
+        )}
+
+        {/* Data Status Panel */}
+        <DataStatusPanel
+          status={dataStatus}
+          summary={summary}
+          loading={statusLoading}
+        />
+
         {/* Summary Stats */}
         <TooltipProvider delayDuration={200}>
           <div className="bg-card border border-border rounded-lg p-4 space-y-4">
@@ -1402,234 +1564,15 @@ export default function DataManagementPage() {
           </div>
         </TooltipProvider>
 
-        {/* Categories */}
-        <div className="space-y-4">
-          {categories.map(category => {
-            const CategoryIcon = category.icon
-            const isExpanded = expandedCategories[category.id]
-            const categoryStats = category.dataSources.reduce((acc, s) => {
-              const tableStats = stats?.[s.tableName]
-              return acc + (tableStats?.count || 0)
-            }, 0)
-
-            return (
-              <div key={category.id} className="bg-card border border-border rounded-lg overflow-hidden">
-                {/* Category Header */}
-                <button
-                  onClick={() => toggleCategory(category.id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <CategoryIcon className="w-5 h-5 text-primary" />
-                    <div className="text-left">
-                      <h3 className="font-semibold">{category.name}</h3>
-                      <p className="text-xs text-muted-foreground">{category.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-muted-foreground">
-                      {category.dataSources.length} tables · {categoryStats.toLocaleString()} records
-                    </span>
-                    {isExpanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  </div>
-                </button>
-
-                {/* Data Sources */}
-                {isExpanded && (
-                  <div className="border-t border-border">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-                      {category.dataSources.map(source => {
-                        const Icon = source.icon
-                        const tableStats = stats?.[source.tableName]
-                        const isRefreshing = refreshing[source.id]
-                        const status = refreshStatus[source.id] || 'idle'
-                        const canRefresh = !!source.refreshEndpoint
-                        const catStyle = categoryStyles[source.dataCategory]
-
-                        // Check dependencies
-                        const missingDeps = source.dependencies?.filter(dep => {
-                          const depStats = stats?.[dep]
-                          return !depStats || depStats.count === 0
-                        }) || []
-
-                        return (
-                          <div
-                            key={source.id}
-                            className="bg-muted/30 rounded-lg p-4 space-y-3"
-                          >
-                            {/* Header with badges */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <Icon className="w-4 h-4 text-primary shrink-0" />
-                                <div className="min-w-0">
-                                  <h4 className="font-medium text-sm">{source.name}</h4>
-                                  <p className="text-xs text-muted-foreground truncate">{source.description}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", catStyle.bg, catStyle.color)}>
-                                  {catStyle.label}
-                                </span>
-                                {source.estimatedTime && (
-                                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                    {source.estimatedTime}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Table badge */}
-                            <div className="flex flex-wrap gap-1">
-                              {source.targetTables.map(table => (
-                                <span key={table} className="text-[10px] font-mono bg-background border border-border px-1.5 py-0.5 rounded">
-                                  📋 {table}
-                                </span>
-                              ))}
-                            </div>
-
-                            {/* Stats */}
-                            <div className="flex gap-4 text-xs">
-                              <div>
-                                <span className="text-muted-foreground">Records: </span>
-                                <span className="font-medium">{tableStats?.count?.toLocaleString() ?? '-'}</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Updated: </span>
-                                <span className="font-medium">{formatRelativeTime(tableStats?.lastUpdated)}</span>
-                              </div>
-                            </div>
-
-                            {/* Endpoint */}
-                            {source.endpoint && (
-                              <div className="relative">
-                                <div className="bg-background border border-border rounded p-2 pr-8 text-xs font-mono overflow-x-auto">
-                                  <span className="text-green-500">GET</span>{' '}
-                                  <span className="text-muted-foreground break-all">
-                                    {source.endpoint.startsWith('http')
-                                      ? source.endpoint.replace(API_BASE, '')
-                                      : source.endpoint
-                                    }
-                                  </span>
-                                </div>
-                                {source.endpoint.startsWith('http') && (
-                                  <button
-                                    onClick={() => copyEndpoint(source.endpoint!, source.id)}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded"
-                                    title="Copy endpoint"
-                                  >
-                                    {copiedEndpoint === source.id ? (
-                                      <Check className="w-3 h-3 text-green-500" />
-                                    ) : (
-                                      <Copy className="w-3 h-3 text-muted-foreground" />
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Refresh Schedule Info */}
-                            <div className="text-[11px] space-y-1 border-t border-border pt-2">
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-muted-foreground">📅</span>
-                                <span className="text-muted-foreground">{source.refreshSchedule}</span>
-                              </div>
-                              <div className="flex items-start gap-1.5">
-                                <span className="text-muted-foreground">💡</span>
-                                <span className="text-muted-foreground italic">{source.refreshExample}</span>
-                              </div>
-                            </div>
-
-                            {/* Dependency Warning */}
-                            {missingDeps.length > 0 && (
-                              <div className="flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-900/20 p-2 rounded">
-                                <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
-                                <span>Requires: {missingDeps.join(', ')} (missing data)</span>
-                              </div>
-                            )}
-
-                            {/* Refresh Button(s) */}
-                            {canRefresh && source.id === 'odds' ? (
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleRefresh(source)}
-                                  disabled={isRefreshing || missingDeps.length > 0}
-                                  className={cn(
-                                    "flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-                                    status === 'success' && "bg-green-500/20 text-green-500",
-                                    status === 'error' && "bg-red-500/20 text-red-500",
-                                    status === 'idle' && !missingDeps.length && "bg-primary/10 text-primary hover:bg-primary/20",
-                                    status === 'idle' && missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
-                                    isRefreshing && "opacity-70"
-                                  )}
-                                >
-                                  {isRefreshing ? (
-                                    <><Loader2 className="w-3 h-3 animate-spin" /> Refreshing...</>
-                                  ) : status === 'success' ? (
-                                    <><Check className="w-3 h-3" /> Updated!</>
-                                  ) : status === 'error' ? (
-                                    <><X className="w-3 h-3" /> Failed</>
-                                  ) : (
-                                    <><RefreshCw className="w-3 h-3" /> Refresh All</>
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => setOddsModalOpen(true)}
-                                  disabled={isRefreshing || missingDeps.length > 0}
-                                  className={cn(
-                                    "flex-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-                                    !missingDeps.length && "bg-purple-500/10 text-purple-600 hover:bg-purple-500/20",
-                                    missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
-                                    isRefreshing && "opacity-70"
-                                  )}
-                                >
-                                  <Calendar className="w-3 h-3" /> Select Matches
-                                </button>
-                              </div>
-                            ) : canRefresh && (
-                              <button
-                                onClick={() => handleRefresh(source)}
-                                disabled={isRefreshing || missingDeps.length > 0}
-                                className={cn(
-                                  "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded text-xs font-medium transition-colors",
-                                  status === 'success' && "bg-green-500/20 text-green-500",
-                                  status === 'error' && "bg-red-500/20 text-red-500",
-                                  status === 'idle' && !missingDeps.length && "bg-primary/10 text-primary hover:bg-primary/20",
-                                  status === 'idle' && missingDeps.length > 0 && "bg-muted text-muted-foreground cursor-not-allowed",
-                                  isRefreshing && "opacity-70"
-                                )}
-                              >
-                                {isRefreshing ? (
-                                  <><Loader2 className="w-3 h-3 animate-spin" /> Refreshing...</>
-                                ) : status === 'success' ? (
-                                  <><Check className="w-3 h-3" /> Updated!</>
-                                ) : status === 'error' ? (
-                                  <><X className="w-3 h-3" /> Failed</>
-                                ) : missingDeps.length > 0 ? (
-                                  <><AlertTriangle className="w-3 h-3" /> Missing Dependencies</>
-                                ) : (
-                                  <><RefreshCw className="w-3 h-3" /> Refresh</>
-                                )}
-                              </button>
-                            )}
-
-                            {/* Technical Details Panel */}
-                            {DATA_SOURCE_DOCS[source.id] && (
-                              <DataSourceDetails
-                                doc={DATA_SOURCE_DOCS[source.id]}
-                                isExpanded={expandedDetails[source.id] || false}
-                                onToggle={() => toggleDetails(source.id)}
-                              />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        {/* Manual Refresh Section - Collapsed by default */}
+        <ManualRefreshSection
+          dataSources={categories.flatMap(c => c.dataSources)}
+          stats={stats}
+          refreshing={refreshing}
+          refreshStatus={refreshStatus}
+          onRefresh={handleRefresh}
+          onOddsSelect={() => setOddsModalOpen(true)}
+        />
 
         {/* Activity Log */}
         <div className="bg-card border border-border rounded-lg overflow-hidden">

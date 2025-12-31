@@ -77,6 +77,8 @@ export interface DataStatus {
     id: string
     matchDate: string
     status: string
+    homeTeam?: { name: string; logo?: string }
+    awayTeam?: { name: string; logo?: string }
   }[]
 }
 
