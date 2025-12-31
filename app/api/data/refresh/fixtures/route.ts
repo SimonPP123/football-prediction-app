@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
-import { fetchAllFixtures } from '@/lib/api-football'
+import { fetchAllFixtures, fetchFixturesInRange } from '@/lib/api-football'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
+import { getFixtureWindows, DATE_WINDOWS } from '@/lib/api/fixture-windows'
 
 export const dynamic = 'force-dynamic'
+
+// Refresh modes
+type RefreshMode = 'smart' | 'full' | 'upcoming' | 'recent'
 
 function isAdmin(): boolean {
   const cookieStore = cookies()
@@ -36,6 +40,89 @@ interface LeagueConfig {
   currentSeason: number
 }
 
+/**
+ * Parse refresh mode from URL query params
+ * @param request - The incoming request
+ * @returns The refresh mode (defaults to 'smart')
+ */
+function getRefreshMode(request: Request): RefreshMode {
+  const url = new URL(request.url)
+  const mode = url.searchParams.get('mode')
+  if (mode && ['smart', 'full', 'upcoming', 'recent'].includes(mode)) {
+    return mode as RefreshMode
+  }
+  return 'smart' // Default to smart mode
+}
+
+/**
+ * Fetch fixtures based on the refresh mode
+ */
+async function fetchFixturesByMode(
+  mode: RefreshMode,
+  league: LeagueConfig
+): Promise<{ response: any[]; mode: string; dateRange?: { from: string; to: string } }> {
+  const windows = getFixtureWindows()
+
+  switch (mode) {
+    case 'full':
+      // Fetch ALL fixtures for the season (380 for PL)
+      const allData = await fetchAllFixtures(league.apiId, league.currentSeason)
+      return { response: allData.response || [], mode: 'full' }
+
+    case 'upcoming':
+      // Only future fixtures (next 7 days)
+      const upcomingData = await fetchFixturesInRange(
+        league.apiId,
+        league.currentSeason,
+        windows.now,
+        windows.upcomingEnd
+      )
+      return {
+        response: upcomingData.response || [],
+        mode: 'upcoming',
+        dateRange: {
+          from: windows.now.toISOString().split('T')[0],
+          to: windows.upcomingEnd.toISOString().split('T')[0]
+        }
+      }
+
+    case 'recent':
+      // Only recent fixtures (past 3 days)
+      const recentData = await fetchFixturesInRange(
+        league.apiId,
+        league.currentSeason,
+        windows.recent,
+        windows.now
+      )
+      return {
+        response: recentData.response || [],
+        mode: 'recent',
+        dateRange: {
+          from: windows.recent.toISOString().split('T')[0],
+          to: windows.now.toISOString().split('T')[0]
+        }
+      }
+
+    case 'smart':
+    default:
+      // Smart: past X days + next Y days (10-day window typically)
+      const smartData = await fetchFixturesInRange(
+        league.apiId,
+        league.currentSeason,
+        windows.recent,
+        windows.upcomingEnd
+      )
+      return {
+        response: smartData.response || [],
+        mode: 'smart',
+        dateRange: {
+          from: windows.recent.toISOString().split('T')[0],
+          to: windows.upcomingEnd.toISOString().split('T')[0]
+        }
+      }
+  }
+}
+
 export async function POST(request: Request) {
   if (!isAdmin()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -43,30 +130,36 @@ export async function POST(request: Request) {
 
   // Get league from request (defaults to Premier League)
   const league = await getLeagueFromRequest(request)
+  const mode = getRefreshMode(request)
 
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh(league)
+    return handleStreamingRefresh(league, mode)
   }
-  return handleBatchRefresh(league)
+  return handleBatchRefresh(league, mode)
 }
 
-async function handleStreamingRefresh(league: LeagueConfig) {
+async function handleStreamingRefresh(league: LeagueConfig, mode: RefreshMode) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: `Fetching fixtures for ${league.name} from API-Football...` })
+      const modeLabel = mode === 'full' ? 'all' : mode
+      sendLog({ type: 'info', message: `Fetching ${modeLabel} fixtures for ${league.name}...` })
 
-      const data = await fetchAllFixtures(league.apiId, league.currentSeason)
+      const data = await fetchFixturesByMode(mode, league)
 
       if (!data.response || data.response.length === 0) {
-        sendLog({ type: 'error', message: 'No fixtures returned from API' })
-        closeWithError('No fixtures returned from API', Date.now() - startTime)
+        const msg = mode === 'smart'
+          ? `No fixtures in date range (${data.dateRange?.from} to ${data.dateRange?.to})`
+          : 'No fixtures returned from API'
+        sendLog({ type: 'warning', message: msg })
+        close({ success: true, inserted: 0, updated: 0, errors: 0, total: 0, duration: Date.now() - startTime, league: league.name, mode })
         return
       }
 
-      sendLog({ type: 'info', message: `Received ${data.response.length} fixtures from API` })
+      const rangeInfo = data.dateRange ? ` (${data.dateRange.from} to ${data.dateRange.to})` : ''
+      sendLog({ type: 'info', message: `Received ${data.response.length} fixtures${rangeInfo}` })
 
       // Get teams for this league
       const { data: teams } = await supabase
@@ -150,7 +243,7 @@ async function handleStreamingRefresh(league: LeagueConfig) {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${inserted} new, ${updated} updated, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, inserted, updated, errors, total, duration, league: league.name })
+      close({ success: true, inserted, updated, errors, total, duration, league: league.name, mode })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -161,7 +254,7 @@ async function handleStreamingRefresh(league: LeagueConfig) {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh(league: LeagueConfig) {
+async function handleBatchRefresh(league: LeagueConfig, mode: RefreshMode) {
   const logs: LogEntry[] = []
   const addLog = (type: LogEntry['type'], message: string) => {
     logs.push({ type, message })
@@ -169,22 +262,32 @@ async function handleBatchRefresh(league: LeagueConfig) {
   }
 
   try {
-    addLog('info', `Fetching fixtures for ${league.name} from API-Football...`)
+    const modeLabel = mode === 'full' ? 'all' : mode
+    addLog('info', `Fetching ${modeLabel} fixtures for ${league.name}...`)
 
-    // Fetch all fixtures from API-Football for this league
-    const data = await fetchAllFixtures(league.apiId, league.currentSeason)
+    // Fetch fixtures based on mode
+    const data = await fetchFixturesByMode(mode, league)
 
     if (!data.response || data.response.length === 0) {
-      addLog('error', 'No fixtures returned from API')
+      const msg = mode === 'smart'
+        ? `No fixtures in date range (${data.dateRange?.from} to ${data.dateRange?.to})`
+        : 'No fixtures returned from API'
+      addLog('warning', msg)
       return NextResponse.json({
-        success: false,
-        error: 'No fixtures returned from API',
+        success: true,
+        inserted: 0,
+        updated: 0,
+        errors: 0,
+        total: 0,
         logs,
         league: league.name,
-      }, { status: 400 })
+        mode,
+        dateRange: data.dateRange,
+      })
     }
 
-    addLog('info', `Received ${data.response.length} fixtures from API`)
+    const rangeInfo = data.dateRange ? ` (${data.dateRange.from} to ${data.dateRange.to})` : ''
+    addLog('info', `Received ${data.response.length} fixtures${rangeInfo}`)
 
     // Build team lookup for this league
     const { data: teams } = await supabase
@@ -266,6 +369,8 @@ async function handleBatchRefresh(league: LeagueConfig) {
       total: data.response.length,
       logs,
       league: league.name,
+      mode,
+      dateRange: data.dateRange,
     })
   } catch (error) {
     addLog('error', error instanceof Error ? error.message : 'Unknown error')
@@ -274,6 +379,7 @@ async function handleBatchRefresh(league: LeagueConfig) {
       error: error instanceof Error ? error.message : 'Unknown error',
       logs,
       league: league.name,
+      mode,
     }, { status: 500 })
   }
 }

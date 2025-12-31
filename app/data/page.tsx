@@ -38,7 +38,12 @@ import {
   Zap,
   CheckCircle,
   HelpCircle,
+  PlayCircle,
+  Clock,
+  PauseCircle,
+  BarChart,
 } from 'lucide-react'
+import { useDataStatus, useSmartRefresh, getUrgencyClasses, formatTimeUntil } from '@/hooks/use-data-status'
 import { cn } from '@/lib/utils'
 import { ENDPOINTS, API_BASE } from '@/lib/api-football'
 import { DATA_SOURCE_DOCS } from '@/lib/data-source-docs'
@@ -858,11 +863,190 @@ export default function DataManagementPage() {
 
   const totalRefreshable = categories.flatMap(c => c.dataSources.filter(s => s.refreshEndpoint)).length
 
+  // Smart refresh hooks
+  const { status: dataStatus, loading: statusLoading, refetch: refetchStatus } = useDataStatus(currentLeague?.id)
+  const { refreshing: smartRefreshing, executeSmartRefresh, result: smartResult } = useSmartRefresh(currentLeague?.id)
+
+  // Get phase icon
+  const getPhaseIcon = (phase: string) => {
+    switch (phase) {
+      case 'live': return PlayCircle
+      case 'imminent': return Clock
+      case 'pre-match': return Users
+      case 'matchday-morning': return Calendar
+      case 'post-match': return BarChart
+      case 'day-before': return Calendar
+      case 'week-before': return Calendar
+      case 'day-after': return CheckCircle
+      default: return PauseCircle
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <Header title="Data Management" subtitle={currentLeague ? `${currentLeague.name} Data` : 'Manage API data and database'} />
 
       <div className="p-6 space-y-6">
+        {/* Smart Refresh Section */}
+        {currentLeague && (
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-primary" />
+                  <h2 className="font-semibold">Smart Refresh</h2>
+                  {dataStatus && (
+                    <span className={cn(
+                      'px-2 py-0.5 rounded-full text-xs font-medium',
+                      getUrgencyClasses(dataStatus.phase.display.urgency).bg,
+                      getUrgencyClasses(dataStatus.phase.display.urgency).text
+                    )}>
+                      {dataStatus.phase.display.title}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => refetchStatus()}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                  title="Refresh status"
+                >
+                  <RefreshCw className={cn('w-4 h-4', statusLoading && 'animate-spin')} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              {statusLoading && !dataStatus ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Loading status...</span>
+                </div>
+              ) : dataStatus ? (
+                <div className="space-y-4">
+                  {/* Phase Info */}
+                  <div className="flex items-start gap-4">
+                    <div className={cn(
+                      'p-3 rounded-lg',
+                      getUrgencyClasses(dataStatus.phase.display.urgency).bg
+                    )}>
+                      {(() => {
+                        const Icon = getPhaseIcon(dataStatus.phase.current)
+                        return <Icon className={cn('w-6 h-6', getUrgencyClasses(dataStatus.phase.display.urgency).text)} />
+                      })()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{dataStatus.phase.display.subtitle}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {dataStatus.phase.recommendation.description}
+                      </p>
+                      <div className="flex flex-wrap gap-4 mt-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Live: <span className={dataStatus.fixtures.live > 0 ? 'text-red-600 font-bold' : ''}>{dataStatus.fixtures.live}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Upcoming: <span className="font-medium">{dataStatus.fixtures.upcoming}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          Missing Stats: <span className={dataStatus.fixtures.missingStats > 0 ? 'text-amber-600 font-bold' : ''}>{dataStatus.fixtures.missingStats}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Smart Refresh Button */}
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => executeSmartRefresh()}
+                      disabled={smartRefreshing || Object.values(refreshing).some(Boolean)}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-medium"
+                    >
+                      {smartRefreshing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Running Smart Refresh...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4" />
+                          Smart Refresh
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => executeSmartRefresh({ includeOptional: true })}
+                      disabled={smartRefreshing || Object.values(refreshing).some(Boolean)}
+                      className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 text-sm"
+                    >
+                      + Include Optional
+                    </button>
+                  </div>
+
+                  {/* Recommendations */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <span className="text-muted-foreground">Required:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {dataStatus.phase.recommendation.required.length > 0 ? (
+                          dataStatus.phase.recommendation.required.map(r => (
+                            <span key={r} className="px-2 py-0.5 bg-green-100 text-green-700 rounded">{r}</span>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground">None</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Optional:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {dataStatus.phase.recommendation.optional.slice(0, 3).map(r => (
+                          <span key={r} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{r}</span>
+                        ))}
+                        {dataStatus.phase.recommendation.optional.length > 3 && (
+                          <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded">+{dataStatus.phase.recommendation.optional.length - 3}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Next check:</span>
+                      <div className="mt-1 font-medium">{dataStatus.phase.recommendation.nextCheckMinutes} min</div>
+                    </div>
+                  </div>
+
+                  {/* Smart Refresh Result */}
+                  {smartResult && (
+                    <div className={cn(
+                      'p-3 rounded-lg text-sm',
+                      smartResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    )}>
+                      <div className="flex items-center gap-2 mb-1">
+                        {smartResult.success ? (
+                          <Check className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <X className="w-4 h-4 text-red-600" />
+                        )}
+                        <span className="font-medium">
+                          {smartResult.success ? 'Smart Refresh Complete' : 'Smart Refresh Failed'}
+                        </span>
+                        <span className="text-muted-foreground">
+                          ({(smartResult.summary.duration / 1000).toFixed(1)}s)
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground">
+                        Refreshed: {smartResult.refreshed.join(', ') || 'None'} |
+                        Success: {smartResult.summary.successful}/{smartResult.summary.total}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Unable to load status</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Summary Stats */}
         <TooltipProvider delayDuration={200}>
           <div className="bg-card border border-border rounded-lg p-4 space-y-4">

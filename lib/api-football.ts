@@ -137,6 +137,62 @@ export async function fetchAllFixtures(leagueApiId: number = DEFAULT_LEAGUE_ID, 
   return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}`);
 }
 
+/**
+ * Fetch fixtures within a specific date range (smart filtering)
+ * This reduces API calls by only fetching relevant fixtures
+ *
+ * @param leagueApiId - League API ID (e.g., 39 for Premier League)
+ * @param season - Season year (e.g., 2025)
+ * @param from - Start date for the range
+ * @param to - End date for the range
+ */
+export async function fetchFixturesInRange(
+  leagueApiId: number = DEFAULT_LEAGUE_ID,
+  season: number = DEFAULT_SEASON,
+  from: Date,
+  to: Date
+) {
+  const fromStr = from.toISOString().split('T')[0]; // YYYY-MM-DD
+  const toStr = to.toISOString().split('T')[0];
+  console.log(`[API-Football] Fetching fixtures from ${fromStr} to ${toStr}`);
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}&from=${fromStr}&to=${toStr}`);
+}
+
+/**
+ * Fetch fixtures by status (e.g., only live or only completed)
+ *
+ * @param status - Status code (NS, 1H, 2H, HT, FT, etc.) or comma-separated statuses
+ * @param date - Optional specific date (YYYY-MM-DD)
+ */
+export async function fetchFixturesByStatus(
+  leagueApiId: number = DEFAULT_LEAGUE_ID,
+  season: number = DEFAULT_SEASON,
+  status: string,
+  date?: string
+) {
+  let endpoint = `/fixtures?league=${leagueApiId}&season=${season}&status=${status}`;
+  if (date) {
+    endpoint += `&date=${date}`;
+  }
+  return fetchFromAPI(endpoint);
+}
+
+/**
+ * Fetch live fixtures only (currently in progress)
+ */
+export async function fetchLiveFixtures(leagueApiId: number = DEFAULT_LEAGUE_ID, season: number = DEFAULT_SEASON) {
+  // API-Football live statuses: 1H, 2H, HT, ET, BT, P, INT, LIVE
+  return fetchFixturesByStatus(leagueApiId, season, '1H-2H-HT-ET-BT-P-INT-LIVE');
+}
+
+/**
+ * Fetch today's fixtures
+ */
+export async function fetchTodayFixtures(leagueApiId: number = DEFAULT_LEAGUE_ID, season: number = DEFAULT_SEASON) {
+  const today = new Date().toISOString().split('T')[0];
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}&date=${today}`);
+}
+
 export async function fetchFixturesByIds(fixtureIds: number[]) {
   // API-Football allows fetching multiple fixtures at once
   const idsParam = fixtureIds.join('-');

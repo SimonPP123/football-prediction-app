@@ -3,8 +3,12 @@ import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { fetchFixtureStats, ENDPOINTS } from '@/lib/api-football'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
+import { getFixtureWindows, DATE_WINDOWS } from '@/lib/api/fixture-windows'
 
 export const dynamic = 'force-dynamic'
+
+// Refresh modes for statistics
+type StatsRefreshMode = 'smart' | 'recent' | 'missing' | 'all'
 
 function isAdmin(): boolean {
   const cookieStore = cookies()
@@ -37,48 +41,78 @@ interface LogEntry {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+/**
+ * Parse refresh mode from URL query params
+ */
+function getRefreshMode(request: Request): StatsRefreshMode {
+  const url = new URL(request.url)
+  const mode = url.searchParams.get('mode')
+  if (mode && ['smart', 'recent', 'missing', 'all'].includes(mode)) {
+    return mode as StatsRefreshMode
+  }
+  return 'smart' // Default to smart mode
+}
+
 export async function POST(request: Request) {
   if (!isAdmin()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  const mode = getRefreshMode(request)
+
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
+    return handleStreamingRefresh(mode)
   }
-  return handleBatchRefresh()
+  return handleBatchRefresh(mode)
 }
 
-async function handleStreamingRefresh() {
+async function handleStreamingRefresh(mode: StatsRefreshMode) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: 'Starting fixture statistics refresh...' })
+      const modeLabel = mode === 'all' ? 'all' : mode
+      sendLog({ type: 'info', message: `Starting fixture statistics refresh (${modeLabel} mode)...` })
 
-      const { data: fixtures } = await supabase
+      // Build query based on mode
+      let query = supabase
         .from('fixtures')
         .select(`
-          id, api_id,
+          id, api_id, match_date,
           home_team:teams!fixtures_home_team_id_fkey(name),
           away_team:teams!fixtures_away_team_id_fkey(name)
         `)
         .in('status', ['FT', 'AET', 'PEN'])
 
+      // Apply date filter for smart/recent modes
+      if (mode === 'smart' || mode === 'recent') {
+        const windows = getFixtureWindows()
+        query = query.gte('match_date', windows.recent.toISOString())
+        sendLog({ type: 'info', message: `Filtering to fixtures since ${windows.recent.toISOString().split('T')[0]}` })
+      }
+
+      const { data: fixtures } = await query
+
       if (!fixtures || fixtures.length === 0) {
-        sendLog({ type: 'info', message: 'No completed fixtures found' })
-        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime })
+        sendLog({ type: 'info', message: 'No completed fixtures found in date range' })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime, mode })
         return
       }
 
+      // Check which fixtures already have statistics
       const { data: existingStats } = await supabase
         .from('fixture_statistics')
         .select('fixture_id')
 
       const existingSet = new Set(existingStats?.map(s => s.fixture_id) || [])
-      const fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
 
-      sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing statistics (${fixtures.length} total completed)` })
+      // For 'all' mode, include all fixtures. For others, only missing stats
+      const fixturesToProcess = mode === 'all'
+        ? fixtures
+        : fixtures.filter(f => !existingSet.has(f.id))
+
+      sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing statistics (${fixtures.length} total in range)` })
 
       const { data: teams } = await supabase.from('teams').select('id, api_id')
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
@@ -157,7 +191,7 @@ async function handleStreamingRefresh() {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: fixturesToProcess.length, duration })
+      close({ success: true, imported, errors, total: fixturesToProcess.length, duration, mode })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -168,7 +202,7 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(mode: StatsRefreshMode) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -182,26 +216,37 @@ async function handleBatchRefresh() {
   }
 
   try {
-    addLog('info', 'Starting fixture statistics refresh...')
+    const modeLabel = mode === 'all' ? 'all' : mode
+    addLog('info', `Starting fixture statistics refresh (${modeLabel} mode)...`)
 
-    // Get completed fixtures without statistics
-    const { data: fixtures } = await supabase
+    // Build query based on mode
+    let query = supabase
       .from('fixtures')
       .select(`
-        id, api_id,
+        id, api_id, match_date,
         home_team:teams!fixtures_home_team_id_fkey(name),
         away_team:teams!fixtures_away_team_id_fkey(name)
       `)
-      .in('status', ['FT', 'AET', 'PEN']) // Only completed matches
+      .in('status', ['FT', 'AET', 'PEN'])
+
+    // Apply date filter for smart/recent modes
+    if (mode === 'smart' || mode === 'recent') {
+      const windows = getFixtureWindows()
+      query = query.gte('match_date', windows.recent.toISOString())
+      addLog('info', `Filtering to fixtures since ${windows.recent.toISOString().split('T')[0]}`)
+    }
+
+    const { data: fixtures } = await query
 
     if (!fixtures || fixtures.length === 0) {
-      addLog('info', 'No completed fixtures found')
+      addLog('info', 'No completed fixtures found in date range')
       return NextResponse.json({
         success: true,
         imported: 0,
         errors: 0,
         total: 0,
         logs,
+        mode,
       })
     }
 
@@ -211,9 +256,13 @@ async function handleBatchRefresh() {
       .select('fixture_id')
 
     const existingSet = new Set(existingStats?.map(s => s.fixture_id) || [])
-    const fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
 
-    addLog('info', `Found ${fixturesToProcess.length} fixtures needing statistics (${fixtures.length} total completed)`)
+    // For 'all' mode, include all fixtures. For others, only missing stats
+    const fixturesToProcess = mode === 'all'
+      ? fixtures
+      : fixtures.filter(f => !existingSet.has(f.id))
+
+    addLog('info', `Found ${fixturesToProcess.length} fixtures needing statistics (${fixtures.length} total in range)`)
 
     // Build team lookup
     const { data: teams } = await supabase.from('teams').select('id, api_id')
@@ -307,6 +356,7 @@ async function handleBatchRefresh() {
       total: fixturesToProcess.length,
       duration,
       logs,
+      mode,
     })
   } catch (error) {
     const duration = Date.now() - startTime
@@ -316,6 +366,7 @@ async function handleBatchRefresh() {
       error: error instanceof Error ? error.message : 'Unknown error',
       duration,
       logs,
+      mode,
     }, { status: 500 })
   }
 }
