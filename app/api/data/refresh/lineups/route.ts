@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { fetchLineups, ENDPOINTS } from '@/lib/api-football'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 import { DATE_WINDOWS } from '@/lib/api/fixture-windows'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,18 +12,6 @@ export const dynamic = 'force-dynamic'
 // - backfill: Completed fixtures in past 7 days missing lineups
 // - all: Both upcoming and backfill
 type LineupsRefreshMode = 'prematch' | 'backfill' | 'all'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

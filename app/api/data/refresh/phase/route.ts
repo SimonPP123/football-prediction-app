@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { detectCurrentPhase, getPhaseDisplayInfo } from '@/lib/api/match-phase'
 import { createClient } from '@supabase/supabase-js'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,16 +30,19 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
   },
 }
 
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
+/**
+ * Get auth headers to pass to sub-requests
+ * Forwards either API key or cookie auth
+ */
+function getAuthHeaders(): Record<string, string> {
+  const headersList = headers()
+  const apiKey = headersList.get('x-api-key')
+
+  if (apiKey) {
+    return { 'X-API-Key': apiKey }
   }
+
+  return { Cookie: cookies().toString() }
 }
 
 const supabase = createClient(
@@ -81,9 +85,7 @@ async function executeEndpoint(
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        Cookie: cookies().toString(),
-      },
+      headers: getAuthHeaders(),
     })
 
     const data = await response.json()

@@ -35,8 +35,8 @@
       "position": [500, 150],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "football-auth",
-          "name": "Football Auth Cookie"
+          "id": "football-api-key",
+          "name": "Football API Key"
         }
       }
     },
@@ -70,8 +70,8 @@
       "position": [500, 300],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "football-auth",
-          "name": "Football Auth Cookie"
+          "id": "football-api-key",
+          "name": "Football API Key"
         }
       }
     },
@@ -101,8 +101,8 @@
       "position": [500, 450],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "football-auth",
-          "name": "Football Auth Cookie"
+          "id": "football-api-key",
+          "name": "Football API Key"
         }
       }
     },
@@ -136,8 +136,8 @@
       "position": [500, 600],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "football-auth",
-          "name": "Football Auth Cookie"
+          "id": "football-api-key",
+          "name": "Football API Key"
         }
       }
     },

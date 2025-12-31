@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import {
   fetchAllFixtures,
@@ -13,23 +12,12 @@ import {
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 import { getFixtureWindows, DATE_WINDOWS } from '@/lib/api/fixture-windows'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // Refresh modes - extended with new modes
 type RefreshMode = 'smart' | 'full' | 'upcoming' | 'recent' | 'next' | 'last' | 'live' | 'date' | 'ids'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
