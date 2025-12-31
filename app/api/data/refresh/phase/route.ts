@@ -71,17 +71,19 @@ interface RefreshResult {
 async function executeEndpoint(
   endpointWithParams: string,
   league: LeagueConfig,
-  baseUrl: string
+  _baseUrl: string
 ): Promise<RefreshResult> {
   const startTime = Date.now()
   const [endpoint, queryString] = endpointWithParams.split('?')
 
   try {
     // Build the URL for the refresh endpoint
+    // Use localhost for internal calls to avoid DNS/firewall issues
     const params = new URLSearchParams(queryString || '')
     params.set('league_id', league.id)
 
-    const url = `${baseUrl}/api/data/refresh/${endpoint}?${params.toString()}`
+    const internalBaseUrl = process.env.INTERNAL_API_URL || 'http://localhost:3004'
+    const url = `${internalBaseUrl}/api/data/refresh/${endpoint}?${params.toString()}`
 
     const response = await fetch(url, {
       method: 'POST',
