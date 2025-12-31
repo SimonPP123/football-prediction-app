@@ -138,6 +138,63 @@ export async function fetchAllFixtures(leagueApiId: number = DEFAULT_LEAGUE_ID, 
 }
 
 /**
+ * Fetch the next X upcoming fixtures for a league
+ * @param count - Number of fixtures to fetch (default 10, max 99)
+ * @param leagueApiId - League API ID
+ * @param season - Season year
+ */
+export async function fetchFixturesNext(
+  count: number = 10,
+  leagueApiId: number = DEFAULT_LEAGUE_ID,
+  season: number = DEFAULT_SEASON
+) {
+  const clampedCount = Math.min(99, Math.max(1, count));
+  console.log(`[API-Football] Fetching next ${clampedCount} fixtures for league ${leagueApiId}`);
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}&next=${clampedCount}`);
+}
+
+/**
+ * Fetch the last X completed fixtures for a league
+ * @param count - Number of fixtures to fetch (default 10, max 99)
+ * @param leagueApiId - League API ID
+ * @param season - Season year
+ */
+export async function fetchFixturesLast(
+  count: number = 10,
+  leagueApiId: number = DEFAULT_LEAGUE_ID,
+  season: number = DEFAULT_SEASON
+) {
+  const clampedCount = Math.min(99, Math.max(1, count));
+  console.log(`[API-Football] Fetching last ${clampedCount} fixtures for league ${leagueApiId}`);
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}&last=${clampedCount}`);
+}
+
+/**
+ * Fetch currently live fixtures for specific league(s) or all leagues
+ * @param leagueApiId - League API ID or 'all' for all leagues
+ */
+export async function fetchLiveFixturesByLeague(leagueApiId: number | 'all' = DEFAULT_LEAGUE_ID) {
+  const param = leagueApiId === 'all' ? 'all' : String(leagueApiId);
+  console.log(`[API-Football] Fetching live fixtures for: ${param}`);
+  return fetchFromAPI(`/fixtures?live=${param}`);
+}
+
+/**
+ * Fetch fixtures for a specific date
+ * @param date - Date string in YYYY-MM-DD format
+ * @param leagueApiId - League API ID
+ * @param season - Season year
+ */
+export async function fetchFixturesByDate(
+  date: string,
+  leagueApiId: number = DEFAULT_LEAGUE_ID,
+  season: number = DEFAULT_SEASON
+) {
+  console.log(`[API-Football] Fetching fixtures for date ${date}`);
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&season=${season}&date=${date}`);
+}
+
+/**
  * Fetch fixtures within a specific date range (smart filtering)
  * This reduces API calls by only fetching relevant fixtures
  *
@@ -238,6 +295,38 @@ export async function fetchTeamStats(teamApiId: number, leagueApiId: number = DE
 
 export async function fetchInjuries(leagueApiId: number = DEFAULT_LEAGUE_ID, season: number = DEFAULT_SEASON) {
   return fetchFromAPI(`/injuries?league=${leagueApiId}&season=${season}`);
+}
+
+/**
+ * Fetch injuries for specific fixture IDs
+ * @param fixtureApiIds - Array of fixture API IDs (max 20 per request)
+ */
+export async function fetchInjuriesByFixtures(fixtureApiIds: number[]) {
+  if (fixtureApiIds.length === 0) {
+    return { response: [] };
+  }
+  // API-Football allows max 20 fixture IDs per request
+  const ids = fixtureApiIds.slice(0, 20).join('-');
+  console.log(`[API-Football] Fetching injuries for ${fixtureApiIds.length} fixtures`);
+  return fetchFromAPI(`/injuries?ids=${ids}`);
+}
+
+/**
+ * Fetch injuries for a specific fixture
+ * @param fixtureApiId - Fixture API ID
+ */
+export async function fetchInjuriesByFixture(fixtureApiId: number) {
+  console.log(`[API-Football] Fetching injuries for fixture ${fixtureApiId}`);
+  return fetchFromAPI(`/injuries?fixture=${fixtureApiId}`);
+}
+
+/**
+ * Fetch injuries for a specific date
+ * @param date - Date string in YYYY-MM-DD format
+ */
+export async function fetchInjuriesByDate(date: string) {
+  console.log(`[API-Football] Fetching injuries for date ${date}`);
+  return fetchFromAPI(`/injuries?date=${date}`);
 }
 
 // =====================================================

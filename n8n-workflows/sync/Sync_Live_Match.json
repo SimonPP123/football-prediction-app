@@ -1,0 +1,213 @@
+{
+  "name": "Sync_Live_Match",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-phase",
+      "name": "Check Current Phase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-live",
+              "leftValue": "={{ $json.currentPhase }}",
+              "rightValue": "live",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-live",
+      "name": "IF Live",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/fixtures",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "live"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-live",
+      "name": "Refresh Live Fixtures",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/fixture-statistics",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "live"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-stats",
+      "name": "Refresh Live Statistics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## No Live Matches\n\nCurrent phase is not 'live'. Skipping refresh.",
+        "height": 100,
+        "width": 300
+      },
+      "id": "note-skip",
+      "name": "Skip - Not Live",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1000, 500]
+    }
+  ],
+  "connections": {
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "node": "Check Current Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Current Phase": {
+      "main": [
+        [
+          {
+            "node": "IF Live",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Live": {
+      "main": [
+        [
+          {
+            "node": "Refresh Live Fixtures",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Refresh Live Statistics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Not Live",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "football"
+    },
+    {
+      "name": "sync"
+    },
+    {
+      "name": "live"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "football-prediction"
+  }
+}

@@ -1,0 +1,274 @@
+{
+  "name": "Sync_Daily_Maintenance",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger",
+      "name": "Daily at 06:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/standings",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-standings",
+      "name": "Refresh Standings",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 150],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/fixtures",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "next"
+            },
+            {
+              "name": "count",
+              "value": "15"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-upcoming",
+      "name": "Refresh Upcoming Fixtures",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/injuries",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "upcoming"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-injuries",
+      "name": "Refresh Injuries (Upcoming)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 450],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/fixtures",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "mode",
+              "value": "last"
+            },
+            {
+              "name": "count",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "refresh-recent",
+      "name": "Refresh Recent Fixtures",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 600],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "aggregate",
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "content": "=## Daily Maintenance Complete\n\n**Timestamp:** {{ $now.toISO() }}\n\n### Results Summary\n{{ $json.data.map(r => '- ' + (r.success ? '✓' : '✗') + ' ' + (r.league || 'Unknown')).join('\\n') }}",
+        "height": 300,
+        "width": 400
+      },
+      "id": "note-summary",
+      "name": "Summary",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Daily at 06:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "Refresh Standings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Refresh Upcoming Fixtures",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Refresh Injuries (Upcoming)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Refresh Recent Fixtures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Standings": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Upcoming Fixtures": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Injuries (Upcoming)": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Recent Fixtures": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "football"
+    },
+    {
+      "name": "sync"
+    },
+    {
+      "name": "daily"
+    },
+    {
+      "name": "maintenance"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "football-prediction"
+  }
+}

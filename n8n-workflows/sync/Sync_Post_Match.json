@@ -1,0 +1,259 @@
+{
+  "name": "Sync_Post_Match",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "check-phase",
+      "name": "Check Current Phase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-postmatch",
+              "leftValue": "={{ $json.currentPhase }}",
+              "rightValue": "post-match",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-postmatch",
+      "name": "IF Post-Match",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phase",
+              "value": "post-match"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "refresh-postmatch",
+      "name": "Refresh Post-Match Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-success",
+      "name": "IF Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "content": "=## Post-Match Sync Completed\n\n**League:** {{ $json.league }}\n**Refreshed:** {{ $json.refreshed.join(', ') }}\n**Duration:** {{ $json.summary.duration }}ms",
+        "height": 200,
+        "width": 400
+      },
+      "id": "note-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "content": "=## Post-Match Sync Failed\n\n**Failed:** {{ $json.failed ? $json.failed.map(f => f.endpoint).join(', ') : 'Unknown' }}",
+        "height": 150,
+        "width": 400
+      },
+      "id": "note-error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "content": "## Not Post-Match Phase\n\nCurrent phase is not 'post-match'. Skipping refresh.",
+        "height": 100,
+        "width": 300
+      },
+      "id": "note-skip",
+      "name": "Skip - Not Post-Match",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1000, 400]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Check Current Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Current Phase": {
+      "main": [
+        [
+          {
+            "node": "IF Post-Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Post-Match": {
+      "main": [
+        [
+          {
+            "node": "Refresh Post-Match Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip - Not Post-Match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh Post-Match Data": {
+      "main": [
+        [
+          {
+            "node": "IF Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Success": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "football"
+    },
+    {
+      "name": "sync"
+    },
+    {
+      "name": "post-match"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "football-prediction"
+  }
+}

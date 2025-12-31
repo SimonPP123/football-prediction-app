@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
-import { fetchInjuries } from '@/lib/api-football'
+import {
+  fetchInjuries,
+  fetchInjuriesByFixtures,
+  fetchInjuriesByFixture,
+  fetchInjuriesByDate,
+} from '@/lib/api-football'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 
 export const dynamic = 'force-dynamic'
+
+// Refresh modes
+type InjuryRefreshMode = 'all' | 'upcoming' | 'fixture' | 'fixtures' | 'date'
 
 function isAdmin(): boolean {
   const cookieStore = cookies()
@@ -36,6 +44,42 @@ interface LeagueConfig {
   currentSeason: number
 }
 
+interface InjuryModeParams {
+  mode: InjuryRefreshMode
+  fixtureId?: number
+  fixtureIds?: number[]
+  date?: string
+}
+
+/**
+ * Parse injury refresh mode and parameters from request
+ */
+function getInjuryModeParams(request: Request): InjuryModeParams {
+  const url = new URL(request.url)
+  const mode = url.searchParams.get('mode') as InjuryRefreshMode || 'all'
+  const params: InjuryModeParams = { mode }
+
+  // Parse fixture_id for single fixture mode
+  const fixtureId = url.searchParams.get('fixture_id')
+  if (fixtureId) {
+    params.fixtureId = parseInt(fixtureId, 10)
+  }
+
+  // Parse fixture_ids for multiple fixtures
+  const fixtureIds = url.searchParams.get('fixture_ids')
+  if (fixtureIds) {
+    params.fixtureIds = fixtureIds.split('-').map(id => parseInt(id, 10)).filter(id => !isNaN(id))
+  }
+
+  // Parse date
+  const date = url.searchParams.get('date')
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    params.date = date
+  }
+
+  return params
+}
+
 export async function POST(request: Request) {
   if (!isAdmin()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
@@ -43,26 +87,31 @@ export async function POST(request: Request) {
 
   // Get league from request (defaults to Premier League)
   const league = await getLeagueFromRequest(request)
+  const modeParams = getInjuryModeParams(request)
 
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh(league)
+    return handleStreamingRefresh(league, modeParams)
   }
-  return handleBatchRefresh(league)
+  return handleBatchRefresh(league, modeParams)
 }
 
-async function handleStreamingRefresh(league: LeagueConfig) {
+async function handleStreamingRefresh(league: LeagueConfig, modeParams: InjuryModeParams) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
   ;(async () => {
     try {
-      sendLog({ type: 'info', message: `Fetching injuries for ${league.name} from API-Football...` })
+      const modeLabel = modeParams.mode === 'upcoming' ? 'upcoming fixtures' : modeParams.mode
+      sendLog({ type: 'info', message: `Fetching injuries (${modeLabel}) for ${league.name} from API-Football...` })
 
-      const data = await fetchInjuries(league.apiId, league.currentSeason)
+      const data = await fetchInjuriesByMode(league, modeParams)
 
-      if (!data.response) {
-        sendLog({ type: 'error', message: 'No injuries data returned from API' })
-        closeWithError('No injuries data returned from API', Date.now() - startTime)
+      if (!data.response || data.response.length === 0) {
+        const msg = modeParams.mode === 'upcoming'
+          ? `No injuries found for ${data.fixtureCount || 0} upcoming fixtures`
+          : 'No injuries data returned from API'
+        sendLog({ type: 'info', message: msg })
+        close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime, league: league.name, mode: modeParams.mode })
         return
       }
 
@@ -113,10 +162,13 @@ async function handleStreamingRefresh(league: LeagueConfig) {
             player_api_id: item.player.id,
             player_name: item.player.name,
             team_id: teamId,
+            league_id: league.id,
+            fixture_api_id: item.fixture?.id || null,
             injury_type: item.player.type || null,
             injury_reason: item.player.reason || null,
             reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
-          }, { onConflict: 'player_id,reported_date' })
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'player_api_id,fixture_api_id' })
 
         if (error) {
           sendLog({ type: 'error', message: `Error updating ${item.player.name}: ${error.message}` })
@@ -132,7 +184,7 @@ async function handleStreamingRefresh(league: LeagueConfig) {
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${imported} imported, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
-      close({ success: true, imported, errors, total: data.response.length, duration, league: league.name })
+      close({ success: true, imported, errors, total: data.response.length, duration, league: league.name, mode: modeParams.mode })
     } catch (error) {
       const duration = Date.now() - startTime
       sendLog({ type: 'error', message: error instanceof Error ? error.message : 'Unknown error' })
@@ -143,7 +195,75 @@ async function handleStreamingRefresh(league: LeagueConfig) {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh(league: LeagueConfig) {
+/**
+ * Fetch injuries based on mode
+ */
+async function fetchInjuriesByMode(
+  league: LeagueConfig,
+  modeParams: InjuryModeParams
+): Promise<{ response: any[]; mode: string; fixtureCount?: number }> {
+  const { mode, fixtureId, fixtureIds, date } = modeParams
+
+  switch (mode) {
+    case 'upcoming':
+      // Fetch upcoming fixture IDs from database, then get injuries for those fixtures
+      const now = new Date()
+      const { data: upcomingFixtures } = await supabase
+        .from('fixtures')
+        .select('api_id')
+        .eq('league_id', league.id)
+        .in('status', ['NS', 'TBD'])
+        .gte('match_date', now.toISOString())
+        .order('match_date', { ascending: true })
+        .limit(20) // API-Football max is 20 IDs per request
+
+      if (!upcomingFixtures || upcomingFixtures.length === 0) {
+        return { response: [], mode: 'upcoming', fixtureCount: 0 }
+      }
+
+      const upcomingIds = upcomingFixtures.map(f => f.api_id)
+      const upcomingData = await fetchInjuriesByFixtures(upcomingIds)
+      return {
+        response: upcomingData.response || [],
+        mode: 'upcoming',
+        fixtureCount: upcomingIds.length
+      }
+
+    case 'fixture':
+      // Fetch injuries for a single fixture
+      if (!fixtureId) {
+        return { response: [], mode: 'fixture' }
+      }
+      const fixtureData = await fetchInjuriesByFixture(fixtureId)
+      return { response: fixtureData.response || [], mode: 'fixture' }
+
+    case 'fixtures':
+      // Fetch injuries for multiple specific fixtures
+      if (!fixtureIds || fixtureIds.length === 0) {
+        return { response: [], mode: 'fixtures' }
+      }
+      const fixturesData = await fetchInjuriesByFixtures(fixtureIds)
+      return {
+        response: fixturesData.response || [],
+        mode: 'fixtures',
+        fixtureCount: fixtureIds.length
+      }
+
+    case 'date':
+      // Fetch injuries for a specific date
+      const targetDate = date || new Date().toISOString().split('T')[0]
+      const dateData = await fetchInjuriesByDate(targetDate)
+      return { response: dateData.response || [], mode: 'date' }
+
+    case 'all':
+    default:
+      // Fetch all injuries for the league/season
+      const allData = await fetchInjuries(league.apiId, league.currentSeason)
+      return { response: allData.response || [], mode: 'all' }
+  }
+}
+
+async function handleBatchRefresh(league: LeagueConfig, modeParams: InjuryModeParams) {
   const logs: LogEntry[] = []
   const addLog = (type: LogEntry['type'], message: string) => {
     logs.push({ type, message })
@@ -151,19 +271,28 @@ async function handleBatchRefresh(league: LeagueConfig) {
   }
 
   try {
-    addLog('info', `Fetching injuries for ${league.name} from API-Football...`)
+    const modeLabel = modeParams.mode === 'upcoming' ? 'upcoming fixtures' : modeParams.mode
+    addLog('info', `Fetching injuries (${modeLabel}) for ${league.name} from API-Football...`)
 
-    // Fetch injuries from API-Football for this league
-    const data = await fetchInjuries(league.apiId, league.currentSeason)
+    // Fetch injuries based on mode
+    const data = await fetchInjuriesByMode(league, modeParams)
 
-    if (!data.response) {
-      addLog('error', 'No injuries data returned from API')
+    if (!data.response || data.response.length === 0) {
+      const msg = modeParams.mode === 'upcoming'
+        ? `No injuries found for ${data.fixtureCount || 0} upcoming fixtures`
+        : 'No injuries data returned from API'
+      addLog('info', msg)
       return NextResponse.json({
-        success: false,
-        error: 'No injuries data returned from API',
+        success: true,
+        imported: 0,
+        errors: 0,
+        skipped: 0,
+        total: 0,
         logs,
         league: league.name,
-      }, { status: 400 })
+        mode: modeParams.mode,
+        fixtureCount: data.fixtureCount,
+      })
     }
 
     addLog('info', `Received ${data.response.length} injury records from API`)
@@ -204,10 +333,13 @@ async function handleBatchRefresh(league: LeagueConfig) {
           player_api_id: item.player.id,
           player_name: item.player.name,
           team_id: teamId,
+          league_id: league.id,
+          fixture_api_id: item.fixture?.id || null,
           injury_type: item.player.type || null,
           injury_reason: item.player.reason || null,
           reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
-        }, { onConflict: 'player_id,reported_date' })
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'player_api_id,fixture_api_id' })
 
       if (error) {
         addLog('error', `Error updating ${item.player.name}: ${error.message}`)
@@ -231,6 +363,8 @@ async function handleBatchRefresh(league: LeagueConfig) {
       total: data.response.length,
       logs,
       league: league.name,
+      mode: modeParams.mode,
+      fixtureCount: data.fixtureCount,
     })
   } catch (error) {
     addLog('error', error instanceof Error ? error.message : 'Unknown error')
@@ -239,6 +373,7 @@ async function handleBatchRefresh(league: LeagueConfig) {
       error: error instanceof Error ? error.message : 'Unknown error',
       logs,
       league: league.name,
+      mode: modeParams.mode,
     }, { status: 500 })
   }
 }

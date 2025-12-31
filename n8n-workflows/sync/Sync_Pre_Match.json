@@ -1,0 +1,171 @@
+{
+  "name": "Sync_Pre_Match",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 6 Hours",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phase",
+              "value": "pre-match"
+            },
+            {
+              "name": "include_optional",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "http-request-prematch",
+      "name": "Pre-Match Refresh",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-auth",
+          "name": "Football Auth Cookie"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-success",
+      "name": "IF Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "content": "=## Pre-Match Sync Completed\n\n**League:** {{ $json.league }}\n**Phase:** {{ $json.phase }}\n**Duration:** {{ $json.summary.duration }}ms\n\n### Results\n- Total: {{ $json.summary.total }}\n- Successful: {{ $json.summary.successful }}\n- Failed: {{ $json.summary.failed }}\n\n### Refreshed Endpoints\n{{ $json.refreshed.join(', ') }}",
+        "height": 300,
+        "width": 400
+      },
+      "id": "note-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "content": "=## Pre-Match Sync Failed\n\n**Error:** {{ $json.error || 'Unknown error' }}\n\n### Failed Endpoints\n{{ $json.failed ? $json.failed.map(f => f.endpoint + ': ' + f.error).join('\\n') : 'N/A' }}",
+        "height": 200,
+        "width": 400
+      },
+      "id": "note-error",
+      "name": "Log Error",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1000, 450]
+    }
+  ],
+  "connections": {
+    "Every 6 Hours": {
+      "main": [
+        [
+          {
+            "node": "Pre-Match Refresh",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-Match Refresh": {
+      "main": [
+        [
+          {
+            "node": "IF Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Success": {
+      "main": [
+        [
+          {
+            "node": "Log Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "football"
+    },
+    {
+      "name": "sync"
+    },
+    {
+      "name": "pre-match"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "football-prediction"
+  }
+}

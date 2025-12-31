@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
-import { fetchAllFixtures, fetchFixturesInRange } from '@/lib/api-football'
+import {
+  fetchAllFixtures,
+  fetchFixturesInRange,
+  fetchFixturesNext,
+  fetchFixturesLast,
+  fetchLiveFixturesByLeague,
+  fetchFixturesByDate,
+  fetchFixturesByIds,
+} from '@/lib/api-football'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
 import { getFixtureWindows, DATE_WINDOWS } from '@/lib/api/fixture-windows'
 
 export const dynamic = 'force-dynamic'
 
-// Refresh modes
-type RefreshMode = 'smart' | 'full' | 'upcoming' | 'recent'
+// Refresh modes - extended with new modes
+type RefreshMode = 'smart' | 'full' | 'upcoming' | 'recent' | 'next' | 'last' | 'live' | 'date' | 'ids'
 
 function isAdmin(): boolean {
   const cookieStore = cookies()
@@ -48,10 +56,36 @@ interface LeagueConfig {
 function getRefreshMode(request: Request): RefreshMode {
   const url = new URL(request.url)
   const mode = url.searchParams.get('mode')
-  if (mode && ['smart', 'full', 'upcoming', 'recent'].includes(mode)) {
+  const validModes = ['smart', 'full', 'upcoming', 'recent', 'next', 'last', 'live', 'date', 'ids']
+  if (mode && validModes.includes(mode)) {
     return mode as RefreshMode
   }
   return 'smart' // Default to smart mode
+}
+
+/**
+ * Parse additional parameters for new modes
+ */
+function getModeParams(request: Request): { count?: number; date?: string; ids?: number[] } {
+  const url = new URL(request.url)
+  const params: { count?: number; date?: string; ids?: number[] } = {}
+
+  const count = url.searchParams.get('count')
+  if (count) {
+    params.count = Math.min(99, Math.max(1, parseInt(count, 10) || 10))
+  }
+
+  const date = url.searchParams.get('date')
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    params.date = date
+  }
+
+  const ids = url.searchParams.get('ids')
+  if (ids) {
+    params.ids = ids.split('-').map(id => parseInt(id, 10)).filter(id => !isNaN(id))
+  }
+
+  return params
 }
 
 /**
@@ -59,8 +93,9 @@ function getRefreshMode(request: Request): RefreshMode {
  */
 async function fetchFixturesByMode(
   mode: RefreshMode,
-  league: LeagueConfig
-): Promise<{ response: any[]; mode: string; dateRange?: { from: string; to: string } }> {
+  league: LeagueConfig,
+  params: { count?: number; date?: string; ids?: number[] } = {}
+): Promise<{ response: any[]; mode: string; dateRange?: { from: string; to: string }; count?: number }> {
   const windows = getFixtureWindows()
 
   switch (mode) {
@@ -103,6 +138,42 @@ async function fetchFixturesByMode(
         }
       }
 
+    // NEW MODES
+    case 'next':
+      // Fetch next X upcoming fixtures
+      const count = params.count || 10
+      const nextData = await fetchFixturesNext(count, league.apiId, league.currentSeason)
+      return { response: nextData.response || [], mode: 'next', count }
+
+    case 'last':
+      // Fetch last X completed fixtures
+      const lastCount = params.count || 10
+      const lastData = await fetchFixturesLast(lastCount, league.apiId, league.currentSeason)
+      return { response: lastData.response || [], mode: 'last', count: lastCount }
+
+    case 'live':
+      // Fetch currently live fixtures for this league
+      const liveData = await fetchLiveFixturesByLeague(league.apiId)
+      return { response: liveData.response || [], mode: 'live' }
+
+    case 'date':
+      // Fetch fixtures for a specific date
+      const date = params.date || new Date().toISOString().split('T')[0]
+      const dateData = await fetchFixturesByDate(date, league.apiId, league.currentSeason)
+      return {
+        response: dateData.response || [],
+        mode: 'date',
+        dateRange: { from: date, to: date }
+      }
+
+    case 'ids':
+      // Fetch specific fixtures by ID (includes full details)
+      if (!params.ids || params.ids.length === 0) {
+        return { response: [], mode: 'ids' }
+      }
+      const idsData = await fetchFixturesByIds(params.ids)
+      return { response: idsData.response || [], mode: 'ids', count: params.ids.length }
+
     case 'smart':
     default:
       // Smart: past X days + next Y days (10-day window typically)
@@ -131,14 +202,19 @@ export async function POST(request: Request) {
   // Get league from request (defaults to Premier League)
   const league = await getLeagueFromRequest(request)
   const mode = getRefreshMode(request)
+  const params = getModeParams(request)
 
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh(league, mode)
+    return handleStreamingRefresh(league, mode, params)
   }
-  return handleBatchRefresh(league, mode)
+  return handleBatchRefresh(league, mode, params)
 }
 
-async function handleStreamingRefresh(league: LeagueConfig, mode: RefreshMode) {
+async function handleStreamingRefresh(
+  league: LeagueConfig,
+  mode: RefreshMode,
+  params: { count?: number; date?: string; ids?: number[] } = {}
+) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
@@ -147,7 +223,7 @@ async function handleStreamingRefresh(league: LeagueConfig, mode: RefreshMode) {
       const modeLabel = mode === 'full' ? 'all' : mode
       sendLog({ type: 'info', message: `Fetching ${modeLabel} fixtures for ${league.name}...` })
 
-      const data = await fetchFixturesByMode(mode, league)
+      const data = await fetchFixturesByMode(mode, league, params)
 
       if (!data.response || data.response.length === 0) {
         const msg = mode === 'smart'
@@ -254,7 +330,11 @@ async function handleStreamingRefresh(league: LeagueConfig, mode: RefreshMode) {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh(league: LeagueConfig, mode: RefreshMode) {
+async function handleBatchRefresh(
+  league: LeagueConfig,
+  mode: RefreshMode,
+  params: { count?: number; date?: string; ids?: number[] } = {}
+) {
   const logs: LogEntry[] = []
   const addLog = (type: LogEntry['type'], message: string) => {
     logs.push({ type, message })
@@ -266,7 +346,7 @@ async function handleBatchRefresh(league: LeagueConfig, mode: RefreshMode) {
     addLog('info', `Fetching ${modeLabel} fixtures for ${league.name}...`)
 
     // Fetch fixtures based on mode
-    const data = await fetchFixturesByMode(mode, league)
+    const data = await fetchFixturesByMode(mode, league, params)
 
     if (!data.response || data.response.length === 0) {
       const msg = mode === 'smart'
