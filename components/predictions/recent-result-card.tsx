@@ -45,6 +45,16 @@ const getScoreBgColor = (score: number) => {
   return 'bg-red-500/10 border-red-500/20'
 }
 
+// Check if actual result matches prediction (including compound predictions like X2, 1X, 12)
+const isPredictionCorrect = (actual: '1' | 'X' | '2' | null, predicted: string | null): boolean => {
+  if (!actual || !predicted) return false
+  // Direct match
+  if (actual === predicted) return true
+  // Compound predictions: X2 matches X or 2, 1X matches 1 or X, 12 matches 1 or 2
+  if (predicted.includes(actual)) return true
+  return false
+}
+
 interface RecentResultCardProps {
   fixture: any
 }
@@ -80,7 +90,7 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
 
   const actualResult = getActualResult()
   const predictedResult = prediction?.prediction_result
-  const wasCorrect = actualResult && predictedResult && actualResult === predictedResult
+  const wasCorrect = isPredictionCorrect(actualResult, predictedResult)
 
   // Check score prediction accuracy
   const actualScore = `${fixture.goals_home}-${fixture.goals_away}`
