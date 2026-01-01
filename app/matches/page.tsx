@@ -1,180 +1,551 @@
-import { getCompletedFixtures, getUpcomingFixtures } from '@/lib/supabase/queries'
-import { getLeagueFromCookies } from '@/lib/league-context'
-import { cookies } from 'next/headers'
+'use client'
+
+import { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
 import Link from 'next/link'
+import { useLeague } from '@/contexts/league-context'
+import {
+  Search,
+  Calendar,
+  Clock,
+  Trophy,
+  ChevronDown,
+  ArrowUpDown,
+  Filter,
+  X,
+  Target,
+  TrendingUp,
+  CheckCircle,
+  XCircle,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-export const dynamic = 'force-dynamic'
+type TabType = 'live' | 'upcoming' | 'results'
+type SortType = 'date-asc' | 'date-desc' | 'home-team' | 'away-team'
 
-export default async function MatchesPage() {
-  // Get league from cookies
-  const cookieStore = await cookies()
-  const cookieHeader = cookieStore.toString()
-  const league = await getLeagueFromCookies(cookieHeader)
-  const leagueId = league.id || undefined
+interface Fixture {
+  id: string
+  match_date: string
+  status: string
+  round: string
+  goals_home: number | null
+  goals_away: number | null
+  home_team: { id: string; name: string; logo: string } | null
+  away_team: { id: string; name: string; logo: string } | null
+  venue: { name: string; city: string } | null
+  prediction?: {
+    prediction_result: string
+    overall_index: number
+    certainty_score?: number
+    confidence_pct?: number
+  } | null
+}
 
-  const [completed, upcoming] = await Promise.all([
-    getCompletedFixtures(50, leagueId),
-    getUpcomingFixtures(20, leagueId),
-  ])
+export default function MatchesPage() {
+  const { currentLeague } = useLeague()
+  const [activeTab, setActiveTab] = useState<TabType>('upcoming')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedRound, setSelectedRound] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<SortType>('date-asc')
+  const [showFilters, setShowFilters] = useState(false)
+
+  const [liveMatches, setLiveMatches] = useState<Fixture[]>([])
+  const [upcomingMatches, setUpcomingMatches] = useState<Fixture[]>([])
+  const [results, setResults] = useState<Fixture[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch matches
+  useEffect(() => {
+    const fetchMatches = async () => {
+      if (!currentLeague?.id) return
+
+      setLoading(true)
+      try {
+        const [liveRes, upcomingRes, resultsRes] = await Promise.all([
+          fetch(`/api/fixtures/live?league_id=${currentLeague.id}`),
+          fetch(`/api/fixtures/upcoming?limit=50&league_id=${currentLeague.id}`),
+          fetch(`/api/fixtures/recent-results?rounds=10&league_id=${currentLeague.id}`),
+        ])
+
+        const [live, upcoming, recent] = await Promise.all([
+          liveRes.json(),
+          upcomingRes.json(),
+          resultsRes.json(),
+        ])
+
+        setLiveMatches(Array.isArray(live) ? live : [])
+        setUpcomingMatches(Array.isArray(upcoming) ? upcoming : [])
+        setResults(Array.isArray(recent) ? recent : [])
+      } catch (error) {
+        console.error('Error fetching matches:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMatches()
+
+    // Auto-refresh live matches every 60 seconds
+    const interval = setInterval(() => {
+      if (activeTab === 'live' && currentLeague?.id) {
+        fetch(`/api/fixtures/live?league_id=${currentLeague.id}`)
+          .then((res) => res.json())
+          .then((data) => setLiveMatches(Array.isArray(data) ? data : []))
+          .catch(console.error)
+      }
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [currentLeague?.id, activeTab])
+
+  // Get current matches based on active tab
+  const currentMatches = useMemo(() => {
+    switch (activeTab) {
+      case 'live':
+        return liveMatches
+      case 'upcoming':
+        return upcomingMatches
+      case 'results':
+        return results
+      default:
+        return []
+    }
+  }, [activeTab, liveMatches, upcomingMatches, results])
+
+  // Get unique rounds for filter
+  const availableRounds = useMemo(() => {
+    const rounds = new Set<string>()
+    currentMatches.forEach((m) => {
+      if (m.round) rounds.add(m.round)
+    })
+    return Array.from(rounds).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, '')) || 0
+      const numB = parseInt(b.replace(/\D/g, '')) || 0
+      return numA - numB
+    })
+  }, [currentMatches])
+
+  // Filter and sort matches
+  const filteredMatches = useMemo(() => {
+    let filtered = [...currentMatches]
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (m) =>
+          m.home_team?.name?.toLowerCase().includes(query) ||
+          m.away_team?.name?.toLowerCase().includes(query)
+      )
+    }
+
+    // Round filter
+    if (selectedRound !== 'all') {
+      filtered = filtered.filter((m) => m.round === selectedRound)
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'date-asc':
+          return new Date(a.match_date).getTime() - new Date(b.match_date).getTime()
+        case 'date-desc':
+          return new Date(b.match_date).getTime() - new Date(a.match_date).getTime()
+        case 'home-team':
+          return (a.home_team?.name || '').localeCompare(b.home_team?.name || '')
+        case 'away-team':
+          return (a.away_team?.name || '').localeCompare(b.away_team?.name || '')
+        default:
+          return 0
+      }
+    })
+
+    return filtered
+  }, [currentMatches, searchQuery, selectedRound, sortBy])
+
+  // Get prediction badge color
+  const getPredictionBadge = (prediction: Fixture['prediction']) => {
+    if (!prediction) return null
+    const result = prediction.prediction_result
+    const confidence = prediction.certainty_score || prediction.confidence_pct || prediction.overall_index || 0
+
+    let bgColor = 'bg-muted'
+    if (result === '1') bgColor = 'bg-blue-500'
+    else if (result === 'X') bgColor = 'bg-amber-500'
+    else if (result === '2') bgColor = 'bg-orange-500'
+    else if (result === '1X' || result === 'X2' || result === '12') bgColor = 'bg-purple-500'
+
+    return (
+      <div className="flex items-center gap-1.5">
+        <span className={cn('text-xs font-bold text-white px-1.5 py-0.5 rounded', bgColor)}>
+          {result}
+        </span>
+        <span className="text-xs text-muted-foreground">{confidence}%</span>
+      </div>
+    )
+  }
+
+  // Check if prediction was correct (for results)
+  const isPredictionCorrect = (fixture: Fixture) => {
+    if (!fixture.prediction || fixture.goals_home === null || fixture.goals_away === null) return null
+
+    const predicted = fixture.prediction.prediction_result
+    let actual: string
+    if (fixture.goals_home > fixture.goals_away) actual = '1'
+    else if (fixture.goals_home < fixture.goals_away) actual = '2'
+    else actual = 'X'
+
+    // Check compound predictions
+    if (predicted === actual) return true
+    if (predicted.includes(actual)) return true
+    return false
+  }
+
+  // Get live status display
+  const getLiveStatus = (status: string) => {
+    switch (status) {
+      case '1H':
+        return '1st Half'
+      case '2H':
+        return '2nd Half'
+      case 'HT':
+        return 'Half Time'
+      case 'ET':
+        return 'Extra Time'
+      case 'BT':
+        return 'Break'
+      case 'P':
+        return 'Penalties'
+      default:
+        return 'Live'
+    }
+  }
+
+  const tabs = [
+    { id: 'live' as TabType, label: 'Live', icon: Clock, count: liveMatches.length },
+    { id: 'upcoming' as TabType, label: 'Upcoming', icon: Calendar, count: upcomingMatches.length },
+    { id: 'results' as TabType, label: 'Results', icon: Trophy, count: results.length },
+  ]
 
   return (
     <div className="min-h-screen">
-      <Header title="Matches" />
+      <Header title="Matches" subtitle={currentLeague?.name} />
 
-      <div className="p-6 space-y-6">
-        {/* Upcoming Matches */}
-        <div className="bg-card border border-border rounded-lg">
-          <div className="p-4 border-b border-border">
-            <h2 className="font-semibold">Upcoming Matches</h2>
-          </div>
-          <div className="divide-y divide-border">
-            {upcoming.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No upcoming matches
-              </div>
-            ) : (
-              upcoming.map((fixture: any) => (
-                <Link
-                  key={fixture.id}
-                  href={`/matches/${fixture.id}`}
-                  className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors block"
+      <div className="p-4 md:p-6 space-y-4">
+        {/* Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            const hasLive = tab.id === 'live' && tab.count > 0
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-card border border-border hover:bg-muted'
+                )}
+              >
+                {hasLive && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                )}
+                <Icon className="w-4 h-4" />
+                {tab.label}
+                <span
+                  className={cn(
+                    'px-1.5 py-0.5 rounded text-xs',
+                    isActive ? 'bg-primary-foreground/20' : 'bg-muted'
+                  )}
                 >
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Date */}
-                    <div className="text-center min-w-[60px]">
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(fixture.match_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
-                      </div>
-                      <div className="text-sm font-medium">
-                        {new Date(fixture.match_date).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </div>
-                    </div>
+                  {tab.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
 
-                    {/* Home Team */}
-                    <div className="flex items-center gap-2 flex-1 justify-end">
-                      <span className="font-medium text-right">
-                        {fixture.home_team?.name || 'TBD'}
-                      </span>
-                      {fixture.home_team?.logo && (
-                        <img
-                          src={fixture.home_team.logo}
-                          alt=""
-                          className="w-8 h-8 object-contain"
-                        />
-                      )}
-                    </div>
-
-                    {/* VS */}
-                    <div className="px-4 py-1 bg-muted rounded text-sm font-medium min-w-[50px] text-center">
-                      vs
-                    </div>
-
-                    {/* Away Team */}
-                    <div className="flex items-center gap-2 flex-1">
-                      {fixture.away_team?.logo && (
-                        <img
-                          src={fixture.away_team.logo}
-                          alt=""
-                          className="w-8 h-8 object-contain"
-                        />
-                      )}
-                      <span className="font-medium">
-                        {fixture.away_team?.name || 'TBD'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Round */}
-                  <div className="text-xs text-muted-foreground ml-4">
-                    {fixture.round}
-                  </div>
-                </Link>
-              ))
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search teams..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
+          </div>
+
+          {/* Filter Toggle (Mobile) */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="sm:hidden flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+            {(selectedRound !== 'all' || sortBy !== 'date-asc') && (
+              <span className="w-2 h-2 rounded-full bg-primary" />
+            )}
+          </button>
+
+          {/* Desktop Filters */}
+          <div className="hidden sm:flex gap-3">
+            {/* Round Filter */}
+            <div className="relative">
+              <select
+                value={selectedRound}
+                onChange={(e) => setSelectedRound(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+              >
+                <option value="all">All Rounds</option>
+                {availableRounds.map((round) => (
+                  <option key={round} value={round}>
+                    {round}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
+
+            {/* Sort */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortType)}
+                className="appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+              >
+                <option value="date-asc">Date (Earliest)</option>
+                <option value="date-desc">Date (Latest)</option>
+                <option value="home-team">Home Team (A-Z)</option>
+                <option value="away-team">Away Team (A-Z)</option>
+              </select>
+              <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
         </div>
 
-        {/* Completed Matches */}
-        <div className="bg-card border border-border rounded-lg">
-          <div className="p-4 border-b border-border">
-            <h2 className="font-semibold">Results</h2>
+        {/* Mobile Filters Dropdown */}
+        {showFilters && (
+          <div className="sm:hidden flex gap-3">
+            <div className="relative flex-1">
+              <select
+                value={selectedRound}
+                onChange={(e) => setSelectedRound(e.target.value)}
+                className="w-full appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm"
+              >
+                <option value="all">All Rounds</option>
+                {availableRounds.map((round) => (
+                  <option key={round} value={round}>
+                    {round}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
+            <div className="relative flex-1">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortType)}
+                className="w-full appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm"
+              >
+                <option value="date-asc">Date (Earliest)</option>
+                <option value="date-desc">Date (Latest)</option>
+                <option value="home-team">Home Team</option>
+                <option value="away-team">Away Team</option>
+              </select>
+              <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
-          <div className="divide-y divide-border">
-            {completed.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No completed matches
-              </div>
-            ) : (
-              completed.map((fixture: any) => (
-                <Link
-                  key={fixture.id}
-                  href={`/matches/${fixture.id}`}
-                  className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors block"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    {/* Date */}
-                    <div className="text-center min-w-[60px]">
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(fixture.match_date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+        )}
+
+        {/* Results Count */}
+        {(searchQuery || selectedRound !== 'all') && (
+          <div className="text-sm text-muted-foreground">
+            Showing {filteredMatches.length} of {currentMatches.length} matches
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setSelectedRound('all')
+                }}
+                className="ml-2 text-primary hover:underline"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Matches List */}
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          {loading ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+              Loading matches...
+            </div>
+          ) : filteredMatches.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              {searchQuery || selectedRound !== 'all'
+                ? 'No matches found with current filters'
+                : activeTab === 'live'
+                ? 'No live matches at the moment'
+                : activeTab === 'upcoming'
+                ? 'No upcoming matches'
+                : 'No recent results'}
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {filteredMatches.map((fixture) => {
+                const isLive = activeTab === 'live'
+                const isResult = activeTab === 'results'
+                const predictionCorrect = isResult ? isPredictionCorrect(fixture) : null
+
+                return (
+                  <Link
+                    key={fixture.id}
+                    href={`/matches/${fixture.id}`}
+                    className="block p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      {/* Date/Time or Live Status */}
+                      <div className="flex items-center gap-3 sm:min-w-[100px]">
+                        {isLive ? (
+                          <div className="flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>
+                            <span className="text-xs font-medium text-red-500">
+                              {getLiveStatus(fixture.status)}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="text-center">
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(fixture.match_date).toLocaleDateString('en-GB', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
+                            </div>
+                            {!isResult && (
+                              <div className="text-sm font-medium">
+                                {new Date(fixture.match_date).toLocaleTimeString('en-GB', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Teams and Score */}
+                      <div className="flex items-center gap-3 flex-1">
+                        {/* Home Team */}
+                        <div className="flex items-center gap-2 flex-1 justify-end">
+                          <span
+                            className={cn(
+                              'font-medium text-sm sm:text-base text-right truncate',
+                              isResult &&
+                                (fixture.goals_home ?? 0) <= (fixture.goals_away ?? 0) &&
+                                'text-muted-foreground'
+                            )}
+                          >
+                            {fixture.home_team?.name || 'TBD'}
+                          </span>
+                          {fixture.home_team?.logo && (
+                            <img
+                              src={fixture.home_team.logo}
+                              alt=""
+                              className="w-8 h-8 object-contain shrink-0"
+                            />
+                          )}
+                        </div>
+
+                        {/* Score or VS */}
+                        <div
+                          className={cn(
+                            'px-3 py-1.5 rounded text-sm font-bold min-w-[60px] text-center shrink-0',
+                            isLive ? 'bg-red-500/10 text-red-600' : 'bg-muted'
+                          )}
+                        >
+                          {isLive || isResult
+                            ? `${fixture.goals_home ?? 0} - ${fixture.goals_away ?? 0}`
+                            : 'vs'}
+                        </div>
+
+                        {/* Away Team */}
+                        <div className="flex items-center gap-2 flex-1">
+                          {fixture.away_team?.logo && (
+                            <img
+                              src={fixture.away_team.logo}
+                              alt=""
+                              className="w-8 h-8 object-contain shrink-0"
+                            />
+                          )}
+                          <span
+                            className={cn(
+                              'font-medium text-sm sm:text-base truncate',
+                              isResult &&
+                                (fixture.goals_away ?? 0) <= (fixture.goals_home ?? 0) &&
+                                'text-muted-foreground'
+                            )}
+                          >
+                            {fixture.away_team?.name || 'TBD'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Prediction & Round */}
+                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:min-w-[140px]">
+                        {/* Prediction Badge */}
+                        {fixture.prediction && (
+                          <div className="flex items-center gap-1.5">
+                            {isResult && predictionCorrect !== null && (
+                              predictionCorrect ? (
+                                <CheckCircle className="w-4 h-4 text-green-500" />
+                              ) : (
+                                <XCircle className="w-4 h-4 text-red-500" />
+                              )
+                            )}
+                            {!isResult && <Target className="w-3.5 h-3.5 text-muted-foreground" />}
+                            {getPredictionBadge(fixture.prediction)}
+                          </div>
+                        )}
+
+                        {/* Round */}
+                        <span className="text-xs text-muted-foreground hidden sm:block">
+                          {fixture.round?.replace('Regular Season - ', 'R')}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Home Team */}
-                    <div className="flex items-center gap-2 flex-1 justify-end">
-                      <span className={`font-medium text-right ${
-                        (fixture.goals_home ?? 0) > (fixture.goals_away ?? 0) ? '' : 'text-muted-foreground'
-                      }`}>
-                        {fixture.home_team?.name || 'TBD'}
-                      </span>
-                      {fixture.home_team?.logo && (
-                        <img
-                          src={fixture.home_team.logo}
-                          alt=""
-                          className="w-8 h-8 object-contain"
-                        />
-                      )}
+                    {/* Mobile: Round */}
+                    <div className="mt-2 text-xs text-muted-foreground sm:hidden">
+                      {fixture.round}
                     </div>
-
-                    {/* Score */}
-                    <div className="px-4 py-1 bg-muted rounded text-sm font-bold min-w-[60px] text-center">
-                      {fixture.goals_home} - {fixture.goals_away}
-                    </div>
-
-                    {/* Away Team */}
-                    <div className="flex items-center gap-2 flex-1">
-                      {fixture.away_team?.logo && (
-                        <img
-                          src={fixture.away_team.logo}
-                          alt=""
-                          className="w-8 h-8 object-contain"
-                        />
-                      )}
-                      <span className={`font-medium ${
-                        (fixture.goals_away ?? 0) > (fixture.goals_home ?? 0) ? '' : 'text-muted-foreground'
-                      }`}>
-                        {fixture.away_team?.name || 'TBD'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="text-xs text-muted-foreground ml-4">
-                    {fixture.status}
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

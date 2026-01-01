@@ -355,47 +355,47 @@ export default function MatchDetailPage() {
               </div>
 
               {/* Outcome probabilities */}
-              {prediction.factors && (prediction.factors.home_win_pct || prediction.factors.draw_pct || prediction.factors.away_win_pct) && (
+              {(prediction.factors?.home_win_pct || prediction.home_win_pct || prediction.factors?.draw_pct || prediction.draw_pct || prediction.factors?.away_win_pct || prediction.away_win_pct) && (
                 <div className="space-y-3">
                   <h4 className="font-medium text-sm">Outcome Probabilities</h4>
                   <ConfidenceBreakdown
-                    homeWin={prediction.factors.home_win_pct || 0}
-                    draw={prediction.factors.draw_pct || 0}
-                    awayWin={prediction.factors.away_win_pct || 0}
+                    homeWin={prediction.factors?.home_win_pct || prediction.home_win_pct || 0}
+                    draw={prediction.factors?.draw_pct || prediction.draw_pct || 0}
+                    awayWin={prediction.factors?.away_win_pct || prediction.away_win_pct || 0}
                   />
                 </div>
               )}
 
               {/* Additional markets */}
-              {prediction.factors && (prediction.factors.over_under || prediction.factors.btts || prediction.factors.value_bet) && (
+              {(prediction.factors?.over_under || prediction.over_under_2_5 || prediction.factors?.btts || prediction.btts || prediction.factors?.value_bet || prediction.value_bet) && (
                 <div className="grid grid-cols-3 gap-4 py-4 border-t border-border">
-                  {prediction.factors.over_under && (
+                  {(prediction.factors?.over_under || prediction.over_under_2_5) && (
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Over/Under 2.5</p>
                       <p className={cn(
                         "font-bold",
-                        prediction.factors.over_under === 'Over' ? 'text-green-500' : 'text-red-500'
+                        (prediction.factors?.over_under || prediction.over_under_2_5) === 'Over' ? 'text-green-500' : 'text-red-500'
                       )}>
-                        {prediction.factors.over_under}
+                        {prediction.factors?.over_under || prediction.over_under_2_5}
                       </p>
                     </div>
                   )}
-                  {prediction.factors.btts && (
+                  {(prediction.factors?.btts || prediction.btts) && (
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Both Teams Score</p>
                       <p className={cn(
                         "font-bold",
-                        prediction.factors.btts === 'Yes' ? 'text-green-500' : 'text-red-500'
+                        (prediction.factors?.btts || prediction.btts) === 'Yes' ? 'text-green-500' : 'text-red-500'
                       )}>
-                        {prediction.factors.btts}
+                        {prediction.factors?.btts || prediction.btts}
                       </p>
                     </div>
                   )}
-                  {prediction.factors.value_bet && (
+                  {(prediction.factors?.value_bet || prediction.value_bet) && (
                     <div className="text-center">
                       <p className="text-xs text-muted-foreground mb-1">Value Bet</p>
                       <p className="font-bold text-amber-500">
-                        {prediction.factors.value_bet}
+                        {prediction.factors?.value_bet || prediction.value_bet}
                       </p>
                     </div>
                   )}

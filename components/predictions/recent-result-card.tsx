@@ -125,7 +125,8 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
     }
   }
 
-  const confidence = prediction?.overall_index || prediction?.confidence_pct || 0
+  // Use certainty_score (AI's confidence) not overall_index (factor points)
+  const confidence = prediction?.certainty_score || prediction?.confidence_pct || 0
 
   // Odds handling (same as PredictionCard)
   const odds: OddsMarket[] = fixture.odds || []
