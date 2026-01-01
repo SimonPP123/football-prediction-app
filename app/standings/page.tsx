@@ -7,6 +7,7 @@ import { FormIndicator } from '@/components/stats/form-indicator'
 import { useLeague } from '@/contexts/league-context'
 import { Loader2, TrendingUp, TrendingDown, Minus, Trophy, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function StandingsPage() {
   const [standings, setStandings] = useState<any[]>([])
@@ -197,7 +198,10 @@ export default function StandingsPage() {
                     >
                       <td className="p-3 font-bold">{standing.rank}</td>
                       <td className="p-3">
-                        <div className="flex items-center gap-3">
+                        <Link
+                          href={`/teams/${standing.team_id}`}
+                          className="flex items-center gap-3 hover:text-primary transition-colors"
+                        >
                           {standing.team?.logo && (
                             <img
                               src={standing.team.logo}
@@ -208,7 +212,7 @@ export default function StandingsPage() {
                           <span className="font-medium">
                             {standing.team?.name || 'Unknown'}
                           </span>
-                        </div>
+                        </Link>
                       </td>
                       <td className="p-3 text-center">{standing.played}</td>
                       <td className="p-3 text-center text-green-500 font-medium">{standing.won}</td>
@@ -265,12 +269,15 @@ export default function StandingsPage() {
                       <tr key={standing.id} className="border-t border-border">
                         <td className="p-2">{idx + 1}</td>
                         <td className="p-2">
-                          <div className="flex items-center gap-2">
+                          <Link
+                            href={`/teams/${standing.team_id}`}
+                            className="flex items-center gap-2 hover:text-primary transition-colors"
+                          >
                             {standing.team?.logo && (
                               <img src={standing.team.logo} alt="" className="w-4 h-4" />
                             )}
                             <span className="text-sm">{standing.team?.name}</span>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-2 text-center">{home.played || 0}</td>
                         <td className="p-2 text-center text-green-500">{home.win || 0}</td>
@@ -311,12 +318,15 @@ export default function StandingsPage() {
                       <tr key={standing.id} className="border-t border-border">
                         <td className="p-2">{idx + 1}</td>
                         <td className="p-2">
-                          <div className="flex items-center gap-2">
+                          <Link
+                            href={`/teams/${standing.team_id}`}
+                            className="flex items-center gap-2 hover:text-primary transition-colors"
+                          >
                             {standing.team?.logo && (
                               <img src={standing.team.logo} alt="" className="w-4 h-4" />
                             )}
                             <span className="text-sm">{standing.team?.name}</span>
-                          </div>
+                          </Link>
                         </td>
                         <td className="p-2 text-center">{away.played || 0}</td>
                         <td className="p-2 text-center text-green-500">{away.win || 0}</td>
