@@ -1,39 +1,119 @@
 import { NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
 
-// Note: This endpoint returns history stored in the client's localStorage
-// The actual history is managed by the UpdateProvider context
-// This endpoint is here as a placeholder for future server-side history tracking
+// GET - Fetch refresh history from database
+export async function GET(request: Request) {
+  try {
+    const supabase = createServerClient()
+    const { searchParams } = new URL(request.url)
 
-export async function GET() {
-  // For now, return empty history as the client manages its own history
-  // In the future, this could query a refresh_logs table in Supabase
-  return NextResponse.json({
-    success: true,
-    history: [],
-    message: 'History is currently stored client-side. Use UpdateProvider context for history.',
-  })
+    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 500)
+    const category = searchParams.get('category')
+    const leagueId = searchParams.get('league_id')
+    const status = searchParams.get('status')
+
+    let query = supabase
+      .from('refresh_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (category) {
+      query = query.eq('category', category)
+    }
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error('Error fetching history:', error)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to fetch history',
+        history: [],
+      }, { status: 500 })
+    }
+
+    // Transform database records to match client-side RefreshEvent format
+    const history = (data || []).map(record => ({
+      id: record.id,
+      category: record.category,
+      type: record.type,
+      status: record.status,
+      message: record.message,
+      details: record.details,
+      leagueId: record.league_id,
+      timestamp: record.created_at,
+    }))
+
+    return NextResponse.json({
+      success: true,
+      history,
+      total: history.length,
+    })
+  } catch (error) {
+    console.error('Error fetching history:', error)
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch history',
+      history: [],
+    }, { status: 500 })
+  }
 }
 
-// Future: POST endpoint to log refresh events server-side
+// POST - Log a new refresh event to database
 export async function POST(request: Request) {
   try {
-    const event = await request.json()
+    const supabase = createServerClient()
+    const body = await request.json()
 
-    // Validate event structure
-    if (!event.category || !event.status || !event.message) {
+    // Validate required fields
+    if (!body.category || !body.status) {
       return NextResponse.json(
-        { success: false, error: 'Invalid event structure' },
+        { success: false, error: 'Missing required fields: category and status' },
         { status: 400 }
       )
     }
 
-    // For now, just acknowledge receipt
-    // In the future, this could insert into a refresh_logs table
+    // Validate status enum
+    if (!['success', 'error', 'pending'].includes(body.status)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid status. Must be: success, error, or pending' },
+        { status: 400 }
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('refresh_logs')
+      .insert({
+        category: body.category,
+        type: body.type || 'refresh',
+        status: body.status,
+        message: body.message || null,
+        details: body.details || null,
+        league_id: body.leagueId || null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error logging event:', error)
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to log event',
+      }, { status: 500 })
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Event logged (client-side only for now)',
+      id: data.id,
     })
   } catch (error) {
     console.error('Error logging event:', error)

@@ -17,6 +17,7 @@ import {
   TrendingUp,
   CheckCircle,
   XCircle,
+  Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -45,9 +46,10 @@ export default function MatchesPage() {
   const { currentLeague } = useLeague()
   const [activeTab, setActiveTab] = useState<TabType>('upcoming')
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedRound, setSelectedRound] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<SortType>('date-asc')
+  const [selectedRounds, setSelectedRounds] = useState<Set<string>>(new Set())
+  const [sortBy, setSortBy] = useState<SortType>('date-desc')
   const [showFilters, setShowFilters] = useState(false)
+  const [showRoundDropdown, setShowRoundDropdown] = useState(false)
 
   const [liveMatches, setLiveMatches] = useState<Fixture[]>([])
   const [upcomingMatches, setUpcomingMatches] = useState<Fixture[]>([])
@@ -63,8 +65,8 @@ export default function MatchesPage() {
       try {
         const [liveRes, upcomingRes, resultsRes] = await Promise.all([
           fetch(`/api/fixtures/live?league_id=${currentLeague.id}`),
-          fetch(`/api/fixtures/upcoming?limit=50&league_id=${currentLeague.id}`),
-          fetch(`/api/fixtures/recent-results?rounds=10&league_id=${currentLeague.id}`),
+          fetch(`/api/fixtures/upcoming?league_id=${currentLeague.id}`),
+          fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`),
         ])
 
         const [live, upcoming, recent] = await Promise.all([
@@ -139,9 +141,9 @@ export default function MatchesPage() {
       )
     }
 
-    // Round filter
-    if (selectedRound !== 'all') {
-      filtered = filtered.filter((m) => m.round === selectedRound)
+    // Round filter (multi-select)
+    if (selectedRounds.size > 0) {
+      filtered = filtered.filter((m) => m.round && selectedRounds.has(m.round))
     }
 
     // Sort
@@ -161,7 +163,7 @@ export default function MatchesPage() {
     })
 
     return filtered
-  }, [currentMatches, searchQuery, selectedRound, sortBy])
+  }, [currentMatches, searchQuery, selectedRounds, sortBy])
 
   // Get prediction badge color
   const getPredictionBadge = (prediction: Fixture['prediction']) => {
@@ -300,27 +302,25 @@ export default function MatchesPage() {
           >
             <Filter className="w-4 h-4" />
             Filters
-            {(selectedRound !== 'all' || sortBy !== 'date-asc') && (
+            {(selectedRounds.size > 0 || sortBy !== 'date-desc') && (
               <span className="w-2 h-2 rounded-full bg-primary" />
             )}
           </button>
 
           {/* Desktop Filters */}
           <div className="hidden sm:flex gap-3">
-            {/* Round Filter */}
+            {/* Round Filter - Multi-select dropdown */}
             <div className="relative">
-              <select
-                value={selectedRound}
-                onChange={(e) => setSelectedRound(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+              <button
+                onClick={() => setShowRoundDropdown(!showRoundDropdown)}
+                className="flex items-center gap-2 pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm hover:bg-muted transition-colors"
               >
-                <option value="all">All Rounds</option>
-                {availableRounds.map((round) => (
-                  <option key={round} value={round}>
-                    {round}
-                  </option>
-                ))}
-              </select>
+                {selectedRounds.size === 0
+                  ? 'All Rounds'
+                  : selectedRounds.size === 1
+                    ? Array.from(selectedRounds)[0]?.replace('Regular Season - ', 'R')
+                    : `${selectedRounds.size} Rounds`}
+              </button>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             </div>
 
@@ -331,8 +331,8 @@ export default function MatchesPage() {
                 onChange={(e) => setSortBy(e.target.value as SortType)}
                 className="appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
               >
-                <option value="date-asc">Date (Earliest)</option>
                 <option value="date-desc">Date (Latest)</option>
+                <option value="date-asc">Date (Earliest)</option>
                 <option value="home-team">Home Team (A-Z)</option>
                 <option value="away-team">Away Team (A-Z)</option>
               </select>
@@ -341,55 +341,138 @@ export default function MatchesPage() {
           </div>
         </div>
 
+        {/* Round Multi-Select Dropdown (Desktop) */}
+        {showRoundDropdown && (
+          <div className="hidden sm:block bg-card border border-border rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Filter by Round</span>
+              <div className="flex items-center gap-2">
+                {selectedRounds.size > 0 && (
+                  <button
+                    onClick={() => setSelectedRounds(new Set())}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Clear all
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowRoundDropdown(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              {availableRounds.map((round) => {
+                const isSelected = selectedRounds.has(round)
+                const displayRound = round.replace('Regular Season - ', 'R')
+                return (
+                  <button
+                    key={round}
+                    onClick={() => {
+                      const newSet = new Set(selectedRounds)
+                      if (isSelected) {
+                        newSet.delete(round)
+                      } else {
+                        newSet.add(round)
+                      }
+                      setSelectedRounds(newSet)
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                    {displayRound}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Mobile Filters Dropdown */}
         {showFilters && (
-          <div className="sm:hidden flex gap-3">
-            <div className="relative flex-1">
-              <select
-                value={selectedRound}
-                onChange={(e) => setSelectedRound(e.target.value)}
-                className="w-full appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm"
-              >
-                <option value="all">All Rounds</option>
-                {availableRounds.map((round) => (
-                  <option key={round} value={round}>
-                    {round}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <div className="sm:hidden bg-card border border-border rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Filter by Round</span>
+              {selectedRounds.size > 0 && (
+                <button
+                  onClick={() => setSelectedRounds(new Set())}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Clear all
+                </button>
+              )}
             </div>
-            <div className="relative flex-1">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortType)}
-                className="w-full appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm"
-              >
-                <option value="date-asc">Date (Earliest)</option>
-                <option value="date-desc">Date (Latest)</option>
-                <option value="home-team">Home Team</option>
-                <option value="away-team">Away Team</option>
-              </select>
-              <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto">
+              {availableRounds.map((round) => {
+                const isSelected = selectedRounds.has(round)
+                const displayRound = round.replace('Regular Season - ', 'R')
+                return (
+                  <button
+                    key={round}
+                    onClick={() => {
+                      const newSet = new Set(selectedRounds)
+                      if (isSelected) {
+                        newSet.delete(round)
+                      } else {
+                        newSet.add(round)
+                      }
+                      setSelectedRounds(newSet)
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5',
+                      isSelected
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                    {displayRound}
+                  </button>
+                )
+              })}
+            </div>
+            {/* Mobile sort option */}
+            <div className="border-t border-border pt-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Sort by</span>
+              </div>
+              <div className="relative mt-2">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortType)}
+                  className="w-full appearance-none pl-3 pr-8 py-2 bg-muted border-0 rounded-lg text-sm"
+                >
+                  <option value="date-desc">Date (Latest)</option>
+                  <option value="date-asc">Date (Earliest)</option>
+                  <option value="home-team">Home Team</option>
+                  <option value="away-team">Away Team</option>
+                </select>
+                <ArrowUpDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              </div>
             </div>
           </div>
         )}
 
         {/* Results Count */}
-        {(searchQuery || selectedRound !== 'all') && (
+        {(searchQuery || selectedRounds.size > 0) && (
           <div className="text-sm text-muted-foreground">
             Showing {filteredMatches.length} of {currentMatches.length} matches
-            {searchQuery && (
-              <button
-                onClick={() => {
-                  setSearchQuery('')
-                  setSelectedRound('all')
-                }}
-                className="ml-2 text-primary hover:underline"
-              >
-                Clear filters
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setSelectedRounds(new Set())
+              }}
+              className="ml-2 text-primary hover:underline"
+            >
+              Clear filters
+            </button>
           </div>
         )}
 
@@ -402,7 +485,7 @@ export default function MatchesPage() {
             </div>
           ) : filteredMatches.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              {searchQuery || selectedRound !== 'all'
+              {searchQuery || selectedRounds.size > 0
                 ? 'No matches found with current filters'
                 : activeTab === 'live'
                 ? 'No live matches at the moment'
