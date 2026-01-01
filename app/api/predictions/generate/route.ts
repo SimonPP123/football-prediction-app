@@ -67,6 +67,7 @@ export async function POST(request: Request) {
 
     // Fetch recent match analyses for memory context (last 5 for each team)
     // Include comprehensive learning data for AI to use in predictions
+    // Join with teams and fixtures to provide full context about which match was played
     const { data: homeAnalyses } = await supabase
       .from('match_analysis')
       .select(`
@@ -81,7 +82,10 @@ export async function POST(request: Request) {
         home_team_performance,
         away_team_performance,
         created_at,
-        fixture_id
+        fixture_id,
+        home_team:teams!match_analysis_home_team_id_fkey(id, name),
+        away_team:teams!match_analysis_away_team_id_fkey(id, name),
+        fixture:fixtures!match_analysis_fixture_id_fkey(match_date, round)
       `)
       .or(`home_team_id.eq.${fixtureData.home_team_id},away_team_id.eq.${fixtureData.home_team_id}`)
       .order('created_at', { ascending: false })
@@ -101,7 +105,10 @@ export async function POST(request: Request) {
         home_team_performance,
         away_team_performance,
         created_at,
-        fixture_id
+        fixture_id,
+        home_team:teams!match_analysis_home_team_id_fkey(id, name),
+        away_team:teams!match_analysis_away_team_id_fkey(id, name),
+        fixture:fixtures!match_analysis_fixture_id_fkey(match_date, round)
       `)
       .or(`home_team_id.eq.${fixtureData.away_team_id},away_team_id.eq.${fixtureData.away_team_id}`)
       .order('created_at', { ascending: false })
