@@ -172,11 +172,18 @@ export async function fetchFixturesLast(
 /**
  * Fetch currently live fixtures for specific league(s) or all leagues
  * @param leagueApiId - League API ID or 'all' for all leagues
+ *
+ * Note: API-Football's live parameter only accepts 'all' or fixture IDs.
+ * To filter by league, use league parameter with live=all.
  */
 export async function fetchLiveFixturesByLeague(leagueApiId: number | 'all' = DEFAULT_LEAGUE_ID) {
-  const param = leagueApiId === 'all' ? 'all' : String(leagueApiId);
-  console.log(`[API-Football] Fetching live fixtures for: ${param}`);
-  return fetchFromAPI(`/fixtures?live=${param}`);
+  if (leagueApiId === 'all') {
+    console.log(`[API-Football] Fetching all live fixtures`);
+    return fetchFromAPI(`/fixtures?live=all`);
+  }
+  // For specific league, use league filter with live=all
+  console.log(`[API-Football] Fetching live fixtures for league: ${leagueApiId}`);
+  return fetchFromAPI(`/fixtures?league=${leagueApiId}&live=all`);
 }
 
 /**
