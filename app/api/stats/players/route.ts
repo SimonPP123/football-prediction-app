@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const statType = searchParams.get('type') || 'goals'
+    const leagueId = searchParams.get('league_id')
 
     // Map stat type to category in top_performers table
     const categoryMap: Record<string, string> = {
@@ -21,13 +22,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid stat type' }, { status: 400 })
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('top_performers')
       .select('*')
       .eq('category', category)
       .eq('season', 2025)
       .order('rank', { ascending: true })
       .limit(20)
+
+    // Filter by league if provided
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 
