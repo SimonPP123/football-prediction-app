@@ -202,36 +202,17 @@ interface QuickAction {
   highlightPhases: MatchPhase[]
 }
 
+// Season & Maintenance actions - infrequent operations
 const quickActions: QuickAction[] = [
   {
     id: 'season-setup',
     title: 'Season Setup',
-    description: 'First-time or season start',
+    description: 'Once per season',
     icon: CalendarPlus,
     endpoints: ['teams', 'fixtures', 'standings', 'team-stats', 'coaches', 'player-squads'],
     estimatedTime: '~5-10 min',
     route: '/api/data/refresh/season-setup',
     highlightPhases: [],
-  },
-  {
-    id: 'matchday-prep',
-    title: 'Matchday Prep',
-    description: 'Before predictions',
-    icon: Zap,
-    endpoints: ['standings', 'injuries', 'team-stats', 'h2h', 'fixture-stats', 'weather', 'odds'],
-    estimatedTime: '~3-5 min',
-    route: '/api/data/refresh/pre-match',
-    highlightPhases: ['day-before', 'matchday-morning', 'pre-match', 'imminent'],
-  },
-  {
-    id: 'post-match',
-    title: 'Post-Match',
-    description: 'After match completion',
-    icon: CheckCircle,
-    endpoints: ['fixtures', 'fixture-statistics', 'fixture-events', 'standings'],
-    estimatedTime: '~2-3 min',
-    route: '/api/data/refresh/post-match',
-    highlightPhases: ['post-match', 'day-after'],
   },
   {
     id: 'weekly-stats',
@@ -241,6 +222,16 @@ const quickActions: QuickAction[] = [
     endpoints: ['team-stats', 'player-stats', 'top-performers', 'referee-stats', 'h2h'],
     estimatedTime: '~10-15 min',
     route: '/api/data/refresh/weekly-maintenance',
+    highlightPhases: [],
+  },
+  {
+    id: 'squad-sync',
+    title: 'Squad Sync',
+    description: 'Transfer windows',
+    icon: UsersRound,
+    endpoints: ['player-squads', 'transfers', 'injuries', 'coaches'],
+    estimatedTime: '~2-3 min',
+    route: '/api/data/refresh/squad-sync',
     highlightPhases: [],
   },
 ]
@@ -256,13 +247,6 @@ function getQuickActionStatus(
 
   const action = quickActions.find(a => a.id === actionId)
   if (!action || !currentPhase) return 'ready'
-
-  // Post-Match: needs attention if missing stats/events
-  if (actionId === 'post-match' && dataStatus) {
-    if (dataStatus.fixtures.missingStats > 0 || dataStatus.fixtures.missingEvents > 0) {
-      return 'needs-attention'
-    }
-  }
 
   // Check if current phase is in highlight phases
   if (action.highlightPhases.includes(currentPhase)) {
@@ -1212,52 +1196,33 @@ export default function DataManagementPage() {
           </div>
         )}
 
-        {/* Quick Actions */}
+        {/* Season & Maintenance - Infrequent operations */}
         {currentLeague && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-lg">Quick Actions</h2>
-              {dataStatus?.upcomingMatches?.[0] && (
-                <div className="text-sm text-muted-foreground">
-                  Next: <span className="font-medium text-foreground">
-                    {dataStatus.upcomingMatches[0].homeTeam?.name || 'TBD'} vs {dataStatus.upcomingMatches[0].awayTeam?.name || 'TBD'}
-                  </span>
-                  <span className="ml-2">
-                    {(() => {
-                      const matchDate = new Date(dataStatus.upcomingMatches[0].matchDate)
-                      const now = new Date()
-                      const hours = (matchDate.getTime() - now.getTime()) / (1000 * 60 * 60)
-                      if (hours < 0) return 'In progress'
-                      if (hours < 1) return `${Math.round(hours * 60)}m away`
-                      if (hours < 24) return `${hours.toFixed(1)}h away`
-                      return `${Math.floor(hours / 24)}d away`
-                    })()}
-                  </span>
-                </div>
-              )}
+              <div>
+                <h2 className="font-semibold text-lg">Season & Maintenance</h2>
+                <p className="text-xs text-muted-foreground">Infrequent operations - not needed on matchday</p>
+              </div>
             </div>
             <TooltipProvider delayDuration={200}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {quickActions.map((action) => {
                   const isRunning =
                     (action.id === 'season-setup' && isSeasonSetupRefreshing) ||
-                    (action.id === 'matchday-prep' && isPreMatchRefreshing) ||
-                    (action.id === 'post-match' && isPostMatchRefreshing) ||
-                    (action.id === 'weekly-stats' && isWeeklyMaintenanceRefreshing)
+                    (action.id === 'weekly-stats' && isWeeklyMaintenanceRefreshing) ||
+                    (action.id === 'squad-sync' && isSquadSyncRefreshing)
 
                   const handleClick = () => {
                     switch (action.id) {
                       case 'season-setup':
                         handleSeasonSetupRefresh()
                         break
-                      case 'matchday-prep':
-                        handlePreMatchRefresh()
-                        break
-                      case 'post-match':
-                        handlePostMatchRefresh()
-                        break
                       case 'weekly-stats':
                         handleWeeklyMaintenanceRefresh()
+                        break
+                      case 'squad-sync':
+                        handleSquadSyncRefresh()
                         break
                     }
                   }
@@ -1403,103 +1368,8 @@ export default function DataManagementPage() {
               )}
             </div>
 
-            {/* Primary Action Buttons */}
+            {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
-              {/* Season Setup */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSeasonSetupRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                  >
-                    <CalendarPlus className={cn("w-4 h-4", isSeasonSetupRefreshing && "animate-pulse")} />
-                    {isSeasonSetupRefreshing ? 'Running...' : `Season Setup (${getTargetLeaguesDisplay()})`}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold">Run once at season start or first-time setup</p>
-                  <p className="text-xs mt-1">Populates teams, venues, fixtures, standings, managers, and squad rosters.</p>
-                  <p className="text-xs text-muted-foreground mt-1">~5-10 min</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Pre-Match */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handlePreMatchRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                  >
-                    <Zap className={cn("w-4 h-4", isPreMatchRefreshing && "animate-pulse")} />
-                    {isPreMatchRefreshing ? 'Running...' : `Matchday Prep (${getTargetLeaguesDisplay()})`}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold">Run 3-4 hours before first match</p>
-                  <p className="text-xs mt-1">Updates standings, injuries, team stats, H2H, weather, and odds. Essential before generating predictions.</p>
-                  <p className="text-xs text-muted-foreground mt-1">~3-5 min</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Post-Match */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handlePostMatchRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                  >
-                    <CheckCircle className={cn("w-4 h-4", isPostMatchRefreshing && "animate-pulse")} />
-                    {isPostMatchRefreshing ? 'Running...' : `Post-Match Sync (${getTargetLeaguesDisplay()})`}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold">Run 1-2 hours after matches finish</p>
-                  <p className="text-xs mt-1">Syncs results, detailed statistics (shots, xG), events (goals, cards), lineups, and updates standings.</p>
-                  <p className="text-xs text-muted-foreground mt-1">~2-3 min</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Weekly Stats */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleWeeklyMaintenanceRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                  >
-                    <BarChart3 className={cn("w-4 h-4", isWeeklyMaintenanceRefreshing && "animate-pulse")} />
-                    {isWeeklyMaintenanceRefreshing ? 'Running...' : `Weekly Stats (${getTargetLeaguesDisplay()})`}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold">Run every Sunday afternoon</p>
-                  <p className="text-xs mt-1">Refreshes team stats, player stats, top performers, referee tendencies, and H2H history.</p>
-                  <p className="text-xs text-muted-foreground mt-1">~10-15 min</p>
-                </TooltipContent>
-              </Tooltip>
-
-              {/* Squad Sync */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={handleSquadSyncRefresh}
-                    disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors disabled:opacity-50 text-sm font-medium"
-                  >
-                    <UsersRound className={cn("w-4 h-4", isSquadSyncRefreshing && "animate-pulse")} />
-                    {isSquadSyncRefreshing ? 'Running...' : `Squad Sync (${getTargetLeaguesDisplay()})`}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-semibold">Run during transfer windows or squad changes</p>
-                  <p className="text-xs mt-1">Updates squad rosters, recent transfers, injury status, and manager changes.</p>
-                  <p className="text-xs text-muted-foreground mt-1">~2-3 min</p>
-                </TooltipContent>
-              </Tooltip>
-
               <div className="flex items-center gap-2 ml-auto">
                 {/* Stop Button */}
                 {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing || isSeasonSetupRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing) && (
@@ -1532,70 +1402,8 @@ export default function DataManagementPage() {
               </div>
             </div>
 
-            {/* Endpoint Details - Collapsible sections */}
+            {/* Endpoint Details - Season & Maintenance endpoints */}
             <div className="border-t border-border pt-3 space-y-3">
-              {/* Pre-Match Options */}
-              <div className="space-y-2 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-medium flex items-center gap-1">
-                    <Zap className="w-3 h-3 text-amber-500" />
-                    Matchday Prep:
-                  </span>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">standings</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">injuries</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">team-stats</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">head-to-head</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">fixture-statistics</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">weather</code>
-                  <code className="text-xs bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded">odds</code>
-                </div>
-                <div className="flex items-center gap-4 ml-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeRefereeStats}
-                      onChange={(e) => setIncludeRefereeStats(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
-                    />
-                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">referee-stats</code></span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeLineups}
-                      onChange={(e) => setIncludeLineups(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
-                    />
-                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">lineups</code> <span className="text-xs">(~1hr before)</span></span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Post-Match Options */}
-              <div className="space-y-2 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-medium flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-emerald-500" />
-                    Post-Match Sync:
-                  </span>
-                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixtures?recent_only</code>
-                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixture-statistics?recent_only</code>
-                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">fixture-events?recent_only</code>
-                  <code className="text-xs bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded">standings</code>
-                </div>
-                <div className="ml-4">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includePostMatchLineups}
-                      onChange={(e) => setIncludePostMatchLineups(e.target.checked)}
-                      className="w-4 h-4 rounded border-border"
-                    />
-                    <span className="text-muted-foreground">+ <code className="text-xs bg-muted px-2 py-0.5 rounded">lineups?recent_only</code></span>
-                  </label>
-                </div>
-              </div>
-
               {/* Season Setup */}
               <div className="text-sm">
                 <div className="flex flex-wrap items-center gap-2">
