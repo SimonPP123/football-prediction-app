@@ -109,8 +109,16 @@ export default function MatchesPage() {
         liveMatchIdsRef.current = currentLiveIds
         setLiveMatches(newLiveMatches)
 
-        // If matches finished, refresh results to include them
-        if (hasFinishedMatches && liveMatchIdsRef.current.size > 0) {
+        // If matches finished, trigger a fixtures refresh to update statuses in DB
+        // Then refresh results to include them
+        if (hasFinishedMatches) {
+          // Trigger backend refresh to update fixture statuses from API
+          await fetch(`/api/data/refresh/fixtures?mode=live&league_id=${currentLeague.id}`, {
+            method: 'POST',
+            credentials: 'include'
+          }).catch(() => {}) // Ignore errors, just try to refresh
+
+          // Then fetch updated results
           const resultsRes = await fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`)
           const resultsData = await resultsRes.json()
           setResults(Array.isArray(resultsData) ? resultsData : [])

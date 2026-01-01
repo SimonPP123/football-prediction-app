@@ -131,8 +131,17 @@ export default function PredictionsPage() {
           liveFixtureIdsRef.current = currentLiveIds
           setLiveFixtures(newLiveFixtures)
 
-          // If matches finished, refresh results to include them
-          if (hasFinishedMatches && liveFixtureIdsRef.current.size > 0) {
+          // If matches finished, trigger a fixtures refresh to update statuses in DB
+          // Then refresh results to include them
+          if (hasFinishedMatches) {
+            // Trigger backend refresh to update fixture statuses from API
+            const refreshParams = currentLeague?.id ? `?mode=live&league_id=${currentLeague.id}` : '?mode=live'
+            await fetch(`/api/data/refresh/fixtures${refreshParams}`, {
+              method: 'POST',
+              credentials: 'include'
+            }).catch(() => {}) // Ignore errors, just try to refresh
+
+            // Then fetch updated results
             const resultsParams = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
             const resultsRes = await fetch(`/api/fixtures/recent-results${resultsParams}`, { credentials: 'include' })
             if (resultsRes.ok) {
