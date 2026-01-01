@@ -140,6 +140,28 @@ GET /fixtures/headtohead?h2h={team1}-{team2}
 
 ---
 
+## Live Match Auto-Sync
+
+The `/api/fixtures/live` endpoint includes automatic sync for finished matches:
+
+1. **Detection**: When the endpoint is called, it checks for matches that:
+   - Started > 1.5 hours ago
+   - Still show as in-play status (1H, 2H, HT, etc.)
+
+2. **Sync**: For stale matches, it:
+   - Fetches current status from API-Football by fixture IDs
+   - Updates the database with FT status and final scores
+   - Runs as a background task (doesn't block the response)
+
+3. **Result**: Finished matches automatically move from "Live" to "Results" section
+
+**Note**: After matches finish, you may want to manually trigger these refreshes from the Data page:
+- **Post-Match**: Gets statistics, events, lineups for completed matches
+- **Fixture Statistics**: Detailed match statistics
+- **Fixture Events**: Goals, cards, substitutions
+
+---
+
 ## Common Commands
 
 ```bash
