@@ -146,10 +146,10 @@ export function LiveStats({
     return bTime - aTime
   })
 
-  // Get key events (goals, cards only)
+  // Get key events (goals, cards, substitutions)
   const keyEvents = sortedEvents.filter(e =>
-    e.type === 'Goal' || e.type === 'Card'
-  ).slice(0, 6)
+    e.type === 'Goal' || e.type === 'Card' || e.type === 'subst' || e.type === 'Subst'
+  ).slice(0, 10)
 
   const hasStats = homeStats || awayStats
   const hasEvents = events.length > 0
@@ -186,6 +186,9 @@ export function LiveStats({
                   {event.player_name}
                   {event.assist_name && event.type === 'Goal' && (
                     <span className="text-slate-500 dark:text-slate-400 font-normal"> ({event.assist_name})</span>
+                  )}
+                  {event.assist_name && (event.type === 'subst' || event.type === 'Subst') && (
+                    <span className="text-slate-500 dark:text-slate-400 font-normal"> ↔ {event.assist_name}</span>
                   )}
                 </span>
               </div>

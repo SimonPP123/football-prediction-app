@@ -29,7 +29,15 @@ import {
   Brain,
   Calendar,
   AlertTriangle,
+  TrendingUp,
+  Star,
+  BookOpen,
+  Home,
+  Plane,
+  ChevronDown,
 } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
 
 type TabType = 'prediction' | 'injuries' | 'statistics' | 'events' | 'odds' | 'weather' | 'h2h' | 'analysis'
 
@@ -42,6 +50,11 @@ export default function MatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabType>('prediction')
+  const [showScores, setShowScores] = useState(false)
+  const [showKeyRiskFactors, setShowKeyRiskFactors] = useState(false)
+  const [showHomeNews, setShowHomeNews] = useState(false)
+  const [showAwayNews, setShowAwayNews] = useState(false)
+  const [showHistoricalAdjustments, setShowHistoricalAdjustments] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -384,6 +397,183 @@ export default function MatchDetailPage() {
                       <p className="font-bold text-amber-500">
                         {prediction.factors.value_bet}
                       </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Score Predictions */}
+              {(prediction.score_predictions?.length > 0 || prediction.most_likely_score) && (
+                <div className="border-t border-border pt-4">
+                  <button
+                    onClick={() => setShowScores(!showScores)}
+                    className="w-full flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+                  >
+                    <Target className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Score Predictions</span>
+                    {prediction.most_likely_score && (
+                      <span className="text-sm bg-primary text-primary-foreground px-2 py-0.5 rounded font-medium">
+                        {prediction.most_likely_score}
+                      </span>
+                    )}
+                    <ChevronDown className={cn(
+                      "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                      showScores && "rotate-180"
+                    )} />
+                  </button>
+                  {showScores && prediction.score_predictions?.length > 0 && (
+                    <div className="mt-2 space-y-1.5 p-3 bg-muted/30 rounded-lg">
+                      {prediction.score_predictions
+                        .filter((sp: any) => sp.score?.toLowerCase() !== 'other')
+                        .sort((a: any, b: any) => (b.probability || 0) - (a.probability || 0))
+                        .map((sp: any, idx: number) => (
+                          <div key={sp.score} className="flex items-center gap-2 text-sm">
+                            <span className="w-12 font-mono font-medium">{sp.score}</span>
+                            <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  "h-full rounded-full transition-all",
+                                  idx === 0 ? "bg-primary" : "bg-primary/50"
+                                )}
+                                style={{ width: `${Math.min(sp.probability * 3, 100)}%` }}
+                              />
+                            </div>
+                            <span className="w-12 text-right text-muted-foreground">{sp.probability}%</span>
+                            {idx === 0 && <Star className="w-3 h-3 text-yellow-500" />}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Key & Risk Factors */}
+              {((prediction.key_factors?.length > 0) || (prediction.risk_factors?.length > 0)) && (
+                <div className="border-t border-border pt-4">
+                  <button
+                    onClick={() => setShowKeyRiskFactors(!showKeyRiskFactors)}
+                    className="w-full flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+                  >
+                    <TrendingUp className="w-4 h-4 text-green-500" />
+                    <span className="text-sm font-medium">Key & Risk Factors</span>
+                    <ChevronDown className={cn(
+                      "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                      showKeyRiskFactors && "rotate-180"
+                    )} />
+                  </button>
+                  {showKeyRiskFactors && (
+                    <div className="mt-2 space-y-4 p-3 bg-muted/30 rounded-lg">
+                      {prediction.key_factors?.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium flex items-center gap-1 mb-2">
+                            <TrendingUp className="w-3 h-3 text-green-500" />
+                            Key Factors
+                          </h4>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {prediction.key_factors.map((factor: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-green-500 shrink-0">•</span>
+                                <span>{factor}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {prediction.risk_factors?.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-medium flex items-center gap-1 mb-2">
+                            <AlertTriangle className="w-3 h-3 text-yellow-500" />
+                            Risk Factors
+                          </h4>
+                          <ul className="text-sm text-muted-foreground space-y-1">
+                            {prediction.risk_factors.map((factor: string, i: number) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <span className="text-yellow-500 shrink-0">•</span>
+                                <span>{factor}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Historical Adjustments */}
+              {prediction.historical_adjustments?.applied && (
+                <div className="border-t border-border pt-4">
+                  <button
+                    onClick={() => setShowHistoricalAdjustments(!showHistoricalAdjustments)}
+                    className="w-full flex items-center gap-2 p-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 transition-colors text-left"
+                  >
+                    <BookOpen className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm font-medium text-purple-600 dark:text-purple-400">Historical Adjustments Applied</span>
+                    {prediction.historical_adjustments.confidence_adjusted_by !== 0 && (
+                      <span className="text-xs bg-purple-500/20 text-purple-600 px-2 py-0.5 rounded">
+                        {prediction.historical_adjustments.confidence_adjusted_by > 0 ? '+' : ''}
+                        {prediction.historical_adjustments.confidence_adjusted_by}%
+                      </span>
+                    )}
+                    <ChevronDown className={cn(
+                      "w-4 h-4 ml-auto text-purple-500 transition-transform",
+                      showHistoricalAdjustments && "rotate-180"
+                    )} />
+                  </button>
+                  {showHistoricalAdjustments && (
+                    <div className="mt-2 p-3 bg-purple-500/10 rounded-lg text-sm">
+                      <p className="text-foreground">{prediction.historical_adjustments.reason}</p>
+                      {prediction.historical_adjustments.factors_adjusted?.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Adjusted factors: {prediction.historical_adjustments.factors_adjusted.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Team News */}
+              {(prediction.home_team_news || prediction.away_team_news) && (
+                <div className="border-t border-border pt-4 space-y-3">
+                  {prediction.home_team_news && (
+                    <div>
+                      <button
+                        onClick={() => setShowHomeNews(!showHomeNews)}
+                        className="w-full flex items-center gap-2 p-3 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
+                      >
+                        <Home className="w-4 h-4 text-home" />
+                        <span className="text-sm font-medium">{fixture.home_team?.name || 'Home'} News</span>
+                        <ChevronDown className={cn(
+                          "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                          showHomeNews && "rotate-180"
+                        )} />
+                      </button>
+                      {showHomeNews && (
+                        <div className="mt-2 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                          <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {prediction.away_team_news && (
+                    <div>
+                      <button
+                        onClick={() => setShowAwayNews(!showAwayNews)}
+                        className="w-full flex items-center gap-2 p-3 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
+                      >
+                        <Plane className="w-4 h-4 text-away" />
+                        <span className="text-sm font-medium">{fixture.away_team?.name || 'Away'} News</span>
+                        <ChevronDown className={cn(
+                          "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                          showAwayNews && "rotate-180"
+                        )} />
+                      </button>
+                      {showAwayNews && (
+                        <div className="mt-2 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                          <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
