@@ -20,7 +20,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import { UpdateProvider } from '@/components/updates/update-provider'
-import { GlobalStatusBar, MobileDataStatus } from '@/components/updates/global-status-bar'
+import { GlobalStatusBar, MobileDataRefreshButton } from '@/components/updates/global-status-bar'
 import { ToastNotificationContainer } from '@/components/updates/toast-notification'
 import { UpdatePoller } from '@/components/updates/update-poller'
 import { LeagueProvider, useLeague, getSeasonDisplay } from '@/contexts/league-context'
@@ -104,6 +104,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           <div className="flex-1 flex justify-center min-w-0">
             <LeagueSelector />
           </div>
+
+          {/* Data Refresh button */}
+          <MobileDataRefreshButton />
 
           {/* Menu button - larger touch target */}
           <button

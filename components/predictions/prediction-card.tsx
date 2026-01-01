@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
+import { LiveStats } from '../matches/live-stats'
 
 interface ScorePrediction {
   score: string
@@ -372,6 +373,19 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               <span className="w-8 text-right">{prediction.factors.away_win_pct || prediction.away_win_pct || 0}%</span>
             </div>
           </div>
+        )}
+
+        {/* Live Match Stats & Events */}
+        {isLive && (fixture.fixture_statistics?.length > 0 || fixture.fixture_events?.length > 0) && (
+          <LiveStats
+            homeTeamId={fixture.home_team_id}
+            awayTeamId={fixture.away_team_id}
+            homeTeamName={fixture.home_team?.name || 'Home'}
+            awayTeamName={fixture.away_team?.name || 'Away'}
+            statistics={fixture.fixture_statistics || []}
+            events={fixture.fixture_events || []}
+            defaultExpanded={false}
+          />
         )}
 
         {/* Score Predictions - Collapsible */}

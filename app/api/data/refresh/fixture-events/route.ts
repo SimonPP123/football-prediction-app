@@ -8,7 +8,11 @@ import { isAdmin } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 // Refresh modes for events
-type EventsRefreshMode = 'smart' | 'recent' | 'missing' | 'all'
+type EventsRefreshMode = 'smart' | 'recent' | 'missing' | 'all' | 'live'
+
+// Live match statuses
+const LIVE_STATUSES = ['1H', '2H', 'HT', 'ET', 'BT', 'P']
+const COMPLETED_STATUSES = ['FT', 'AET', 'PEN']
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,7 +39,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 function getRefreshMode(request: Request): EventsRefreshMode {
   const url = new URL(request.url)
   const mode = url.searchParams.get('mode')
-  if (mode && ['smart', 'recent', 'missing', 'all'].includes(mode)) {
+  if (mode && ['smart', 'recent', 'missing', 'all', 'live'].includes(mode)) {
     return mode as EventsRefreshMode
   }
   return 'smart' // Default to smart mode
@@ -60,7 +64,7 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
 
   ;(async () => {
     try {
-      const modeLabel = mode === 'all' ? 'all' : mode
+      const modeLabel = mode
       sendLog({ type: 'info', message: `Starting fixture events refresh (${modeLabel} mode)...` })
 
       // Build query based on mode
@@ -71,7 +75,14 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
           home_team:teams!fixtures_home_team_id_fkey(name),
           away_team:teams!fixtures_away_team_id_fkey(name)
         `)
-        .in('status', ['FT', 'AET', 'PEN'])
+
+      // Filter by status based on mode
+      if (mode === 'live') {
+        query = query.in('status', LIVE_STATUSES)
+        sendLog({ type: 'info', message: 'Fetching events for LIVE matches' })
+      } else {
+        query = query.in('status', COMPLETED_STATUSES)
+      }
 
       // Apply date filter for smart/recent modes
       if (mode === 'smart' || mode === 'recent') {
@@ -83,21 +94,23 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
       const { data: fixtures } = await query
 
       if (!fixtures || fixtures.length === 0) {
-        sendLog({ type: 'info', message: 'No completed fixtures found in date range' })
+        const noMatchMsg = mode === 'live' ? 'No live fixtures found' : 'No completed fixtures found in date range'
+        sendLog({ type: 'info', message: noMatchMsg })
         close({ success: true, imported: 0, errors: 0, total: 0, duration: Date.now() - startTime, mode })
         return
       }
 
-      const { data: existingEvents } = await supabase
-        .from('fixture_events')
-        .select('fixture_id')
+      // For live mode, always refresh all live fixtures (events change constantly)
+      // For other modes, check which fixtures already have events
+      let fixturesToProcess = fixtures
+      if (mode !== 'live' && mode !== 'all') {
+        const { data: existingEvents } = await supabase
+          .from('fixture_events')
+          .select('fixture_id')
 
-      const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
-
-      // For 'all' mode, include all fixtures. For others, only missing events
-      const fixturesToProcess = mode === 'all'
-        ? fixtures
-        : fixtures.filter(f => !existingSet.has(f.id))
+        const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
+        fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
+      }
 
       sendLog({ type: 'info', message: `Found ${fixturesToProcess.length} fixtures needing events (${fixtures.length} total in range)` })
 
@@ -107,9 +120,12 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
       let imported = 0
       let errors = 0
 
+      // Use faster rate limiting for live mode
+      const delayMs = mode === 'live' ? 150 : 300
+
       for (let i = 0; i < fixturesToProcess.length; i++) {
         const fixture = fixturesToProcess[i]
-        await delay(300)
+        await delay(delayMs)
 
         const matchName = `${(fixture.home_team as any)?.name || 'Home'} vs ${(fixture.away_team as any)?.name || 'Away'}`
 
@@ -200,7 +216,7 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
   }
 
   try {
-    const modeLabel = mode === 'all' ? 'all' : mode
+    const modeLabel = mode
     addLog('info', `Starting fixture events refresh (${modeLabel} mode)...`)
 
     // Build query based on mode
@@ -211,7 +227,14 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
         home_team:teams!fixtures_home_team_id_fkey(name),
         away_team:teams!fixtures_away_team_id_fkey(name)
       `)
-      .in('status', ['FT', 'AET', 'PEN'])
+
+    // Filter by status based on mode
+    if (mode === 'live') {
+      query = query.in('status', LIVE_STATUSES)
+      addLog('info', 'Fetching events for LIVE matches')
+    } else {
+      query = query.in('status', COMPLETED_STATUSES)
+    }
 
     // Apply date filter for smart/recent modes
     if (mode === 'smart' || mode === 'recent') {
@@ -223,7 +246,8 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
     const { data: fixtures } = await query
 
     if (!fixtures || fixtures.length === 0) {
-      addLog('info', 'No completed fixtures found in date range')
+      const noMatchMsg = mode === 'live' ? 'No live fixtures found' : 'No completed fixtures found in date range'
+      addLog('info', noMatchMsg)
       return NextResponse.json({
         success: true,
         imported: 0,
@@ -234,17 +258,17 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
       })
     }
 
-    // Check which fixtures already have events
-    const { data: existingEvents } = await supabase
-      .from('fixture_events')
-      .select('fixture_id')
+    // For live mode, always refresh all live fixtures (events change constantly)
+    // For other modes, check which fixtures already have events
+    let fixturesToProcess = fixtures
+    if (mode !== 'live' && mode !== 'all') {
+      const { data: existingEvents } = await supabase
+        .from('fixture_events')
+        .select('fixture_id')
 
-    const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
-
-    // For 'all' mode, include all fixtures. For others, only missing events
-    const fixturesToProcess = mode === 'all'
-      ? fixtures
-      : fixtures.filter(f => !existingSet.has(f.id))
+      const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
+      fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
+    }
 
     addLog('info', `Found ${fixturesToProcess.length} fixtures needing events (${fixtures.length} total in range)`)
 
@@ -255,9 +279,12 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
     let imported = 0
     let errors = 0
 
+    // Use faster rate limiting for live mode
+    const delayMs = mode === 'live' ? 150 : 300
+
     for (let i = 0; i < fixturesToProcess.length; i++) {
       const fixture = fixturesToProcess[i]
-      await delay(300) // Rate limiting
+      await delay(delayMs)
 
       const matchName = `${(fixture.home_team as any)?.name || 'Home'} vs ${(fixture.away_team as any)?.name || 'Away'}`
 

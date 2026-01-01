@@ -38,8 +38,8 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
     // Real-time match updates
     required: [
       'fixtures?mode=live',            // Live scores & status
-      'fixture-statistics',            // Live match stats
-      'fixture-events',                // Goals, cards, subs
+      'fixture-statistics?mode=live',  // Live match stats
+      'fixture-events?mode=live',      // Goals, cards, subs
     ],
     optional: [],
   },

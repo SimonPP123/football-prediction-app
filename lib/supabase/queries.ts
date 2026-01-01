@@ -151,7 +151,7 @@ export async function getLiveFixtures(leagueId?: string) {
   return data || []
 }
 
-// Get live fixtures with predictions and full details (for PredictionCard display)
+// Get live fixtures with predictions, stats, events, and full details (for PredictionCard display)
 export async function getLiveFixturesWithFactors(limit = 6, leagueId?: string) {
   // A match can only be "live" if it started within the last 3 hours
   // (football matches are ~2 hours max with extra time)
@@ -167,7 +167,9 @@ export async function getLiveFixturesWithFactors(limit = 6, leagueId?: string) {
       venue:venues(*),
       prediction:predictions(*),
       odds:odds(*),
-      weather:weather(*)
+      weather:weather(*),
+      fixture_statistics(*),
+      fixture_events(*)
     `)
     .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
     .lte('match_date', now.toISOString())           // Match has started
