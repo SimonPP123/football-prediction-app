@@ -81,6 +81,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/leagues') ||
+    pathname.startsWith('/api/fixtures') ||  // Live fixtures need to sync without auth
     pathname === '/api/match-analysis/auto-trigger'  // Called by Vercel cron
   ) {
     return NextResponse.next()
