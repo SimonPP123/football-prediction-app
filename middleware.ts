@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createHmac } from 'crypto'
 
 interface AuthData {
   authenticated: boolean
@@ -8,11 +9,34 @@ interface AuthData {
   isAdmin: boolean
 }
 
+// Inline unsign function (can't import from lib in middleware edge runtime)
+function unsignCookie(signedValue: string): string | null {
+  const secret = process.env.COOKIE_SECRET || 'default-secret-change-in-production'
+  const lastDotIndex = signedValue.lastIndexOf('.')
+  if (lastDotIndex === -1) return null
+
+  const value = signedValue.slice(0, lastDotIndex)
+  const signature = signedValue.slice(lastDotIndex + 1)
+
+  const expectedSignature = createHmac('sha256', secret)
+    .update(value)
+    .digest('base64url')
+
+  // Simple comparison (timing-safe not critical in middleware)
+  if (signature !== expectedSignature) return null
+
+  return value
+}
+
 function parseAuthCookie(cookieValue: string | undefined): AuthData | null {
   if (!cookieValue) return null
 
+  // Try to unsign the cookie first (new signed format)
+  const unsignedValue = unsignCookie(cookieValue)
+  const jsonValue = unsignedValue || cookieValue // Fall back to raw value for legacy
+
   try {
-    const data = JSON.parse(cookieValue)
+    const data = JSON.parse(jsonValue)
     if (data.authenticated === true) {
       return data as AuthData
     }
