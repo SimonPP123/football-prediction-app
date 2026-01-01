@@ -1223,52 +1223,142 @@ export default function DataManagementPage() {
 
         {/* Season & Maintenance - Infrequent operations */}
         {currentLeague && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-lg">Season & Maintenance</h2>
-                <p className="text-xs text-muted-foreground">Infrequent operations - not needed on matchday</p>
+          <div className="bg-card border border-border rounded-lg overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CalendarPlus className="w-5 h-5 text-primary" />
+                  <div>
+                    <h2 className="font-semibold">Season & Maintenance</h2>
+                    <p className="text-xs text-muted-foreground">Run once per season or weekly - not needed on matchday</p>
+                  </div>
+                </div>
+                {/* League Target Selection */}
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+                    <button
+                      onClick={() => setSelectionMode('single')}
+                      className={cn(
+                        'px-2 py-0.5 text-xs rounded transition-colors',
+                        selectionMode === 'single'
+                          ? 'bg-background shadow text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Single
+                    </button>
+                    <button
+                      onClick={() => setSelectionMode('multiple')}
+                      className={cn(
+                        'px-2 py-0.5 text-xs rounded transition-colors',
+                        selectionMode === 'multiple'
+                          ? 'bg-background shadow text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Multi
+                    </button>
+                  </div>
+                  {selectionMode === 'single' ? (
+                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                      {currentLeague.name}
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                      {selectedLeagues.length === 0 ? 'Select leagues' : `${selectedLeagues.length} leagues`}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-            <TooltipProvider delayDuration={200}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {quickActions.map((action) => {
-                  const isRunning =
-                    (action.id === 'season-setup' && isSeasonSetupRefreshing) ||
-                    (action.id === 'weekly-stats' && isWeeklyMaintenanceRefreshing) ||
-                    (action.id === 'squad-sync' && isSquadSyncRefreshing)
 
-                  const handleClick = () => {
-                    switch (action.id) {
-                      case 'season-setup':
-                        handleSeasonSetupRefresh()
-                        break
-                      case 'weekly-stats':
-                        handleWeeklyMaintenanceRefresh()
-                        break
-                      case 'squad-sync':
-                        handleSquadSyncRefresh()
-                        break
-                    }
-                  }
-
-                  return (
-                    <QuickActionCard
-                      key={action.id}
-                      title={action.title}
-                      description={action.description}
-                      icon={action.icon}
-                      endpoints={action.endpoints}
-                      estimatedTime={action.estimatedTime}
-                      status={getQuickActionStatus(action.id, dataStatus?.phase?.current, dataStatus, isRunning)}
-                      onClick={handleClick}
-                      disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
-                      targetDisplay={getTargetLeaguesDisplay()}
-                    />
-                  )
-                })}
+            {/* Multi-league selection grid (only when in multiple mode) */}
+            {selectionMode === 'multiple' && (
+              <div className="px-4 py-3 border-b border-border bg-muted/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => setSelectedLeagues([...leagues])}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Select All
+                  </button>
+                  <span className="text-muted-foreground">|</span>
+                  <button
+                    onClick={() => setSelectedLeagues([])}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {leagues.map((league) => {
+                    const isSelected = selectedLeagues.some(l => l.id === league.id)
+                    return (
+                      <button
+                        key={league.id}
+                        onClick={() => toggleLeagueSelection(league)}
+                        className={cn(
+                          'flex items-center gap-1.5 px-2 py-1 rounded border text-xs transition-all',
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-foreground'
+                            : 'border-border bg-background hover:border-primary/50 text-muted-foreground'
+                        )}
+                      >
+                        <div className={cn(
+                          'w-3 h-3 rounded border flex items-center justify-center transition-colors',
+                          isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'
+                        )}>
+                          {isSelected && <Check className="w-2 h-2 text-primary-foreground" />}
+                        </div>
+                        {league.name}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
-            </TooltipProvider>
+            )}
+
+            <div className="p-4">
+              <TooltipProvider delayDuration={200}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {quickActions.map((action) => {
+                    const isRunning =
+                      (action.id === 'season-setup' && isSeasonSetupRefreshing) ||
+                      (action.id === 'weekly-stats' && isWeeklyMaintenanceRefreshing) ||
+                      (action.id === 'squad-sync' && isSquadSyncRefreshing)
+
+                    const handleClick = () => {
+                      switch (action.id) {
+                        case 'season-setup':
+                          handleSeasonSetupRefresh()
+                          break
+                        case 'weekly-stats':
+                          handleWeeklyMaintenanceRefresh()
+                          break
+                        case 'squad-sync':
+                          handleSquadSyncRefresh()
+                          break
+                      }
+                    }
+
+                    return (
+                      <QuickActionCard
+                        key={action.id}
+                        title={action.title}
+                        description={action.description}
+                        icon={action.icon}
+                        endpoints={action.endpoints}
+                        estimatedTime={action.estimatedTime}
+                        status={getQuickActionStatus(action.id, dataStatus?.phase?.current, dataStatus, isRunning)}
+                        onClick={handleClick}
+                        disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing || getTargetLeagues().length === 0}
+                        targetDisplay={getTargetLeaguesDisplay()}
+                      />
+                    )
+                  })}
+                </div>
+              </TooltipProvider>
+            </div>
           </div>
         )}
 
@@ -1306,174 +1396,6 @@ export default function DataManagementPage() {
               </div>
             </div>
 
-            {/* League Selection Panel */}
-            <div className="border-t border-border pt-4">
-              <div className="flex flex-wrap items-center gap-4 mb-3">
-                <span className="text-sm font-medium text-muted-foreground">Target Leagues:</span>
-                <div className="flex items-center gap-2 bg-muted rounded-lg p-1">
-                  <button
-                    onClick={() => setSelectionMode('single')}
-                    className={cn(
-                      'px-3 py-1 text-sm rounded-md transition-colors',
-                      selectionMode === 'single'
-                        ? 'bg-background shadow text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    Single
-                  </button>
-                  <button
-                    onClick={() => setSelectionMode('multiple')}
-                    className={cn(
-                      'px-3 py-1 text-sm rounded-md transition-colors',
-                      selectionMode === 'multiple'
-                        ? 'bg-background shadow text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    Multiple
-                  </button>
-                </div>
-                {selectionMode === 'single' && currentLeague && (
-                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-                    {currentLeague.name}
-                  </span>
-                )}
-                {selectionMode === 'multiple' && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setSelectedLeagues([...leagues])}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-muted-foreground">|</span>
-                    <button
-                      onClick={() => setSelectedLeagues([])}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Clear All
-                    </button>
-                    {selectedLeagues.length > 0 && (
-                      <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs">
-                        {selectedLeagues.length} selected
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Multi-league checkbox grid */}
-              {selectionMode === 'multiple' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                  {leagues.map((league) => {
-                    const isSelected = selectedLeagues.some(l => l.id === league.id)
-                    return (
-                      <button
-                        key={league.id}
-                        onClick={() => toggleLeagueSelection(league)}
-                        className={cn(
-                          'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all',
-                          isSelected
-                            ? 'border-primary bg-primary/10 text-foreground'
-                            : 'border-border bg-background hover:border-primary/50 text-muted-foreground'
-                        )}
-                      >
-                        <div className={cn(
-                          'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
-                          isSelected ? 'border-primary bg-primary' : 'border-muted-foreground'
-                        )}>
-                          {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                        </div>
-                        <span className="truncate">{league.name}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-2 ml-auto">
-                {/* Stop Button */}
-                {(Object.values(refreshing).some(Boolean) || isPreMatchRefreshing || isPostMatchRefreshing || isSeasonSetupRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing) && (
-                  <button
-                    onClick={handleStopAll}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
-                  >
-                    <Square className="w-4 h-4 fill-current" />
-                    Stop
-                  </button>
-                )}
-
-                {/* Refresh All */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={handleRefreshAll}
-                      disabled={Object.values(refreshing).some(Boolean) || isSeasonSetupRefreshing || isPreMatchRefreshing || isPostMatchRefreshing || isWeeklyMaintenanceRefreshing || isSquadSyncRefreshing}
-                      className="flex items-center gap-2 px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50 text-sm font-medium"
-                    >
-                      <RefreshCw className={cn("w-4 h-4", Object.values(refreshing).some(Boolean) && "animate-spin")} />
-                      Refresh All
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <p className="font-semibold">Refresh all 19 endpoints sequentially</p>
-                    <p className="text-xs mt-1 text-amber-500">Warning: Takes a long time and uses many API calls. Use specific buttons instead.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-
-            {/* Endpoint Details - Season & Maintenance endpoints */}
-            <div className="border-t border-border pt-3 space-y-3">
-              {/* Season Setup */}
-              <div className="text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-medium flex items-center gap-1">
-                    <CalendarPlus className="w-3 h-3 text-blue-500" />
-                    Season Setup:
-                  </span>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">teams</code>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">fixtures</code>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">standings</code>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">team-stats</code>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">coaches</code>
-                  <code className="text-xs bg-blue-500/10 text-blue-600 px-2 py-0.5 rounded">player-squads</code>
-                </div>
-              </div>
-
-              {/* Weekly Stats */}
-              <div className="text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-medium flex items-center gap-1">
-                    <BarChart3 className="w-3 h-3 text-purple-500" />
-                    Weekly Stats:
-                  </span>
-                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">team-stats</code>
-                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">player-stats</code>
-                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">top-performers</code>
-                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">referee-stats</code>
-                  <code className="text-xs bg-purple-500/10 text-purple-600 px-2 py-0.5 rounded">head-to-head</code>
-                </div>
-              </div>
-
-              {/* Squad Sync */}
-              <div className="text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-muted-foreground font-medium flex items-center gap-1">
-                    <UsersRound className="w-3 h-3 text-cyan-500" />
-                    Squad Sync:
-                  </span>
-                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">player-squads</code>
-                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">transfers</code>
-                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">injuries</code>
-                  <code className="text-xs bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded">coaches</code>
-                </div>
-              </div>
-            </div>
           </div>
         </TooltipProvider>
 
