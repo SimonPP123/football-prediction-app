@@ -76,9 +76,10 @@ function StatBar({
 
   return (
     <div className="flex items-center gap-2 text-xs">
+      <span className="w-20 text-slate-700 dark:text-slate-200 font-medium truncate">{label}</span>
       <span className={cn(
-        "w-10 text-right tabular-nums font-semibold",
-        homeWinning ? "text-emerald-500" : "text-foreground"
+        "w-10 text-right tabular-nums font-bold",
+        homeWinning ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"
       )}>
         {isPercentage ? `${home}%` : home}
       </span>
@@ -86,25 +87,24 @@ function StatBar({
         <div
           className={cn(
             "h-full transition-all rounded-l-full",
-            homeWinning ? "bg-emerald-500" : "bg-blue-400"
+            homeWinning ? "bg-blue-600" : "bg-blue-300 dark:bg-blue-400/50"
           )}
           style={{ width: `${homePercent}%` }}
         />
         <div
           className={cn(
             "h-full transition-all rounded-r-full",
-            awayWinning ? "bg-emerald-500" : "bg-orange-400"
+            awayWinning ? "bg-orange-600" : "bg-orange-300 dark:bg-orange-400/50"
           )}
           style={{ width: `${awayPercent}%` }}
         />
       </div>
       <span className={cn(
-        "w-10 text-left tabular-nums font-semibold",
-        awayWinning ? "text-emerald-500" : "text-foreground"
+        "w-10 text-left tabular-nums font-bold",
+        awayWinning ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400"
       )}>
         {isPercentage ? `${away}%` : away}
       </span>
-      <span className="w-20 text-slate-600 dark:text-slate-300 font-medium truncate">{label}</span>
     </div>
   )
 }
@@ -217,10 +217,14 @@ export function LiveStats({
 
           {expanded && (
             <div className="space-y-2 pt-3 px-1">
-              {/* Team names header */}
-              <div className="flex items-center justify-between text-sm font-bold mb-3">
-                <span className="text-blue-600 dark:text-blue-400 truncate max-w-[100px]">{homeTeamName}</span>
-                <span className="text-orange-600 dark:text-orange-400 truncate max-w-[100px]">{awayTeamName}</span>
+              {/* Team names header - aligned above stat values */}
+              <div className="flex items-center text-xs font-bold mb-3 px-1">
+                <span className="w-20 text-slate-500 dark:text-slate-400">Stat</span>
+                <span className="flex-1 text-center">
+                  <span className="text-blue-600 dark:text-blue-400">{homeTeamName}</span>
+                  <span className="text-slate-400 dark:text-slate-500 mx-2">vs</span>
+                  <span className="text-orange-600 dark:text-orange-400">{awayTeamName}</span>
+                </span>
               </div>
 
               {/* All Stats */}

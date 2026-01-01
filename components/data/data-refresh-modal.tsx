@@ -141,10 +141,10 @@ export function DataRefreshModal({ isOpen, onClose }: DataRefreshModalProps) {
       />
 
       {/* Modal */}
-      <div className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg z-50 flex items-center justify-center">
+      <div className="fixed inset-4 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-lg md:max-h-[85vh] z-50 flex items-center justify-center">
         <div className="bg-card border border-border rounded-lg shadow-xl w-full max-h-full overflow-hidden flex flex-col">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
+          {/* Header - Sticky */}
+          <div className="flex items-center justify-between p-4 border-b border-border bg-card sticky top-0 z-10">
             <div className="flex items-center gap-2">
               <Zap className="w-5 h-5 text-primary" />
               <h2 className="font-semibold">Data Refresh</h2>
