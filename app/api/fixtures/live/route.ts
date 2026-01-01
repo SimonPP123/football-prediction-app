@@ -1,12 +1,84 @@
 import { NextResponse } from 'next/server'
 import { getLiveFixturesWithFactors } from '@/lib/supabase/queries'
+import { createServerClient } from '@/lib/supabase/client'
 
 export const dynamic = 'force-dynamic'
+
+// Sync recently finished matches from API-Football (background task)
+async function syncFinishedMatches(leagueId?: string) {
+  try {
+    const supabase = createServerClient()
+    const now = new Date()
+    const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+
+    // Find matches that started 1-3 hours ago but still show as in-play
+    let query = supabase
+      .from('fixtures')
+      .select('id, api_id, status')
+      .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
+      .lte('match_date', new Date(now.getTime() - 1.5 * 60 * 60 * 1000).toISOString()) // Started > 1.5 hours ago
+      .gte('match_date', threeHoursAgo.toISOString())
+
+    if (leagueId) {
+      query = query.eq('league_id', leagueId)
+    }
+
+    const { data: staleMatches } = await query
+
+    if (!staleMatches || staleMatches.length === 0) return
+
+    // Fetch current status from API-Football for these specific fixtures
+    const apiIds = staleMatches.map(m => m.api_id).filter(Boolean)
+    if (apiIds.length === 0) return
+
+    const apiKey = process.env.API_FOOTBALL_KEY
+    if (!apiKey) return
+
+    const idsParam = apiIds.join('-')
+    const response = await fetch(
+      `https://v3.football.api-sports.io/fixtures?ids=${idsParam}`,
+      {
+        headers: { 'x-apisports-key': apiKey },
+        next: { revalidate: 0 }
+      }
+    )
+
+    if (!response.ok) return
+
+    const data = await response.json()
+    if (!data.response || !Array.isArray(data.response)) return
+
+    // Update each fixture with its new status
+    for (const fixture of data.response) {
+      const apiId = fixture.fixture?.id
+      const newStatus = fixture.fixture?.status?.short
+      const goalsHome = fixture.goals?.home
+      const goalsAway = fixture.goals?.away
+
+      if (apiId && newStatus) {
+        await supabase
+          .from('fixtures')
+          .update({
+            status: newStatus,
+            goals_home: goalsHome,
+            goals_away: goalsAway,
+            updated_at: new Date().toISOString()
+          })
+          .eq('api_id', apiId)
+      }
+    }
+  } catch (error) {
+    console.error('Error syncing finished matches:', error)
+  }
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const leagueId = searchParams.get('league_id') || undefined
+
+    // Start background sync of finished matches (don't await)
+    syncFinishedMatches(leagueId)
 
     // Use getLiveFixturesWithFactors to include predictions for PredictionCard display
     const fixtures = await getLiveFixturesWithFactors(20, leagueId)
