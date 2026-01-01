@@ -88,17 +88,36 @@ export default function MatchesPage() {
     fetchMatches()
 
     // Auto-refresh live matches every 60 seconds
-    const interval = setInterval(() => {
-      if (activeTab === 'live' && currentLeague?.id) {
-        fetch(`/api/fixtures/live?league_id=${currentLeague.id}`)
-          .then((res) => res.json())
-          .then((data) => setLiveMatches(Array.isArray(data) ? data : []))
-          .catch(console.error)
+    // Also check if any matches finished and need to move to results
+    const interval = setInterval(async () => {
+      if (!currentLeague?.id) return
+
+      try {
+        // Always fetch live matches to detect status changes
+        const liveRes = await fetch(`/api/fixtures/live?league_id=${currentLeague.id}`)
+        const newLiveData = await liveRes.json()
+        const newLiveMatches = Array.isArray(newLiveData) ? newLiveData : []
+
+        // Check if any previously live matches are no longer live (finished)
+        const previousLiveIds = new Set(liveMatches.map(m => m.id))
+        const currentLiveIds = new Set(newLiveMatches.map((m: Fixture) => m.id))
+        const finishedMatches = liveMatches.filter(m => !currentLiveIds.has(m.id))
+
+        setLiveMatches(newLiveMatches)
+
+        // If matches finished, refresh results to include them
+        if (finishedMatches.length > 0) {
+          const resultsRes = await fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`)
+          const resultsData = await resultsRes.json()
+          setResults(Array.isArray(resultsData) ? resultsData : [])
+        }
+      } catch (error) {
+        console.error('Error refreshing matches:', error)
       }
     }, 60000)
 
     return () => clearInterval(interval)
-  }, [currentLeague?.id, activeTab])
+  }, [currentLeague?.id, liveMatches])
 
   // Get current matches based on active tab
   const currentMatches = useMemo(() => {

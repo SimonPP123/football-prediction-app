@@ -112,14 +112,31 @@ export default function PredictionsPage() {
   }, [currentLeague?.id])
 
   // Auto-refresh live fixtures every 60 seconds
+  // Also check if any matches finished and need to move to results
   useEffect(() => {
     const refreshLive = async () => {
       try {
         const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
         const res = await fetch(`/api/fixtures/live${params}`, { credentials: 'include' })
         if (res.ok) {
-          const data = await res.json()
-          setLiveFixtures(Array.isArray(data) ? data : [])
+          const newLiveData = await res.json()
+          const newLiveFixtures = Array.isArray(newLiveData) ? newLiveData : []
+
+          // Check if any previously live matches are no longer live (finished)
+          const currentLiveIds = new Set(newLiveFixtures.map((m: any) => m.id))
+          const finishedMatches = liveFixtures.filter(m => !currentLiveIds.has(m.id))
+
+          setLiveFixtures(newLiveFixtures)
+
+          // If matches finished, refresh results to include them
+          if (finishedMatches.length > 0) {
+            const resultsParams = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+            const resultsRes = await fetch(`/api/fixtures/recent-results${resultsParams}`, { credentials: 'include' })
+            if (resultsRes.ok) {
+              const resultsData = await resultsRes.json()
+              setRecentResults(Array.isArray(resultsData) ? resultsData : [])
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to refresh live fixtures:', error)
@@ -129,7 +146,7 @@ export default function PredictionsPage() {
     const intervalId = setInterval(refreshLive, 60000) // Refresh every 60 seconds
 
     return () => clearInterval(intervalId)
-  }, [currentLeague?.id])
+  }, [currentLeague?.id, liveFixtures])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
