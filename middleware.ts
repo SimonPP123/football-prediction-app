@@ -25,7 +25,12 @@ async function createHmacSignature(value: string, secret: string): Promise<strin
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
 
   // Convert to base64url
-  const base64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  const bytes = new Uint8Array(signature)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  const base64 = btoa(binary)
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
