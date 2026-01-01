@@ -47,7 +47,7 @@ export default function MatchesPage() {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedRounds, setSelectedRounds] = useState<Set<string>>(new Set())
-  const [sortBy, setSortBy] = useState<SortType>('date-desc')
+  const [sortBy, setSortBy] = useState<SortType>('date-asc')
   const [showFilters, setShowFilters] = useState(false)
   const [showRoundDropdown, setShowRoundDropdown] = useState(false)
 
@@ -65,7 +65,7 @@ export default function MatchesPage() {
       try {
         const [liveRes, upcomingRes, resultsRes] = await Promise.all([
           fetch(`/api/fixtures/live?league_id=${currentLeague.id}`),
-          fetch(`/api/fixtures/upcoming?league_id=${currentLeague.id}`),
+          fetch(`/api/fixtures/upcoming?limit=500&league_id=${currentLeague.id}`),
           fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`),
         ])
 
@@ -244,7 +244,16 @@ export default function MatchesPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  // Set appropriate sort order for each tab
+                  if (tab.id === 'results') {
+                    setSortBy('date-desc')
+                  } else {
+                    setSortBy('date-asc')
+                  }
+                  setSelectedRounds(new Set())
+                }}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-colors',
                   isActive
@@ -302,7 +311,7 @@ export default function MatchesPage() {
           >
             <Filter className="w-4 h-4" />
             Filters
-            {(selectedRounds.size > 0 || sortBy !== 'date-desc') && (
+            {(selectedRounds.size > 0 || (activeTab === 'results' ? sortBy !== 'date-desc' : sortBy !== 'date-asc')) && (
               <span className="w-2 h-2 rounded-full bg-primary" />
             )}
           </button>

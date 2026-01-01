@@ -8,8 +8,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
 
-    // Validate limit parameter (1-100)
-    const limit = parseLimit(searchParams.get('limit'), undefined, 1, 100)
+    // Validate limit parameter (1-500, or no limit if not specified)
+    const limit = parseLimit(searchParams.get('limit'), undefined, 1, 500)
 
     // Validate league_id if provided
     const leagueId = searchParams.get('league_id') || undefined
