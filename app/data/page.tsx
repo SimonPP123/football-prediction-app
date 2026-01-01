@@ -1369,36 +1369,6 @@ export default function DataManagementPage() {
           loading={statusLoading}
         />
 
-        {/* Summary Stats */}
-        <TooltipProvider delayDuration={200}>
-          <div className="bg-card border border-border rounded-lg p-4 space-y-4">
-            {/* Stats Row */}
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Database className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Tables:</span>
-                <span className="font-bold">{summary?.totalTables || 24}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Total Records:</span>
-                <span className="font-bold">{summary?.totalRecords?.toLocaleString() || '-'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Last Sync:</span>
-                <span className="font-bold">{formatRelativeTime(summary?.lastSync)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Refreshable:</span>
-                <span className="font-bold">{totalRefreshable} endpoints</span>
-              </div>
-            </div>
-
-          </div>
-        </TooltipProvider>
-
         {/* Manual Refresh Section - Collapsed by default */}
         <ManualRefreshSection
           dataSources={categories.flatMap(c => c.dataSources)}
