@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createHmac } from 'crypto'
 
 interface AuthData {
   authenticated: boolean
@@ -9,8 +8,29 @@ interface AuthData {
   isAdmin: boolean
 }
 
+// Web Crypto API based HMAC for Edge Runtime
+async function createHmacSignature(value: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const keyData = encoder.encode(secret)
+  const messageData = encoder.encode(value)
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData)
+
+  // Convert to base64url
+  const base64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
 // Inline unsign function (can't import from lib in middleware edge runtime)
-function unsignCookie(signedValue: string): string | null {
+async function unsignCookie(signedValue: string): Promise<string | null> {
   const secret = process.env.COOKIE_SECRET || 'default-secret-change-in-production'
   const lastDotIndex = signedValue.lastIndexOf('.')
   if (lastDotIndex === -1) return null
@@ -18,9 +38,7 @@ function unsignCookie(signedValue: string): string | null {
   const value = signedValue.slice(0, lastDotIndex)
   const signature = signedValue.slice(lastDotIndex + 1)
 
-  const expectedSignature = createHmac('sha256', secret)
-    .update(value)
-    .digest('base64url')
+  const expectedSignature = await createHmacSignature(value, secret)
 
   // Simple comparison (timing-safe not critical in middleware)
   if (signature !== expectedSignature) return null
@@ -28,11 +46,11 @@ function unsignCookie(signedValue: string): string | null {
   return value
 }
 
-function parseAuthCookie(cookieValue: string | undefined): AuthData | null {
+async function parseAuthCookie(cookieValue: string | undefined): Promise<AuthData | null> {
   if (!cookieValue) return null
 
   // Try to unsign the cookie first (new signed format)
-  const unsignedValue = unsignCookie(cookieValue)
+  const unsignedValue = await unsignCookie(cookieValue)
   const jsonValue = unsignedValue || cookieValue // Fall back to raw value for legacy
 
   try {
@@ -50,7 +68,7 @@ function parseAuthCookie(cookieValue: string | undefined): AuthData | null {
   }
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow access to public routes
@@ -80,9 +98,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Parse auth cookie
+  // Parse auth cookie (async due to Web Crypto API)
   const authCookie = request.cookies.get('football_auth')?.value
-  const authData = parseAuthCookie(authCookie)
+  const authData = await parseAuthCookie(authCookie)
 
   // Admin routes require admin role
   if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin')) {
