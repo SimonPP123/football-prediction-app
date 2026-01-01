@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Header } from '@/components/layout/header'
 import Link from 'next/link'
 import { useLeague } from '@/contexts/league-context'
@@ -55,6 +55,7 @@ export default function MatchesPage() {
   const [upcomingMatches, setUpcomingMatches] = useState<Fixture[]>([])
   const [results, setResults] = useState<Fixture[]>([])
   const [loading, setLoading] = useState(true)
+  const liveMatchIdsRef = useRef<Set<string>>(new Set())
 
   // Fetch matches
   useEffect(() => {
@@ -75,7 +76,9 @@ export default function MatchesPage() {
           resultsRes.json(),
         ])
 
-        setLiveMatches(Array.isArray(live) ? live : [])
+        const liveArray = Array.isArray(live) ? live : []
+        setLiveMatches(liveArray)
+        liveMatchIdsRef.current = new Set(liveArray.map((m: Fixture) => m.id))
         setUpcomingMatches(Array.isArray(upcoming) ? upcoming : [])
         setResults(Array.isArray(recent) ? recent : [])
       } catch (error) {
@@ -99,14 +102,15 @@ export default function MatchesPage() {
         const newLiveMatches = Array.isArray(newLiveData) ? newLiveData : []
 
         // Check if any previously live matches are no longer live (finished)
-        const previousLiveIds = new Set(liveMatches.map(m => m.id))
         const currentLiveIds = new Set(newLiveMatches.map((m: Fixture) => m.id))
-        const finishedMatches = liveMatches.filter(m => !currentLiveIds.has(m.id))
+        const hasFinishedMatches = Array.from(liveMatchIdsRef.current).some(id => !currentLiveIds.has(id))
 
+        // Update ref with current live match IDs
+        liveMatchIdsRef.current = currentLiveIds
         setLiveMatches(newLiveMatches)
 
         // If matches finished, refresh results to include them
-        if (finishedMatches.length > 0) {
+        if (hasFinishedMatches && liveMatchIdsRef.current.size > 0) {
           const resultsRes = await fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`)
           const resultsData = await resultsRes.json()
           setResults(Array.isArray(resultsData) ? resultsData : [])
@@ -117,7 +121,7 @@ export default function MatchesPage() {
     }, 60000)
 
     return () => clearInterval(interval)
-  }, [currentLeague?.id, liveMatches])
+  }, [currentLeague?.id])
 
   // Get current matches based on active tab
   const currentMatches = useMemo(() => {

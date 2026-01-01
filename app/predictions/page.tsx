@@ -42,6 +42,7 @@ export default function PredictionsPage() {
   const [errorIds, setErrorIds] = useState<Record<string, string>>({}) // fixtureId -> error message
   const [recentResults, setRecentResults] = useState<any[]>([])
   const [liveFixtures, setLiveFixtures] = useState<any[]>([])
+  const liveFixtureIdsRef = useRef<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
   const [showStats, setShowStats] = useState(false)
   const [showLive, setShowLive] = useState(true)
@@ -124,12 +125,14 @@ export default function PredictionsPage() {
 
           // Check if any previously live matches are no longer live (finished)
           const currentLiveIds = new Set(newLiveFixtures.map((m: any) => m.id))
-          const finishedMatches = liveFixtures.filter(m => !currentLiveIds.has(m.id))
+          const hasFinishedMatches = Array.from(liveFixtureIdsRef.current).some(id => !currentLiveIds.has(id))
 
+          // Update ref with current live fixture IDs
+          liveFixtureIdsRef.current = currentLiveIds
           setLiveFixtures(newLiveFixtures)
 
           // If matches finished, refresh results to include them
-          if (finishedMatches.length > 0) {
+          if (hasFinishedMatches && liveFixtureIdsRef.current.size > 0) {
             const resultsParams = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
             const resultsRes = await fetch(`/api/fixtures/recent-results${resultsParams}`, { credentials: 'include' })
             if (resultsRes.ok) {
@@ -146,7 +149,7 @@ export default function PredictionsPage() {
     const intervalId = setInterval(refreshLive, 60000) // Refresh every 60 seconds
 
     return () => clearInterval(intervalId)
-  }, [currentLeague?.id, liveFixtures])
+  }, [currentLeague?.id])
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -238,7 +241,9 @@ export default function PredictionsPage() {
 
       setFixtures(Array.isArray(upcomingData) ? upcomingData : [])
       setRecentResults(Array.isArray(recentData) ? recentData : [])
-      setLiveFixtures(Array.isArray(liveData) ? liveData : [])
+      const liveArray = Array.isArray(liveData) ? liveData : []
+      setLiveFixtures(liveArray)
+      liveFixtureIdsRef.current = new Set(liveArray.map((m: any) => m.id))
     } catch (error: any) {
       // Don't log abort errors - they're expected when changing leagues
       if (error?.name !== 'AbortError') {
