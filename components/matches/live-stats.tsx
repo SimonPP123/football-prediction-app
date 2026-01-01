@@ -299,12 +299,6 @@ export function LiveStats({
                 awayValue={awayStats?.passes_total ?? null}
               />
               <StatBar
-                label="Pass %"
-                homeValue={homeStats?.passes_pct ?? null}
-                awayValue={awayStats?.passes_pct ?? null}
-                isPercentage
-              />
-              <StatBar
                 label="Saves"
                 homeValue={homeStats?.goalkeeper_saves ?? null}
                 awayValue={awayStats?.goalkeeper_saves ?? null}
