@@ -18,11 +18,15 @@ function isAdmin(): boolean {
 
 // Post-match endpoints for completed fixtures
 const POST_MATCH_ENDPOINTS = [
-  // Required (always run)
+  // Required (always run) - Core match data
   { key: 'fixtures', name: 'Fixtures', required: true },
   { key: 'fixture-statistics', name: 'Match Statistics', required: true },
   { key: 'fixture-events', name: 'Match Events', required: true },
   { key: 'standings', name: 'League Table', required: true },
+  // Required - Stats updates after match
+  { key: 'team-stats', name: 'Team Stats', required: true },
+  { key: 'player-stats', name: 'Player Stats', required: true },
+  { key: 'top-performers', name: 'Top Performers', required: true },
   // Optional (user toggles)
   { key: 'lineups', name: 'Lineups', required: false },
 ]
