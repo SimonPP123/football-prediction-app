@@ -996,29 +996,29 @@ export default function DataManagementPage() {
                       phase: 'pre-match',
                       label: 'Pre-Match',
                       color: 'bg-blue-500 hover:bg-blue-600',
-                      endpoints: ['/fixtures?next=10', '/standings', '/injuries', '/teams'],
-                      apiEndpoints: ['GET /fixtures?league=X&season=Y&next=10', 'GET /standings?league=X&season=Y', 'GET /injuries?league=X&season=Y', 'GET /teams?league=X&season=Y']
+                      endpoints: ['fixtures', 'standings', 'injuries', 'teams', 'team-stats', 'odds'],
+                      apiEndpoints: ['GET /fixtures?league=X&season=Y&next=10', 'GET /standings?league=X&season=Y', 'GET /injuries?league=X&season=Y', 'GET /teams?league=X&season=Y', 'GET /teams/statistics?team={id}', 'The Odds API (external)']
                     },
                     {
                       phase: 'imminent',
                       label: 'Imminent',
                       color: 'bg-amber-500 hover:bg-amber-600',
-                      endpoints: ['/fixtures/lineups', 'Odds API'],
-                      apiEndpoints: ['GET /fixtures/lineups?fixture={id}', 'The Odds API (external)']
+                      endpoints: ['lineups', 'odds', 'injuries'],
+                      apiEndpoints: ['GET /fixtures/lineups?fixture={id}', 'The Odds API (external)', 'GET /injuries?league=X&season=Y']
                     },
                     {
                       phase: 'live',
                       label: 'Live',
                       color: 'bg-red-500 hover:bg-red-600',
-                      endpoints: ['/fixtures?live'],
-                      apiEndpoints: ['GET /fixtures?live={league_id}']
+                      endpoints: ['fixtures (live)', 'fixture-statistics', 'fixture-events'],
+                      apiEndpoints: ['GET /fixtures?league=X&live=all', 'GET /fixtures/statistics?fixture={id}', 'GET /fixtures/events?fixture={id}']
                     },
                     {
                       phase: 'post-match',
                       label: 'Post-Match',
                       color: 'bg-emerald-500 hover:bg-emerald-600',
-                      endpoints: ['/fixtures?last=20', '/fixtures/statistics', '/fixtures/events', '/standings', '/teams/statistics', '/players'],
-                      apiEndpoints: ['GET /fixtures?league=X&season=Y&last=20', 'GET /fixtures/statistics?fixture={id}', 'GET /fixtures/events?fixture={id}', 'GET /standings?league=X&season=Y', 'GET /teams/statistics?team={id}', 'GET /players?league=X&season=Y']
+                      endpoints: ['fixtures', 'fixture-statistics', 'fixture-events', 'standings', 'team-stats', 'player-stats', 'top-performers'],
+                      apiEndpoints: ['GET /fixtures?league=X&season=Y&last=20', 'GET /fixtures/statistics?fixture={id}', 'GET /fixtures/events?fixture={id}', 'GET /standings?league=X&season=Y', 'GET /teams/statistics?team={id}', 'GET /players?league=X&season=Y', 'GET /players/topscorers?league=X']
                     },
                   ].map(({ phase, label, color, endpoints, apiEndpoints }) => (
                     <Tooltip key={phase}>
@@ -1078,7 +1078,7 @@ export default function DataManagementPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <span className="font-medium text-blue-600">Pre-Match:</span>
+                    <span className="font-medium text-blue-600">Pre-Match (6 endpoints):</span>
                     <div className="text-muted-foreground ml-2 space-y-1 mt-1">
                       <div className="flex items-start gap-1">
                         <span className="text-blue-500 shrink-0">→</span>
@@ -1096,10 +1096,19 @@ export default function DataManagementPage() {
                         <span className="text-blue-500 shrink-0">→</span>
                         <code className="break-all">/teams?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
                       </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all">/teams/statistics?team=&#123;team_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-blue-500 shrink-0">→</span>
+                        <code className="break-all text-purple-600">The Odds API</code>
+                        <span className="text-[9px]">(external)</span>
+                      </div>
                     </div>
                   </div>
                   <div>
-                    <span className="font-medium text-amber-600">Imminent (1hr before):</span>
+                    <span className="font-medium text-amber-600">Imminent (3 endpoints):</span>
                     <div className="text-muted-foreground ml-2 space-y-1 mt-1">
                       <div className="flex items-start gap-1">
                         <span className="text-amber-500 shrink-0">→</span>
@@ -1110,19 +1119,31 @@ export default function DataManagementPage() {
                         <code className="break-all text-purple-600">The Odds API</code>
                         <span className="text-[9px]">(external)</span>
                       </div>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="font-medium text-red-600">Live:</span>
-                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
                       <div className="flex items-start gap-1">
-                        <span className="text-red-500 shrink-0">→</span>
-                        <code className="break-all">/fixtures?live={currentLeague?.apiId || 39}</code>
+                        <span className="text-amber-500 shrink-0">→</span>
+                        <code className="break-all">/injuries?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <span className="font-medium text-emerald-600">Post-Match:</span>
+                    <span className="font-medium text-red-600">Live (3 endpoints):</span>
+                    <div className="text-muted-foreground ml-2 space-y-1 mt-1">
+                      <div className="flex items-start gap-1">
+                        <span className="text-red-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures?league={currentLeague?.apiId || 39}&live=all</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-red-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures/statistics?fixture=&#123;fixture_id&#125;</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-red-500 shrink-0">→</span>
+                        <code className="break-all">/fixtures/events?fixture=&#123;fixture_id&#125;</code>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="font-medium text-emerald-600">Post-Match (7 endpoints):</span>
                     <div className="text-muted-foreground ml-2 space-y-1 mt-1">
                       <div className="flex items-start gap-1">
                         <span className="text-emerald-500 shrink-0">→</span>
@@ -1142,11 +1163,15 @@ export default function DataManagementPage() {
                       </div>
                       <div className="flex items-start gap-1">
                         <span className="text-emerald-500 shrink-0">→</span>
-                        <code className="break-all">/teams/statistics?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}&team=&#123;team_id&#125;</code>
+                        <code className="break-all">/teams/statistics?team=&#123;team_id&#125;</code>
                       </div>
                       <div className="flex items-start gap-1">
                         <span className="text-emerald-500 shrink-0">→</span>
                         <code className="break-all">/players?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
+                      </div>
+                      <div className="flex items-start gap-1">
+                        <span className="text-emerald-500 shrink-0">→</span>
+                        <code className="break-all">/players/topscorers?league={currentLeague?.apiId || 39}&season={currentLeague?.currentSeason || 2025}</code>
                       </div>
                     </div>
                   </div>
