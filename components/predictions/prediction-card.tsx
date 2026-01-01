@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
@@ -225,10 +226,13 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
   }
 
   return (
-    <div className={cn(
-      "bg-card border rounded-lg overflow-hidden",
-      isLive ? "border-2 border-red-500/50" : "border-border"
-    )}>
+    <Link
+      href={`/matches/${fixture.id}`}
+      className={cn(
+        "block bg-card border rounded-lg overflow-hidden transition-colors hover:border-primary/50",
+        isLive ? "border-2 border-red-500/50 hover:border-red-500" : "border-border"
+      )}
+    >
       {/* Match Header */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -393,7 +397,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           <div className="mt-4">
             {/* Collapsed state - just show most likely score badge */}
             <button
-              onClick={() => setShowScores(!showScores)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowScores(!showScores) }}
               className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
             >
               <Target className="w-4 h-4 text-primary" />
@@ -454,7 +458,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             {prediction.home_team_news && (
               <div>
                 <button
-                  onClick={() => setShowHomeNews(!showHomeNews)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHomeNews(!showHomeNews) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
                 >
                   <Home className="w-4 h-4 text-home" />
@@ -476,7 +480,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
             {prediction.away_team_news && (
               <div>
                 <button
-                  onClick={() => setShowAwayNews(!showAwayNews)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAwayNews(!showAwayNews) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
                 >
                   <Plane className="w-4 h-4 text-away" />
@@ -501,7 +505,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           <div className="mt-4">
             {/* Quick view - best odds */}
             <button
-              onClick={() => setShowOdds(!showOdds)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOdds(!showOdds) }}
               className="w-full flex items-center gap-2 p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors text-left"
             >
               <DollarSign className="w-4 h-4 text-green-500" />
@@ -642,7 +646,9 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               <p className="text-xs text-red-400 mt-0.5">{error}</p>
             </div>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
                 onClearError?.()
                 onGeneratePrediction?.(fixture.id)
               }}
@@ -660,7 +666,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
         {hasPrediction ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-px border-border">
             <button
-              onClick={() => setExpanded(!expanded)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded) }}
               className="p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors border-r md:border-r border-border"
             >
               {expanded ? (
@@ -676,7 +682,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               )}
             </button>
             <button
-              onClick={() => onGeneratePrediction?.(fixture.id, true)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGeneratePrediction?.(fixture.id, true) }}
               disabled={isGenerating}
               className="p-3 flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 md:border-r border-border"
               title="Regenerate prediction with current model"
@@ -685,7 +691,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               {isGenerating ? 'Generating...' : 'Regenerate'}
             </button>
             <button
-              onClick={fetchHistory}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); fetchHistory() }}
               disabled={loadingHistory}
               className="p-3 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors disabled:opacity-50 border-r md:border-r border-border"
               title="View prediction history"
@@ -694,7 +700,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               History
             </button>
             <button
-              onClick={handleDeletePrediction}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeletePrediction() }}
               disabled={deleting}
               className="p-3 flex items-center justify-center gap-2 text-sm text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
               title="Delete this prediction"
@@ -705,7 +711,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           </div>
         ) : !error && (
           <button
-            onClick={() => onGeneratePrediction?.(fixture.id)}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGeneratePrediction?.(fixture.id) }}
             disabled={isGenerating}
             className="w-full p-3 flex items-center justify-center gap-2 text-sm text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
           >
@@ -803,7 +809,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
               Prediction History ({history.length})
             </h4>
             <button
-              onClick={() => setShowHistory(false)}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHistory(false) }}
               className="text-xs text-muted-foreground hover:text-foreground"
             >
               Close
@@ -818,7 +824,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                   {/* Header - Always Visible */}
                   <div className="flex items-stretch">
                     <button
-                      onClick={() => setExpandedHistoryId(isHistoryExpanded ? null : h.id)}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedHistoryId(isHistoryExpanded ? null : h.id) }}
                       className="flex-1 p-3 text-left hover:bg-muted/50 transition-colors"
                     >
                       {/* Row 1: Prediction + Confidence + Date */}
@@ -900,6 +906,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                   {/* Delete Button */}
                   <button
                     onClick={(e) => {
+                      e.preventDefault()
                       e.stopPropagation()
                       handleDeleteHistoryRecord(h.id)
                     }}
@@ -1073,6 +1080,6 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           No prediction history available
         </div>
       )}
-    </div>
+    </Link>
   )
 }

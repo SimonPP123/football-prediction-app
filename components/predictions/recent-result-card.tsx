@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign, BookOpen } from 'lucide-react'
+import Link from 'next/link'
+import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign, BookOpen, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
-import type { Prediction } from '@/types'
+import { FactorBreakdown } from './factor-breakdown'
+import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
+import type { Prediction, OddsMarket, OddsOutcome } from '@/types'
 
 interface ScorePrediction {
   score: string
@@ -64,6 +68,9 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
   const [showFactors, setShowFactors] = useState(false)
   const [showScores, setShowScores] = useState(false)
   const [showKeyRiskFactors, setShowKeyRiskFactors] = useState(false)
+  const [showHomeNews, setShowHomeNews] = useState(false)
+  const [showAwayNews, setShowAwayNews] = useState(false)
+  const [showOdds, setShowOdds] = useState(false)
 
   // Handle both array and object formats from Supabase
   // Sort by updated_at DESC to ensure we always show the most recent prediction
@@ -119,8 +126,65 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
 
   const confidence = prediction?.overall_index || prediction?.confidence_pct || 0
 
+  // Odds handling (same as PredictionCard)
+  const odds: OddsMarket[] = fixture.odds || []
+  const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
+  const totalOdds = odds.filter(o => o.bet_type === 'totals')
+  const spreadOdds = odds.filter(o => o.bet_type === 'spreads')
+  const hasOdds = odds.length > 0
+
+  const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
+  const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
+
+  const findOutcome = (values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away'): OddsOutcome | undefined => {
+    if (!values) return undefined
+    if (type === 'draw') {
+      return values.find(v => v.name?.toLowerCase() === 'draw')
+    }
+    if (type === 'home') {
+      return values.find(v => {
+        const name = v.name?.toLowerCase() || ''
+        if (name === 'draw') return false
+        return name.includes(homeTeamName.split(' ')[0]) || homeTeamName.includes(name.split(' ')[0])
+      }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(awayTeamName.split(' ')[0]))
+    }
+    return values.find(v => {
+      const name = v.name?.toLowerCase() || ''
+      if (name === 'draw') return false
+      return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
+    }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
+  }
+
+  const getBestOdds = (oddsArr: OddsMarket[], type: 'home' | 'draw' | 'away') => {
+    let best = { price: 0, bookmaker: '' }
+    oddsArr.forEach(o => {
+      const val = findOutcome(o.values, type)
+      if (val && val.price > best.price) {
+        best = { price: val.price, bookmaker: o.bookmaker }
+      }
+    })
+    return best
+  }
+
+  const bestHome = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'home') : { price: 0, bookmaker: '' }
+  const bestDraw = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'draw') : { price: 0, bookmaker: '' }
+  const bestAway = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'away') : { price: 0, bookmaker: '' }
+
+  const formatRelativeTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    const hours = Math.floor(diff / (1000 * 60 * 60))
+    if (hours < 1) return 'Just now'
+    if (hours < 24) return `${hours}h ago`
+    return `${Math.floor(hours / 24)}d ago`
+  }
+
   return (
-    <div className="bg-card border border-border rounded-lg overflow-hidden">
+    <Link
+      href={`/matches/${fixture.id}`}
+      className="block bg-card border border-border rounded-lg overflow-hidden transition-colors hover:border-primary/50"
+    >
       {/* Match Header */}
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
@@ -318,7 +382,7 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
             {(scorePredictons.length > 0 || predictedScore) && (
               <div>
                 <button
-                  onClick={() => setShowScores(!showScores)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowScores(!showScores) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
                 >
                   <Target className="w-4 h-4 text-primary" />
@@ -372,7 +436,7 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
               (prediction.risk_factors && prediction.risk_factors.length > 0)) && (
               <div>
                 <button
-                  onClick={() => setShowKeyRiskFactors(!showKeyRiskFactors)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowKeyRiskFactors(!showKeyRiskFactors) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
                 >
                   <TrendingUp className="w-4 h-4 text-green-500" />
@@ -450,7 +514,7 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
             {/* Expand/Collapse Analysis */}
             {prediction.analysis_text && (
               <button
-                onClick={() => setExpanded(!expanded)}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(!expanded) }}
                 className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground py-2"
               >
                 {expanded ? 'Hide' : 'Show'} Analysis
@@ -464,63 +528,187 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
               </div>
             )}
 
-            {/* Pre-Match Factor Breakdown */}
+            {/* Factor Breakdown - using shared component, collapsed by default */}
             {prediction.factors && Object.keys(prediction.factors).some(k => k.match(/^[A-I]_/)) && (
-              <>
+              <FactorBreakdown
+                factors={prediction.factors}
+                overallIndex={prediction.overall_index}
+                alwaysExpanded={false}
+              />
+            )}
+
+            {/* Team News - Collapsible */}
+            {(prediction.home_team_news || prediction.away_team_news) && (
+              <div className="mt-4 space-y-2">
+                {/* Home Team News */}
+                {prediction.home_team_news && (
+                  <div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHomeNews(!showHomeNews) }}
+                      className="w-full flex items-center gap-2 p-2 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
+                    >
+                      <Home className="w-4 h-4 text-home" />
+                      <span className="text-xs font-medium">{fixture.home_team?.name || 'Home'} News</span>
+                      <ChevronDown className={cn(
+                        "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                        showHomeNews && "rotate-180"
+                      )} />
+                    </button>
+                    {showHomeNews && (
+                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                        <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Away Team News */}
+                {prediction.away_team_news && (
+                  <div>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAwayNews(!showAwayNews) }}
+                      className="w-full flex items-center gap-2 p-2 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
+                    >
+                      <Plane className="w-4 h-4 text-away" />
+                      <span className="text-xs font-medium">{fixture.away_team?.name || 'Away'} News</span>
+                      <ChevronDown className={cn(
+                        "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                        showAwayNews && "rotate-180"
+                      )} />
+                    </button>
+                    {showAwayNews && (
+                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
+                        <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Betting Odds - Collapsible */}
+            {hasOdds && (
+              <div className="mt-4">
                 <button
-                  onClick={() => setShowFactors(!showFactors)}
-                  className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground py-2 border-t border-border/50"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOdds(!showOdds) }}
+                  className="w-full flex items-center gap-2 p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors text-left"
                 >
-                  <BarChart3 className="w-3 h-3" />
-                  {showFactors ? 'Hide' : 'Show'} Pre-Match Factors
-                  {showFactors ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  <DollarSign className="w-4 h-4 text-green-500" />
+                  <span className="text-xs font-medium">Pre-Match Odds:</span>
+                  <div className="flex gap-3 text-xs">
+                    {bestHome.price > 0 && (
+                      <span>1: <strong className="text-foreground">{bestHome.price.toFixed(2)}</strong></span>
+                    )}
+                    {bestDraw.price > 0 && (
+                      <span>X: <strong className="text-foreground">{bestDraw.price.toFixed(2)}</strong></span>
+                    )}
+                    {bestAway.price > 0 && (
+                      <span>2: <strong className="text-foreground">{bestAway.price.toFixed(2)}</strong></span>
+                    )}
+                  </div>
+                  <ChevronDown className={cn(
+                    "w-4 h-4 ml-auto text-muted-foreground transition-transform",
+                    showOdds && "rotate-180"
+                  )} />
                 </button>
 
-                {showFactors && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground text-center">
-                      Factor breakdown used for this prediction:
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {Object.entries(prediction.factors)
-                        .filter(([key]) => key.match(/^[A-I]_/))
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([key, value]: [string, any]) => {
-                          const factorInfo = FACTOR_INFO[key]
-                          const score = typeof value === 'object' ? (value.score || value.weighted || 0) : 0
-                          const notes = typeof value === 'object' ? (value.notes || value.reasoning || '') : ''
-
-                          return (
-                            <div
-                              key={key}
-                              className={cn(
-                                "p-2 rounded-lg border text-xs",
-                                getScoreBgColor(score)
-                              )}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-medium text-foreground">
-                                  {key.charAt(0)}
+                {showOdds && (
+                  <div className="mt-2 space-y-3 p-3 bg-muted/30 rounded-lg max-h-72 overflow-y-auto">
+                    {/* H2H Market */}
+                    {h2hOdds.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-medium mb-2 text-muted-foreground">Match Result (1X2)</h5>
+                        <div className="grid grid-cols-4 gap-1 text-xs mb-1 px-1">
+                          <span className="text-muted-foreground">Bookmaker</span>
+                          <span className="text-center text-muted-foreground">1</span>
+                          <span className="text-center text-muted-foreground">X</span>
+                          <span className="text-center text-muted-foreground">2</span>
+                        </div>
+                        <div className="space-y-1">
+                          {h2hOdds.map(o => {
+                            const homeOdds = findOutcome(o.values, 'home')
+                            const drawOdds = findOutcome(o.values, 'draw')
+                            const awayOdds = findOutcome(o.values, 'away')
+                            return (
+                              <div key={o.id} className="grid grid-cols-4 gap-1 text-xs bg-card rounded p-1">
+                                <span className="text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
+                                <span className={cn(
+                                  "text-center font-medium",
+                                  homeOdds?.price === bestHome.price && bestHome.price > 0 && "text-green-500"
+                                )}>
+                                  {homeOdds?.price?.toFixed(2) || '-'}
                                 </span>
-                                <span className={cn("font-bold", getScoreColor(score))}>
-                                  {Math.round(score)}
+                                <span className={cn(
+                                  "text-center font-medium",
+                                  drawOdds?.price === bestDraw.price && bestDraw.price > 0 && "text-green-500"
+                                )}>
+                                  {drawOdds?.price?.toFixed(2) || '-'}
+                                </span>
+                                <span className={cn(
+                                  "text-center font-medium",
+                                  awayOdds?.price === bestAway.price && bestAway.price > 0 && "text-green-500"
+                                )}>
+                                  {awayOdds?.price?.toFixed(2) || '-'}
                                 </span>
                               </div>
-                              <p className="text-muted-foreground text-[10px] leading-tight">
-                                {factorInfo?.name || key.replace(/_/g, ' ')}
-                              </p>
-                              {notes && (
-                                <p className="text-foreground/70 text-[10px] mt-1">
-                                  {notes}
-                                </p>
-                              )}
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Totals Market */}
+                    {totalOdds.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-medium mb-2 text-muted-foreground">Over/Under Goals</h5>
+                        <div className="space-y-1">
+                          {totalOdds.map(o => {
+                            const overOutcome = o.values?.find((v: OddsOutcome) => v.name?.toLowerCase().includes('over'))
+                            const underOutcome = o.values?.find((v: OddsOutcome) => v.name?.toLowerCase().includes('under'))
+                            return (
+                              <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
+                                <span className="w-20 text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
+                                <span className="flex-1 text-center">
+                                  O{(overOutcome as OddsOutcome)?.point || '2.5'}: <strong>{(overOutcome as OddsOutcome)?.price?.toFixed(2) || '-'}</strong>
+                                </span>
+                                <span className="flex-1 text-center">
+                                  U{(underOutcome as OddsOutcome)?.point || '2.5'}: <strong>{(underOutcome as OddsOutcome)?.price?.toFixed(2) || '-'}</strong>
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Spreads Market */}
+                    {spreadOdds.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-medium mb-2 text-muted-foreground">Asian Handicap</h5>
+                        <div className="space-y-1">
+                          {spreadOdds.map(o => (
+                            <div key={o.id} className="flex items-center gap-2 text-xs bg-card rounded p-1">
+                              <span className="w-20 text-muted-foreground text-xs whitespace-normal">{o.bookmaker}</span>
+                              {o.values?.slice(0, 2).map((v: OddsOutcome, idx: number) => (
+                                <span key={idx} className="flex-1 text-center">
+                                  {v.name?.split(' ').pop() || 'Home'} ({v.point?.toFixed(1)}): <strong>{v.price?.toFixed(2)}</strong>
+                                </span>
+                              ))}
                             </div>
-                          )
-                        })}
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Last updated */}
+                    <div className="text-[10px] text-muted-foreground pt-2 border-t border-border/50 flex items-center gap-1">
+                      <span>Updated: {formatRelativeTime(odds[0]?.updated_at || new Date().toISOString())}</span>
+                      <span className="text-muted-foreground/50">•</span>
+                      <span>{h2hOdds.length} bookmaker{h2hOdds.length !== 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 )}
-              </>
+              </div>
             )}
 
             {/* Post-Match Analysis */}
@@ -537,6 +725,6 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
           </div>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
