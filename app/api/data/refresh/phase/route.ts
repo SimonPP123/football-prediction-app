@@ -11,22 +11,50 @@ export const dynamic = 'force-dynamic'
 type OrchestratablePhase = 'pre-match' | 'imminent' | 'live' | 'post-match'
 
 // Endpoint configuration for each phase
+// All endpoints needed for each phase to fully refresh relevant data
 const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optional: string[] }> = {
   'pre-match': {
-    required: ['fixtures?mode=next&count=10', 'standings', 'injuries?mode=upcoming', 'teams'],
-    optional: ['head-to-head', 'team-stats', 'weather', 'odds', 'player-stats'],
+    // Core data for upcoming matches
+    required: [
+      'fixtures?mode=next&count=10',  // Upcoming fixtures
+      'standings',                     // League table
+      'injuries?mode=upcoming',        // Current injuries
+      'teams',                         // Team data
+      'team-stats',                    // Team season stats
+      'odds',                          // Betting odds
+    ],
+    optional: ['head-to-head', 'weather', 'player-stats'],
   },
   'imminent': {
-    required: ['lineups?mode=prematch', 'odds'],
-    optional: ['injuries?mode=upcoming'],
+    // Final data before kickoff
+    required: [
+      'lineups?mode=prematch',         // Starting lineups
+      'odds',                          // Latest odds
+      'injuries?mode=upcoming',        // Last-minute injuries
+    ],
+    optional: ['weather'],
   },
   'live': {
-    required: ['fixtures?mode=live'],
-    optional: ['fixture-statistics', 'fixture-events'],
+    // Real-time match updates
+    required: [
+      'fixtures?mode=live',            // Live scores & status
+      'fixture-statistics',            // Live match stats
+      'fixture-events',                // Goals, cards, subs
+    ],
+    optional: [],
   },
   'post-match': {
-    required: ['fixtures?mode=last&count=20', 'fixture-statistics?mode=smart', 'fixture-events?mode=smart', 'standings', 'team-stats', 'player-stats'],
-    optional: ['top-performers'],
+    // Complete data after matches finish
+    required: [
+      'fixtures?mode=last&count=20',   // Final scores
+      'fixture-statistics?mode=smart', // Match statistics
+      'fixture-events?mode=smart',     // Match events
+      'standings',                     // Updated league table
+      'team-stats',                    // Updated team stats
+      'player-stats',                  // Updated player stats
+      'top-performers',                // Top scorers, assists
+    ],
+    optional: ['lineups'],
   },
 }
 
