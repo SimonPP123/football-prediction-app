@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { CheckCircle, XCircle, ChevronDown, ChevronUp, Target, BarChart3, TrendingUp, AlertTriangle, Star, DollarSign, BookOpen, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PostMatchAnalysisSection } from './post-match-analysis-section'
@@ -64,6 +64,7 @@ interface RecentResultCardProps {
 }
 
 export function RecentResultCard({ fixture }: RecentResultCardProps) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [showFactors, setShowFactors] = useState(false)
   const [showScores, setShowScores] = useState(false)
@@ -180,10 +181,19 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
     return `${Math.floor(hours / 24)}d ago`
   }
 
+  // Handle card click - navigate only if not clicking an interactive element
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('button, input, a, [role="button"]')) {
+      return
+    }
+    router.push(`/matches/${fixture.id}`)
+  }
+
   return (
-    <Link
-      href={`/matches/${fixture.id}`}
-      className="block bg-card border border-border rounded-lg overflow-hidden transition-colors hover:border-primary/50"
+    <div
+      onClick={handleCardClick}
+      className="bg-card border border-border rounded-lg overflow-hidden transition-colors hover:border-primary/50 cursor-pointer"
     >
       {/* Match Header */}
       <div className="p-4">
@@ -725,6 +735,6 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
           </div>
         )}
       </div>
-    </Link>
+    </div>
   )
 }

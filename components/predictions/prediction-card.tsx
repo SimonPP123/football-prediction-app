@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
@@ -25,6 +25,7 @@ interface PredictionCardProps {
 }
 
 export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, error, onClearError, isLive }: PredictionCardProps) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<any[]>([])
@@ -225,11 +226,21 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     }
   }
 
+  // Handle card click - navigate only if not clicking an interactive element
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    // Check if clicked element or any parent is a button, input, or other interactive element
+    if (target.closest('button, input, a, [role="button"]')) {
+      return // Don't navigate
+    }
+    router.push(`/matches/${fixture.id}`)
+  }
+
   return (
-    <Link
-      href={`/matches/${fixture.id}`}
+    <div
+      onClick={handleCardClick}
       className={cn(
-        "block bg-card border rounded-lg overflow-hidden transition-colors hover:border-primary/50",
+        "bg-card border rounded-lg overflow-hidden transition-colors hover:border-primary/50 cursor-pointer",
         isLive ? "border-2 border-red-500/50 hover:border-red-500" : "border-border"
       )}
     >
@@ -1080,6 +1091,6 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
           No prediction history available
         </div>
       )}
-    </Link>
+    </div>
   )
 }

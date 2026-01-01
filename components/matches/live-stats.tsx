@@ -76,32 +76,26 @@ function StatBar({
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="w-20 text-slate-700 dark:text-slate-200 font-medium truncate">{label}</span>
+      <span className="w-20 text-slate-600 dark:text-slate-300 truncate">{label}</span>
       <span className={cn(
-        "w-10 text-right tabular-nums font-bold",
-        homeWinning ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"
+        "w-10 text-right tabular-nums text-blue-600 dark:text-blue-400",
+        homeWinning && "font-bold"
       )}>
         {isPercentage ? `${home}%` : home}
       </span>
       <div className="flex-1 flex h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden gap-0.5">
         <div
-          className={cn(
-            "h-full transition-all rounded-l-full",
-            homeWinning ? "bg-blue-600" : "bg-blue-300 dark:bg-blue-400/50"
-          )}
+          className="h-full transition-all rounded-l-full bg-blue-500"
           style={{ width: `${homePercent}%` }}
         />
         <div
-          className={cn(
-            "h-full transition-all rounded-r-full",
-            awayWinning ? "bg-orange-600" : "bg-orange-300 dark:bg-orange-400/50"
-          )}
+          className="h-full transition-all rounded-r-full bg-orange-500"
           style={{ width: `${awayPercent}%` }}
         />
       </div>
       <span className={cn(
-        "w-10 text-left tabular-nums font-bold",
-        awayWinning ? "text-orange-600 dark:text-orange-400" : "text-slate-500 dark:text-slate-400"
+        "w-10 text-left tabular-nums text-orange-600 dark:text-orange-400",
+        awayWinning && "font-bold"
       )}>
         {isPercentage ? `${away}%` : away}
       </span>
