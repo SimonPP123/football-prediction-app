@@ -77,34 +77,34 @@ function StatBar({
   return (
     <div className="flex items-center gap-2 text-xs">
       <span className={cn(
-        "w-8 text-right tabular-nums font-medium",
-        homeWinning && "text-green-600"
+        "w-10 text-right tabular-nums font-semibold",
+        homeWinning ? "text-emerald-500" : "text-foreground"
       )}>
         {isPercentage ? `${home}%` : home}
       </span>
-      <div className="flex-1 flex h-2 bg-muted rounded overflow-hidden">
+      <div className="flex-1 flex h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden gap-0.5">
         <div
           className={cn(
-            "h-full transition-all",
-            homeWinning ? "bg-green-500" : "bg-primary/60"
+            "h-full transition-all rounded-l-full",
+            homeWinning ? "bg-emerald-500" : "bg-blue-400"
           )}
           style={{ width: `${homePercent}%` }}
         />
         <div
           className={cn(
-            "h-full transition-all",
-            awayWinning ? "bg-green-500" : "bg-primary/60"
+            "h-full transition-all rounded-r-full",
+            awayWinning ? "bg-emerald-500" : "bg-orange-400"
           )}
           style={{ width: `${awayPercent}%` }}
         />
       </div>
       <span className={cn(
-        "w-8 text-left tabular-nums font-medium",
-        awayWinning && "text-green-600"
+        "w-10 text-left tabular-nums font-semibold",
+        awayWinning ? "text-emerald-500" : "text-foreground"
       )}>
         {isPercentage ? `${away}%` : away}
       </span>
-      <span className="w-20 text-muted-foreground truncate">{label}</span>
+      <span className="w-20 text-slate-600 dark:text-slate-300 font-medium truncate">{label}</span>
     </div>
   )
 }
@@ -163,10 +163,11 @@ export function LiveStats({
   }
 
   return (
-    <div className="mt-3 border-t border-border pt-3">
+    <div className="mt-4 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
       {/* Key Events Timeline (always visible if there are goals/cards) */}
       {keyEvents.length > 0 && (
-        <div className="space-y-1 mb-3">
+        <div className="space-y-1.5 mb-4 pb-3 border-b border-slate-200 dark:border-slate-600">
+          <div className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Match Events</div>
           {keyEvents.map((event, idx) => {
             const isHome = event.team_id === homeTeamId
             const timeDisplay = event.extra_time
@@ -177,18 +178,18 @@ export function LiveStats({
               <div
                 key={`${event.elapsed}-${event.type}-${idx}`}
                 className={cn(
-                  "flex items-center gap-2 text-xs",
-                  isHome ? "flex-row" : "flex-row-reverse"
+                  "flex items-center gap-2 text-sm py-1 px-2 rounded",
+                  isHome ? "flex-row bg-blue-50 dark:bg-blue-900/20" : "flex-row-reverse bg-orange-50 dark:bg-orange-900/20"
                 )}
               >
-                <span className="text-muted-foreground w-10 shrink-0">
+                <span className="text-slate-600 dark:text-slate-400 w-12 shrink-0 font-mono font-semibold">
                   {timeDisplay}
                 </span>
                 <EventIcon type={event.type} detail={event.detail} />
-                <span className="truncate">
+                <span className="truncate font-medium text-slate-800 dark:text-slate-200">
                   {event.player_name}
                   {event.assist_name && event.type === 'Goal' && (
-                    <span className="text-muted-foreground"> ({event.assist_name})</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-normal"> ({event.assist_name})</span>
                   )}
                 </span>
               </div>
@@ -202,18 +203,24 @@ export function LiveStats({
         <>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-between w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+            className="flex items-center justify-between w-full px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 transition-colors"
           >
-            <span className="font-medium">Live Stats</span>
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              Live Stats
+            </span>
+            {expanded ? <ChevronUp className="w-5 h-5 text-red-500" /> : <ChevronDown className="w-5 h-5 text-red-500" />}
           </button>
 
           {expanded && (
-            <div className="space-y-2 pt-2">
+            <div className="space-y-2 pt-3 px-1">
               {/* Team names header */}
-              <div className="flex items-center justify-between text-xs font-medium text-muted-foreground mb-2">
-                <span className="truncate max-w-[80px]">{homeTeamName}</span>
-                <span className="truncate max-w-[80px]">{awayTeamName}</span>
+              <div className="flex items-center justify-between text-sm font-bold mb-3">
+                <span className="text-blue-600 dark:text-blue-400 truncate max-w-[100px]">{homeTeamName}</span>
+                <span className="text-orange-600 dark:text-orange-400 truncate max-w-[100px]">{awayTeamName}</span>
               </div>
 
               {/* All Stats */}
