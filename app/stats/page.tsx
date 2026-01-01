@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/layout/header'
-import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import { StatCard } from '@/components/stats/stat-card'
 import { useLeague } from '@/contexts/league-context'
+import { useDataStatus } from '@/hooks/use-data-status'
 import { cn } from '@/lib/utils'
 import {
   Loader2,
@@ -22,13 +22,44 @@ import {
   BarChart3,
   Crosshair,
   AlertTriangle,
+  Clock,
 } from 'lucide-react'
 
 type TabType = 'players' | 'teams' | 'predictions'
 type PlayerStatType = 'goals' | 'assists' | 'yellow_cards' | 'red_cards'
 
+// Helper to format relative time from ISO string
+function formatRelativeTime(dateString: string | null): string {
+  if (!dateString) return 'Never'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function getFreshnessColor(dateString: string | null): string {
+  if (!dateString) return 'text-muted-foreground bg-muted'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffHours = (now.getTime() - date.getTime()) / 3600000
+
+  if (diffHours < 1) return 'text-green-600 bg-green-500/10'
+  if (diffHours < 4) return 'text-amber-600 bg-amber-500/10'
+  if (diffHours < 24) return 'text-orange-600 bg-orange-500/10'
+  return 'text-red-600 bg-red-500/10'
+}
+
 export default function StatsPage() {
   const { currentLeague } = useLeague()
+  const { status: dataStatus } = useDataStatus(currentLeague?.id)
   const [activeTab, setActiveTab] = useState<TabType>('players')
   const [playerStatType, setPlayerStatType] = useState<PlayerStatType>('goals')
   const [loading, setLoading] = useState(true)
@@ -36,6 +67,11 @@ export default function StatsPage() {
   const [teamStats, setTeamStats] = useState<any[]>([])
   const [standings, setStandings] = useState<any[]>([])
   const [predictionStats, setPredictionStats] = useState<any>(null)
+
+  // Get last refresh times from server data
+  const getLastRefresh = (name: string): string | null => {
+    return dataStatus?.dataSources?.find(ds => ds.name === name)?.lastRefresh || null
+  }
 
   useEffect(() => {
     fetchData()
@@ -145,12 +181,21 @@ export default function StatsPage() {
       <Header title="Statistics" />
 
       <div className="p-6 space-y-6">
-        {/* Data freshness */}
-        <div className="flex items-center gap-2 text-sm">
+        {/* Data freshness - using server-side data */}
+        <div className="flex items-center gap-3 text-sm flex-wrap">
           <span className="text-muted-foreground">Data:</span>
-          <DataFreshnessBadge category="player-stats" size="sm" showInfo />
-          <DataFreshnessBadge category="standings" size="sm" showInfo />
-          <DataFreshnessBadge category="predictions" size="sm" showInfo />
+          <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", getFreshnessColor(getLastRefresh('player-stats')))}>
+            <Clock className="w-3 h-3" />
+            <span>Players: {formatRelativeTime(getLastRefresh('player-stats'))}</span>
+          </div>
+          <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", getFreshnessColor(getLastRefresh('standings')))}>
+            <Clock className="w-3 h-3" />
+            <span>Standings: {formatRelativeTime(getLastRefresh('standings'))}</span>
+          </div>
+          <div className={cn("flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", getFreshnessColor(getLastRefresh('predictions')))}>
+            <Clock className="w-3 h-3" />
+            <span>Predictions: {formatRelativeTime(getLastRefresh('predictions'))}</span>
+          </div>
         </div>
 
         {/* Tabs */}

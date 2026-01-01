@@ -80,6 +80,7 @@ export async function GET(request: Request) {
       injuriesResult,
       oddsResult,
       predictionsResult,
+      playerStatsResult,
     ] = await Promise.all([
       // Fixture statistics
       supabase
@@ -134,6 +135,14 @@ export async function GET(request: Request) {
         .from('predictions')
         .select('fixture_id, created_at')
         .in('fixture_id', fixtureIds.slice(0, 100)),
+
+      // Player stats
+      supabase
+        .from('player_season_stats')
+        .select('id, updated_at')
+        .eq('league_id', league.id)
+        .order('updated_at', { ascending: false })
+        .limit(1),
     ])
 
     // Calculate fixture stats
@@ -248,6 +257,14 @@ export async function GET(request: Request) {
         recordCount: predictionsResult.data?.length || 0,
         needsRefresh: false,
         status: predictionsResult.data?.length ? 'ok' : 'missing',
+      },
+      {
+        name: 'player-stats',
+        displayName: 'Player Stats',
+        lastRefresh: playerStatsResult.data?.[0]?.updated_at || null,
+        recordCount: 0, // Count not easily available
+        needsRefresh: isStale(playerStatsResult.data?.[0]?.updated_at, 168), // 7 days
+        status: getRefreshStatus(playerStatsResult.data?.[0]?.updated_at, 168),
       },
     ]
 
