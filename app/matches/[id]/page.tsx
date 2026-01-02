@@ -6,7 +6,6 @@ import { Header } from '@/components/layout/header'
 import { MatchHeader } from '@/components/matches/match-header'
 import { StatsComparison } from '@/components/matches/stats-comparison'
 import { OddsSection } from '@/components/matches/odds-section'
-import { WeatherSection } from '@/components/matches/weather-section'
 import { MatchEvents } from '@/components/matches/match-events'
 import { PostMatchAnalysis } from '@/components/matches/post-match-analysis'
 import { FactorBreakdown } from '@/components/predictions/factor-breakdown'
@@ -23,7 +22,6 @@ import {
   Target,
   BarChart3,
   DollarSign,
-  CloudRain,
   History,
   Users,
   Brain,
@@ -40,7 +38,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 
-type TabType = 'prediction' | 'injuries' | 'statistics' | 'events' | 'odds' | 'weather' | 'h2h' | 'analysis'
+type TabType = 'prediction' | 'injuries' | 'statistics' | 'events' | 'odds' | 'h2h' | 'analysis'
 
 export default function MatchDetailPage() {
   const params = useParams()
@@ -124,15 +122,14 @@ export default function MatchDetailPage() {
   const analysis = fixture ? (Array.isArray(fixture.match_analysis) ? fixture.match_analysis[0] : fixture.match_analysis) : null
 
   // Memoize derived data to ensure stable references
-  const { stats, homeStats, awayStats, events, weather, h2h, odds } = useMemo(() => {
+  const { stats, homeStats, awayStats, events, h2h, odds } = useMemo(() => {
     if (!fixture) {
-      return { stats: [], homeStats: {}, awayStats: {}, events: [], weather: null, h2h: null, odds: [] }
+      return { stats: [], homeStats: {}, awayStats: {}, events: [], h2h: null, odds: [] }
     }
     const fixtureStats = fixture.statistics || []
     const homeStatsData = fixtureStats.find((s: any) => s.team_id === fixture.home_team_id)?.statistics || {}
     const awayStatsData = fixtureStats.find((s: any) => s.team_id === fixture.away_team_id)?.statistics || {}
     const fixtureEvents = fixture.events || []
-    const fixtureWeather = fixture.weather || null
     const fixtureH2h = fixture.head_to_head || null
 
     // Transform odds
@@ -162,7 +159,6 @@ export default function MatchDetailPage() {
       homeStats: homeStatsData,
       awayStats: awayStatsData,
       events: fixtureEvents,
-      weather: fixtureWeather,
       h2h: fixtureH2h,
       odds: transformedOdds,
     }
@@ -174,7 +170,6 @@ export default function MatchDetailPage() {
   const hasStatistics = isCompleted && Object.keys(homeStats).length > 0
   const hasEvents = events.length > 0
   const hasOdds = odds.length > 0
-  const hasWeather = !!weather
   const hasH2h = !!h2h
 
   // Memoize availability flags using only primitive values - MUST be before early returns
@@ -184,10 +179,9 @@ export default function MatchDetailPage() {
     statistics: hasStatistics,
     events: hasEvents,
     odds: hasOdds,
-    weather: hasWeather,
     h2h: hasH2h,
     analysis: isCompleted,
-  }), [prediction, hasInjuries, hasStatistics, hasEvents, hasOdds, hasWeather, hasH2h, isCompleted])
+  }), [prediction, hasInjuries, hasStatistics, hasEvents, hasOdds, hasH2h, isCompleted])
 
   // Define available tabs based on data - memoized with stable dependencies
   const tabs: { id: TabType; label: string; icon: typeof Target; available: boolean }[] = useMemo(() => [
@@ -196,7 +190,6 @@ export default function MatchDetailPage() {
     { id: 'statistics', label: 'Statistics', icon: BarChart3, available: tabAvailability.statistics },
     { id: 'events', label: 'Events', icon: Calendar, available: tabAvailability.events },
     { id: 'odds', label: 'Odds', icon: DollarSign, available: tabAvailability.odds },
-    { id: 'weather', label: 'Weather', icon: CloudRain, available: tabAvailability.weather },
     { id: 'h2h', label: 'H2H', icon: History, available: tabAvailability.h2h },
     { id: 'analysis', label: 'Analysis', icon: Brain, available: tabAvailability.analysis },
   ], [tabAvailability])
@@ -703,17 +696,6 @@ export default function MatchDetailPage() {
             </div>
           )}
 
-          {/* Weather Tab */}
-          {activeTab === 'weather' && (
-            <div className="space-y-4">
-              <h3 className="font-semibold flex items-center gap-2">
-                <CloudRain className="w-5 h-5 text-cyan-500" />
-                Weather Conditions
-              </h3>
-              <WeatherSection weather={weather} />
-            </div>
-          )}
-
           {/* H2H Tab */}
           {activeTab === 'h2h' && h2h && (
             <div className="space-y-4">
@@ -814,14 +796,6 @@ export default function MatchDetailPage() {
               {fixture.venue.city && (
                 <p className="text-xs text-muted-foreground">{fixture.venue.city}</p>
               )}
-            </div>
-          )}
-
-          {/* Weather compact */}
-          {weather && (
-            <div className="bg-card border border-border rounded-lg p-4">
-              <p className="text-xs text-muted-foreground mb-1">Weather</p>
-              <WeatherSection weather={weather} compact />
             </div>
           )}
 

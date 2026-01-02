@@ -87,6 +87,7 @@ interface DataSource {
   targetTables: string[]
   endpoint: string | null
   refreshEndpoint: string | null
+  refreshParams?: string  // Additional query params for refresh (e.g., 'mode=full')
   icon: any
   description: string
   dataCategory: DataCategory
@@ -125,7 +126,7 @@ const categories: Category[] = [
       { id: 'leagues', name: 'Leagues', tableName: 'leagues', targetTables: ['leagues'], endpoint: null, refreshEndpoint: null, icon: Globe, description: 'League information', dataCategory: 'master', refreshSchedule: 'One-time', refreshExample: 'Pre-configured in database', estimatedTime: 'Static' },
       { id: 'venues', name: 'Venues', tableName: 'venues', targetTables: ['venues'], endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: MapPin, description: 'Stadium data', dataCategory: 'master', refreshSchedule: 'Season start', refreshExample: 'Refresh once in August', estimatedTime: '~5s' },
       { id: 'teams', name: 'Teams', tableName: 'teams', targetTables: ['teams', 'venues'], endpoint: ENDPOINTS.teams.url, refreshEndpoint: '/api/data/refresh/teams', icon: Users, description: 'Club data', dataCategory: 'master', refreshSchedule: 'Season start', refreshExample: 'Refresh once in August', estimatedTime: '~5s' },
-      { id: 'fixtures', name: 'Fixtures', tableName: 'fixtures', targetTables: ['fixtures'], endpoint: ENDPOINTS.fixtures.url, refreshEndpoint: '/api/data/refresh/fixtures', icon: Calendar, description: 'Match schedule', dataCategory: 'live', refreshSchedule: 'Daily 06:00 UTC', refreshExample: 'Refresh every morning for updates', estimatedTime: '~15s', dependencies: ['teams', 'venues'] },
+      { id: 'fixtures', name: 'Fixtures', tableName: 'fixtures', targetTables: ['fixtures'], endpoint: ENDPOINTS.fixtures.url, refreshEndpoint: '/api/data/refresh/fixtures', refreshParams: 'mode=full', icon: Calendar, description: 'Match schedule (all 380)', dataCategory: 'live', refreshSchedule: 'Daily 06:00 UTC', refreshExample: 'Refresh every morning for updates', estimatedTime: '~30s', dependencies: ['teams', 'venues'] },
     ],
   },
   {
@@ -444,7 +445,8 @@ export default function DataManagementPage() {
     try {
       // Use streaming endpoint for real-time logs
       const leagueParam = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
-      const res = await fetch(`${source.refreshEndpoint}?stream=true${leagueParam}`, {
+      const extraParams = source.refreshParams ? `&${source.refreshParams}` : ''
+      const res = await fetch(`${source.refreshEndpoint}?stream=true${leagueParam}${extraParams}`, {
         method: 'POST',
         credentials: 'include',
         signal: abortController.signal
