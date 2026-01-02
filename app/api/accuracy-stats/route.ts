@@ -159,12 +159,13 @@ export async function GET(request: Request) {
 
     analyses.forEach(a => {
       const prediction = predictionMap.get(a.fixture_id)
-      const confidencePct = prediction?.confidence_pct || a.confidence_pct || 0
+      // Use certainty_score (same as displayed in matches) for consistency
+      const certaintyPct = prediction?.certainty_score || prediction?.confidence_pct || a.confidence_pct || 0
       let level: string
 
-      if (confidencePct >= 70) {
+      if (certaintyPct >= 70) {
         level = 'high'
-      } else if (confidencePct >= 55) {
+      } else if (certaintyPct >= 55) {
         level = 'medium'
       } else {
         level = 'low'
