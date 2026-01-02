@@ -66,7 +66,6 @@ This file provides guidance to Claude Code when working with this Football Predi
 | `injuries` | Current injury list |
 | `referee_stats` | Referee tendency data |
 | `odds` | Betting odds from The Odds API |
-| `weather` | Match weather conditions |
 | `predictions` | AI-generated predictions |
 
 ---
@@ -80,8 +79,7 @@ This file provides guidance to Claude Code when working with this Football Predi
 4. **Sync_Injuries** - Daily 07:30 UTC
 5. **Sync_Completed_Matches** - Daily 08:00 UTC
 6. **Sync_Odds** - Every 4 hours on matchday
-7. **Sync_Weather** - Daily 09:00 UTC
-8. **Sync_Lineups** - 1 hour before kickoff
+7. **Sync_Lineups** - 1 hour before kickoff
 
 ### AI Prediction Workflow
 - **Trigger**: Webhook `POST /webhook/predict`
@@ -227,10 +225,9 @@ football.analyserinsights.com {
 ## Important Notes
 
 1. **API Rate Limits**: API-Football has daily limits. Use bulk endpoints.
-2. **Season**: 2025-2026 starts Aug 2025. 
+2. **Season**: 2025-2026 starts Aug 2025.
 3. **Lineups**: Only available ~1hr before kickoff.
 4. **xG Data**: API-Football `expected_goals` may be null for some matches.
-5. **Weather**: Free Open-Meteo API, no key needed.
 
 ---
 

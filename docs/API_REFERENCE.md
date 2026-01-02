@@ -233,8 +233,8 @@ All refresh endpoints support these query parameters:
 
 | Phase | Required Endpoints | Optional |
 |-------|-------------------|----------|
-| `pre-match` | fixtures, standings, injuries, teams, team-stats | head-to-head, weather, player-stats |
-| `imminent` | lineups, odds, injuries | weather |
+| `pre-match` | fixtures, standings, injuries, teams, team-stats | head-to-head, player-stats |
+| `imminent` | lineups, odds, injuries | |
 | `live` | fixtures, fixture-statistics, fixture-events | |
 | `post-match` | fixtures, fixture-statistics, fixture-events, standings, team-stats, player-stats, top-performers | lineups |
 
@@ -317,12 +317,6 @@ Refresh match lineups.
 ### POST /api/data/refresh/odds
 
 Refresh betting odds from The Odds API.
-
----
-
-### POST /api/data/refresh/weather
-
-Refresh weather forecasts from Open-Meteo.
 
 ---
 

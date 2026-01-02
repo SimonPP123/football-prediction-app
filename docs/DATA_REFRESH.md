@@ -55,8 +55,7 @@ Day Before (pre-match)
 ├── 06:00  standings         ─┐
 ├── 06:15  fixtures           │ Core data
 ├── 07:00  team-stats         │ for upcoming
-├── 07:30  injuries          ─┘ matches
-└── 09:00  weather
+└── 07:30  injuries          ─┘ matches
 
 Matchday Morning (pre-match)
 ├── 08:00  standings refresh
@@ -97,7 +96,6 @@ Required (5 endpoints):
 
 Optional:
 ├── head-to-head                   # H2H history
-├── weather                        # Match forecasts
 └── player-stats                   # Player data
 ```
 
@@ -109,9 +107,6 @@ Required:
 ├── lineups?mode=prematch          # Starting XI (only ~1hr before)
 ├── odds                           # Final odds
 └── injuries?mode=upcoming         # Last-minute changes
-
-Optional:
-└── weather                        # Final forecast
 ```
 
 #### Live Phase
@@ -180,7 +175,6 @@ The Smart Refresh analyzes current fixture schedule and data freshness to automa
 | Lineups | 2 hours | Only before matches |
 | Odds | 4 hours | Before matchday |
 | Odds | 1 hour | On matchday |
-| Weather | 6 hours | Weather forecasts |
 | Team Stats | 24 hours | Weekly update OK |
 
 ### API Usage
@@ -209,7 +203,7 @@ Users can manually trigger refreshes from the `/data` page.
 | **Injuries** | injuries | Current injuries |
 | **Lineups** | lineups | Match lineups |
 | **Match Stats** | fixture-statistics, fixture-events | Per-match data |
-| **External** | odds, weather | Third-party data |
+| **External** | odds | Third-party data |
 | **Maintenance** | weekly-maintenance | Full sync |
 
 ### Refresh Buttons

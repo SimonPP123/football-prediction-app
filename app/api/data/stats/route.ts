@@ -104,9 +104,8 @@ export async function GET(request: Request) {
       player_match_stats,
       top_performers,
       coaches,
-      // External Data (4)
+      // External Data (3)
       odds,
-      weather,
       referee_stats,
       transfers,
       // AI Predictions (3)
@@ -135,9 +134,8 @@ export async function GET(request: Request) {
       getTableStats('player_match_stats', { hasUpdatedAt: false }),
       getTableStats('top_performers', { hasUpdatedAt: true }),
       getTableStats('coaches', { hasUpdatedAt: true }),
-      // External Data - odds/weather have league_id, referee/transfers are global
+      // External Data - odds has league_id, referee/transfers are global
       getTableStats('odds', { hasUpdatedAt: true, leagueId, hasLeagueId: true }),
-      getTableStats('weather', { hasUpdatedAt: true, updatedAtColumn: 'fetched_at', leagueId, hasLeagueId: true }),
       getTableStats('referee_stats', { hasUpdatedAt: true }),
       getTableStats('transfers', { hasUpdatedAt: false }),
       // AI Predictions - predictions has league_id, others are global
@@ -170,7 +168,6 @@ export async function GET(request: Request) {
       coaches,
       // External Data
       odds,
-      weather,
       referee_stats,
       transfers,
       // AI Predictions
@@ -190,7 +187,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ...stats,
       _summary: {
-        totalTables: 24,
+        totalTables: 23,
         totalRecords,
         lastSync,
       },
