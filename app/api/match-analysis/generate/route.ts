@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { isAuthenticated } from '@/lib/auth'
 import { getWebhookUrl, getWebhookSecret } from '@/lib/automation/webhook-config'
+import { analysisRateLimiter, getClientIP } from '@/lib/rate-limit'
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -15,6 +16,20 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
+
+    // Rate limiting check (stricter for analysis - 5/hour)
+    const clientIP = getClientIP(request)
+    const rateLimitResult = analysisRateLimiter.check(clientIP)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.reason },
+        {
+          status: 429,
+          headers: analysisRateLimiter.getHeaders(clientIP)
+        }
+      )
+    }
+    analysisRateLimiter.record(clientIP)
 
     const { fixture_id, force_regenerate, model } = await request.json()
 

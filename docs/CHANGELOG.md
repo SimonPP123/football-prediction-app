@@ -4,6 +4,80 @@ All notable changes to the Football Prediction System are documented here.
 
 ---
 
+## [January 2026] - Security Enhancement (Production-Ready)
+
+### Critical Security Fixes
+
+#### Cron Route Protection
+- **Secured `/api/match-analysis/auto-trigger`**: Now requires `X-Cron-Secret` header
+- Removed from public routes in middleware
+- Added CRON_SECRET environment variable validation
+- Uses timing-safe comparison to prevent timing attacks
+
+#### CSP Hardening
+- Removed `unsafe-eval` from Content Security Policy in production
+- CSP now conditional: dev allows eval, production does not
+
+### Password Reset Flow (NEW)
+
+#### Database Changes
+- Added `password_reset_tokens` table with bcrypt-hashed tokens
+- Added `session_version` column to users table for session invalidation
+- Migration: `016_password_reset_and_sessions.sql`
+
+#### New Endpoints
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/auth/reset-password/request` | Admin generates reset token for user |
+| `POST /api/auth/reset-password/confirm` | User resets password with token |
+| `POST /api/admin/users/[id]/reset-password` | Admin resets specific user's password |
+
+#### Security Features
+- Tokens expire after 1 hour
+- Tokens are one-time use only
+- Plaintext token never stored (bcrypt hash only)
+- All sessions invalidated on password reset
+
+### Session Hardening
+
+| Before | After |
+|--------|-------|
+| 7-day session duration | 24-hour session duration |
+| No session invalidation | session_version-based invalidation |
+| No absolute timeout | 7-day absolute timeout |
+| No issuedAt tracking | issuedAt timestamp in cookie |
+
+### Rate Limiting Expansion
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| `/api/predictions/generate` | 10 requests | per hour per IP |
+| `/api/match-analysis/generate` | 5 requests | per hour per IP |
+| Login (existing) | 5 attempts | per 15 min per IP |
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `lib/rate-limit.ts` | Reusable rate limiter with pre-configured limiters |
+| `lib/auth/reset-token.ts` | Secure token generation and verification |
+| `app/api/auth/reset-password/*` | Password reset endpoints |
+| `app/api/admin/users/[id]/reset-password/route.ts` | Admin password reset |
+| `supabase/migrations/016_password_reset_and_sessions.sql` | Database migration |
+
+### Modified Files
+| File | Changes |
+|------|---------|
+| `middleware.ts` | Removed cron from public, conditional CSP, cron secret validation |
+| `app/api/match-analysis/auto-trigger/route.ts` | Added cron secret validation |
+| `app/api/auth/login/route.ts` | 24-hour sessions, session_version in cookie |
+| `lib/auth/cookie-sign.ts` | Added sessionVersion, issuedAt, absolute timeout |
+| `app/api/predictions/generate/route.ts` | Added rate limiting |
+| `app/api/match-analysis/generate/route.ts` | Added rate limiting |
+| `.env.example` | Added COOKIE_SECRET, CRON_SECRET |
+| `lib/config/validate-env.ts` | Added CRON_SECRET validation |
+
+---
+
 ## [January 2, 2026] - Bug Fixes & Documentation Update
 
 ### Bug Fixes

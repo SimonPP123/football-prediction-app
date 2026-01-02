@@ -66,15 +66,21 @@ export function signAuthCookie(data: {
   return sign(jsonData)
 }
 
+// Session timeout constants
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000  // 24 hours
+const ABSOLUTE_TIMEOUT_MS = 7 * 24 * 60 * 60 * 1000  // 7 days absolute max
+
 /**
  * Verifies and parses signed auth cookie
- * Returns null if invalid signature or malformed data
+ * Returns null if invalid signature, malformed data, or session expired
  */
 export function verifyAuthCookie(signedCookie: string): {
   authenticated: boolean
   userId: string
   username: string
   isAdmin: boolean
+  sessionVersion?: number
+  issuedAt?: number
 } | null {
   const jsonData = unsign(signedCookie)
   if (!jsonData) return null
@@ -89,6 +95,16 @@ export function verifyAuthCookie(signedCookie: string): {
     ) {
       return null
     }
+
+    // Check absolute timeout (if issuedAt exists)
+    if (data.issuedAt && typeof data.issuedAt === 'number') {
+      const now = Date.now()
+      if (now - data.issuedAt > ABSOLUTE_TIMEOUT_MS) {
+        // Session is older than absolute timeout
+        return null
+      }
+    }
+
     return data
   } catch {
     return null

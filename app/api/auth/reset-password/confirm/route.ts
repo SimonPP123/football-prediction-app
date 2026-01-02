@@ -78,12 +78,21 @@ export async function POST(request: Request) {
     // Hash new password
     const passwordHash = await hashPassword(newPassword)
 
+    // Get current session version
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('session_version')
+      .eq('id', matchedToken.user_id)
+      .single()
+
+    const newSessionVersion = (currentUser?.session_version || 1) + 1
+
     // Update user password and increment session_version to invalidate all sessions
     const { error: updateError } = await supabase
       .from('users')
       .update({
         password_hash: passwordHash,
-        session_version: supabase.rpc ? undefined : 1, // Increment handled below
+        session_version: newSessionVersion,
         updated_at: new Date().toISOString()
       })
       .eq('id', matchedToken.user_id)
@@ -95,21 +104,6 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-
-    // Increment session_version to invalidate all active sessions
-    await supabase.rpc('increment_session_version', { user_id: matchedToken.user_id }).catch(() => {
-      // If RPC doesn't exist, do manual increment
-      return supabase
-        .from('users')
-        .update({ session_version: supabase.sql`session_version + 1` })
-        .eq('id', matchedToken.user_id)
-    }).catch(() => {
-      // Fallback: just set to 2 if user was at 1
-      return supabase
-        .from('users')
-        .update({ session_version: 2 })
-        .eq('id', matchedToken.user_id)
-    })
 
     // Mark token as used
     await supabase

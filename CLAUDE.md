@@ -272,10 +272,52 @@ football.analyserinsights.com {
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | No | Supabase service role key |
 | `API_FOOTBALL_KEY` | Yes | No | API-Football API key |
 | `COOKIE_SECRET` | Yes | **Yes** | Min 32 chars, signs auth cookies |
+| `CRON_SECRET` | No | Recommended | Min 32 chars, authenticates cron jobs |
 | `N8N_WEBHOOK_URL` | No | No | n8n webhook for predictions |
 | `ODDS_API_KEY` | No | No | The Odds API key |
 
-**Generate COOKIE_SECRET**: `openssl rand -base64 32`
+**Generate secrets**:
+```bash
+# Cookie secret
+openssl rand -base64 32
+
+# Cron secret
+openssl rand -hex 32
+```
+
+### Password Reset Flow (Admin-Only)
+
+Since there's no email system, admins generate reset tokens for users:
+
+```bash
+# 1. Admin generates reset token
+POST /api/admin/users/{userId}/reset-password
+# Returns: { token: "abc123...", expiresAt: "...", username: "..." }
+
+# 2. Give token to user (valid for 1 hour)
+# User resets password:
+POST /api/auth/reset-password/confirm
+Body: { token: "abc123...", newPassword: "NewSecurePass123!" }
+```
+
+**Security**: Tokens are bcrypt-hashed in database, one-time use, expire after 1 hour.
+
+### Session Management
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| Session Duration | 24 hours | Cookie maxAge |
+| Absolute Timeout | 7 days | Hard expiry regardless of activity |
+| Session Version | Incremented on password reset | Invalidates all sessions |
+
+### Rate Limits
+
+| Endpoint | Limit | Window |
+|----------|-------|--------|
+| Login | 5 attempts | 15 min per IP |
+| Predictions Generate | 10 requests | 1 hour per IP |
+| Match Analysis Generate | 5 requests | 1 hour per IP |
+| Cron Auto-Trigger | Requires `X-Cron-Secret` header |
 
 ### HTTP Status Codes
 

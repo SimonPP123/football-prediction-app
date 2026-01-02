@@ -44,10 +44,10 @@ export async function POST(request: Request) {
 
     const supabase = createServerClient()
 
-    // Get user from database
+    // Get user from database (include session_version for cookie)
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, username, password_hash, is_admin, is_active')
+      .select('id, username, password_hash, is_admin, is_active, session_version')
       .eq('username', username)
       .single()
 
@@ -105,18 +105,25 @@ export async function POST(request: Request) {
     })
 
     // Sign the cookie to prevent tampering
+    // Include sessionVersion for server-side invalidation
+    // Include issuedAt for absolute timeout
     const signedCookie = signAuthCookie({
       authenticated: true,
       userId: user.id,
       username: user.username,
-      isAdmin: user.is_admin
+      isAdmin: user.is_admin,
+      sessionVersion: user.session_version || 1,
+      issuedAt: Date.now()
     })
+
+    // Session duration: 24 hours (reduced from 7 days for security)
+    const SESSION_DURATION_SECONDS = 60 * 60 * 24  // 24 hours
 
     response.cookies.set('football_auth', signedCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: SESSION_DURATION_SECONDS,
       path: '/',
     })
 

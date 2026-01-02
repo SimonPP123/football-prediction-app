@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { isAuthenticated } from '@/lib/auth'
 import { getWebhookUrl, getWebhookSecret } from '@/lib/automation/webhook-config'
+import { predictionRateLimiter, getClientIP } from '@/lib/rate-limit'
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -15,6 +16,20 @@ export async function POST(request: Request) {
         { status: 401 }
       )
     }
+
+    // Rate limiting check
+    const clientIP = getClientIP(request)
+    const rateLimitResult = predictionRateLimiter.check(clientIP)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.reason },
+        {
+          status: 429,
+          headers: predictionRateLimiter.getHeaders(clientIP)
+        }
+      )
+    }
+    predictionRateLimiter.record(clientIP)
 
     const { fixture_id, model, custom_prompt } = await request.json()
 
