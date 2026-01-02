@@ -16,8 +16,10 @@ interface AuthData {
 export function MobileDataRefreshButton() {
   const [showModal, setShowModal] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me', { credentials: 'include' })
@@ -32,8 +34,9 @@ export function MobileDataRefreshButton() {
     checkAuth()
   }, [])
 
-  // Don't render anything for non-admins
-  if (!isAdmin) return null
+  // Don't render anything until mounted (prevents hydration mismatch)
+  // and only show for admins
+  if (!mounted || !isAdmin) return null
 
   return (
     <>

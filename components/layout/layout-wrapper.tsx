@@ -206,7 +206,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
           {/* Navigation */}
           <nav className="space-y-1 flex-1">
             {navItems
-              .filter(item => !item.adminOnly || authData?.isAdmin)
+              .filter(item => !mounted || !item.adminOnly || authData?.isAdmin)
               .map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
