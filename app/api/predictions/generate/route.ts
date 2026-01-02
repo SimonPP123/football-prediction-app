@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { isAuthenticated } from '@/lib/auth'
+import { isAuthenticated, isAdmin } from '@/lib/auth'
 import { getWebhookUrl, getWebhookSecret } from '@/lib/automation/webhook-config'
 import { predictionRateLimiter, getClientIP } from '@/lib/rate-limit'
 
@@ -17,19 +17,22 @@ export async function POST(request: Request) {
       )
     }
 
-    // Rate limiting check
-    const clientIP = getClientIP(request)
-    const rateLimitResult = predictionRateLimiter.check(clientIP)
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        { error: rateLimitResult.reason },
-        {
-          status: 429,
-          headers: predictionRateLimiter.getHeaders(clientIP)
-        }
-      )
+    // Rate limiting check (admins bypass rate limiting)
+    const adminUser = isAdmin()
+    if (!adminUser) {
+      const clientIP = getClientIP(request)
+      const rateLimitResult = predictionRateLimiter.check(clientIP)
+      if (!rateLimitResult.allowed) {
+        return NextResponse.json(
+          { error: rateLimitResult.reason },
+          {
+            status: 429,
+            headers: predictionRateLimiter.getHeaders(clientIP)
+          }
+        )
+      }
+      predictionRateLimiter.record(clientIP)
     }
-    predictionRateLimiter.record(clientIP)
 
     const { fixture_id, model, custom_prompt } = await request.json()
 
