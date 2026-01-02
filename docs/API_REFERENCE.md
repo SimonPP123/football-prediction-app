@@ -602,6 +602,77 @@ Get automation event logs.
 
 ---
 
+### GET /api/automation/webhooks
+
+Get webhook configuration.
+
+**Auth Required:** Admin only
+
+**Response:**
+```json
+{
+  "prediction_webhook_url": "https://nn.analyserinsights.com/webhook/football-prediction",
+  "analysis_webhook_url": "https://nn.analyserinsights.com/webhook/post-match-analysis",
+  "pre_match_webhook_url": "https://nn.analyserinsights.com/webhook/trigger/pre-match",
+  "live_webhook_url": "https://nn.analyserinsights.com/webhook/trigger/live",
+  "post_match_webhook_url": "https://nn.analyserinsights.com/webhook/trigger/post-match",
+  "webhook_secret_set": true,
+  "is_custom": {
+    "prediction": false,
+    "analysis": false,
+    "pre_match": false,
+    "live": false,
+    "post_match": false
+  },
+  "defaults": {
+    "prediction": "https://nn.analyserinsights.com/webhook/football-prediction",
+    "analysis": "https://nn.analyserinsights.com/webhook/post-match-analysis",
+    "preMatch": "https://nn.analyserinsights.com/webhook/trigger/pre-match",
+    "live": "https://nn.analyserinsights.com/webhook/trigger/live",
+    "postMatch": "https://nn.analyserinsights.com/webhook/trigger/post-match"
+  }
+}
+```
+
+---
+
+### PATCH /api/automation/webhooks
+
+Update webhook URLs.
+
+**Auth Required:** Admin only
+
+**Request Body:**
+```json
+{
+  "prediction_webhook_url": "https://custom.url/prediction",
+  "analysis_webhook_url": "https://custom.url/analysis",
+  "pre_match_webhook_url": "https://custom.url/pre-match",
+  "live_webhook_url": "https://custom.url/live",
+  "post_match_webhook_url": "https://custom.url/post-match"
+}
+```
+
+**Notes:**
+- All fields are optional. Only include fields you want to update.
+- Set a field to `null` to reset to the default URL.
+- URLs must be valid HTTP/HTTPS format.
+- The `webhook_secret` is **NOT configurable via API** - it must be set via the `N8N_WEBHOOK_SECRET` environment variable.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Webhook configuration updated",
+  "config": {
+    "prediction_webhook_url": "https://custom.url/prediction",
+    "webhook_secret_set": true
+  }
+}
+```
+
+---
+
 ## Admin Endpoints
 
 **Auth Required:** Admin only

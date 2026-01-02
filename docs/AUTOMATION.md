@@ -368,9 +368,45 @@ crontab -l
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `ADMIN_API_KEY` | Yes | API key for cron authentication |
-| `N8N_WEBHOOK_BASE_URL` | Yes | Base URL for n8n webhooks |
+| `N8N_WEBHOOK_BASE_URL` | Yes | Base URL for n8n webhooks (fallback) |
 | `N8N_WEBHOOK_SECRET` | No | Secret for webhook authentication |
 | `NEXT_PUBLIC_BASE_URL` | Yes | App URL for internal API calls |
+
+---
+
+## Webhook Configuration
+
+Webhook URLs can be configured via the **Webhook Configuration** modal in the Predictions page, or via the API.
+
+### Configurable Webhooks
+
+| Webhook | Purpose | Default URL |
+|---------|---------|-------------|
+| **Prediction** | AI prediction generation | `https://nn.analyserinsights.com/webhook/football-prediction` |
+| **Analysis** | Post-match AI analysis | `https://nn.analyserinsights.com/webhook/post-match-analysis` |
+| **Pre-Match** | Data refresh before kickoff | `https://nn.analyserinsights.com/webhook/trigger/pre-match` |
+| **Live** | Live match data sync | `https://nn.analyserinsights.com/webhook/trigger/live` |
+| **Post-Match** | Post-match data sync | `https://nn.analyserinsights.com/webhook/trigger/post-match` |
+
+### Webhook Authentication
+
+All webhooks send an `X-Webhook-Secret` header for authentication.
+
+**Important:** The webhook secret is configured **only via environment variable** (`N8N_WEBHOOK_SECRET`), not through the UI. This ensures the secret is never exposed in API responses.
+
+### n8n Setup
+
+In your n8n Webhook nodes, configure Header Auth:
+- **Authentication:** Header Auth
+- **Name:** `X-Webhook-Secret`
+- **Value:** (your secret from `.env` file)
+
+### API Endpoints
+
+- `GET /api/automation/webhooks` - Get current webhook configuration
+- `PATCH /api/automation/webhooks` - Update webhook URLs
+
+See [API Reference](./API_REFERENCE.md) for full documentation.
 
 ---
 

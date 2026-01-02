@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save, RotateCcw, Key, Link2, Shield, Loader2, Zap, Clock } from 'lucide-react'
+import { X, Save, RotateCcw, ExternalLink, Shield, Loader2, Zap, Clock, ChevronDown, CheckCircle2, AlertCircle, HelpCircle } from 'lucide-react'
 
 // Default webhook URLs
 const DEFAULT_WEBHOOKS = {
@@ -10,6 +10,50 @@ const DEFAULT_WEBHOOKS = {
   preMatch: 'https://nn.analyserinsights.com/webhook/trigger/pre-match',
   live: 'https://nn.analyserinsights.com/webhook/trigger/live',
   postMatch: 'https://nn.analyserinsights.com/webhook/trigger/post-match'
+}
+
+interface WebhookFieldProps {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  defaultValue: string
+  description: string
+  color: string
+}
+
+function WebhookField({ label, value, onChange, defaultValue, description, color }: WebhookFieldProps) {
+  const isDefault = value === defaultValue
+
+  return (
+    <div className="group">
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-sm font-medium flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${color}`} />
+          {label}
+        </label>
+        {!isDefault && (
+          <button
+            onClick={() => onChange(defaultValue)}
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Reset to default"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset
+          </button>
+        )}
+      </div>
+      <input
+        type="url"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono ${
+          isDefault ? 'text-muted-foreground' : 'text-foreground'
+        }`}
+        placeholder="https://..."
+      />
+      <p className="text-xs text-muted-foreground mt-1">{description}</p>
+    </div>
+  )
 }
 
 interface SettingsModalProps {
@@ -26,6 +70,11 @@ export function SettingsModal({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
+
+  // Collapsed sections state
+  const [aiExpanded, setAiExpanded] = useState(true)
+  const [automationExpanded, setAutomationExpanded] = useState(false)
 
   // AI Webhooks
   const [predictionWebhook, setPredictionWebhook] = useState(DEFAULT_WEBHOOKS.prediction)
@@ -36,8 +85,16 @@ export function SettingsModal({
   const [liveWebhook, setLiveWebhook] = useState(DEFAULT_WEBHOOKS.live)
   const [postMatchWebhook, setPostMatchWebhook] = useState(DEFAULT_WEBHOOKS.postMatch)
 
-  // Secret status (read-only, configured via .env only)
+  // Secret status (read-only)
   const [secretSet, setSecretSet] = useState(false)
+
+  // Track if any changes were made
+  const hasChanges =
+    predictionWebhook !== DEFAULT_WEBHOOKS.prediction ||
+    analysisWebhook !== DEFAULT_WEBHOOKS.analysis ||
+    preMatchWebhook !== DEFAULT_WEBHOOKS.preMatch ||
+    liveWebhook !== DEFAULT_WEBHOOKS.live ||
+    postMatchWebhook !== DEFAULT_WEBHOOKS.postMatch
 
   // Load config from API when modal opens
   useEffect(() => {
@@ -64,6 +121,13 @@ export function SettingsModal({
       setLiveWebhook(data.live_webhook_url || DEFAULT_WEBHOOKS.live)
       setPostMatchWebhook(data.post_match_webhook_url || DEFAULT_WEBHOOKS.postMatch)
       setSecretSet(data.webhook_secret_set || false)
+
+      // Check if any custom URLs are set to expand the right section
+      const hasCustomAi = data.is_custom?.prediction || data.is_custom?.analysis
+      const hasCustomAutomation = data.is_custom?.pre_match || data.is_custom?.live || data.is_custom?.post_match
+
+      if (hasCustomAi) setAiExpanded(true)
+      if (hasCustomAutomation) setAutomationExpanded(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configuration')
     } finally {
@@ -77,38 +141,12 @@ export function SettingsModal({
     try {
       const updates: Record<string, string | null> = {}
 
-      // Only send values that differ from defaults (to allow reset)
-      if (predictionWebhook !== DEFAULT_WEBHOOKS.prediction) {
-        updates.prediction_webhook_url = predictionWebhook
-      } else {
-        updates.prediction_webhook_url = null // Reset to default
-      }
-
-      if (analysisWebhook !== DEFAULT_WEBHOOKS.analysis) {
-        updates.analysis_webhook_url = analysisWebhook
-      } else {
-        updates.analysis_webhook_url = null
-      }
-
-      if (preMatchWebhook !== DEFAULT_WEBHOOKS.preMatch) {
-        updates.pre_match_webhook_url = preMatchWebhook
-      } else {
-        updates.pre_match_webhook_url = null
-      }
-
-      if (liveWebhook !== DEFAULT_WEBHOOKS.live) {
-        updates.live_webhook_url = liveWebhook
-      } else {
-        updates.live_webhook_url = null
-      }
-
-      if (postMatchWebhook !== DEFAULT_WEBHOOKS.postMatch) {
-        updates.post_match_webhook_url = postMatchWebhook
-      } else {
-        updates.post_match_webhook_url = null
-      }
-
-      // Note: webhook_secret is NOT configurable via UI - it's set via .env file only
+      // Send null for defaults to reset, or the custom value
+      updates.prediction_webhook_url = predictionWebhook !== DEFAULT_WEBHOOKS.prediction ? predictionWebhook : null
+      updates.analysis_webhook_url = analysisWebhook !== DEFAULT_WEBHOOKS.analysis ? analysisWebhook : null
+      updates.pre_match_webhook_url = preMatchWebhook !== DEFAULT_WEBHOOKS.preMatch ? preMatchWebhook : null
+      updates.live_webhook_url = liveWebhook !== DEFAULT_WEBHOOKS.live ? liveWebhook : null
+      updates.post_match_webhook_url = postMatchWebhook !== DEFAULT_WEBHOOKS.postMatch ? postMatchWebhook : null
 
       const res = await fetch('/api/automation/webhooks', {
         method: 'PATCH',
@@ -131,14 +169,31 @@ export function SettingsModal({
     }
   }
 
+  const resetAllToDefaults = () => {
+    setPredictionWebhook(DEFAULT_WEBHOOKS.prediction)
+    setAnalysisWebhook(DEFAULT_WEBHOOKS.analysis)
+    setPreMatchWebhook(DEFAULT_WEBHOOKS.preMatch)
+    setLiveWebhook(DEFAULT_WEBHOOKS.live)
+    setPostMatchWebhook(DEFAULT_WEBHOOKS.postMatch)
+  }
+
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card border rounded-xl shadow-lg w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-card border rounded-xl shadow-lg w-full max-w-md mx-4 max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b shrink-0">
-          <h3 className="text-lg font-semibold">Webhook Settings</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Webhook Configuration</h3>
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
+              title="Help"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="p-1 hover:bg-muted rounded"
@@ -147,230 +202,176 @@ export function SettingsModal({
           </button>
         </div>
 
+        {/* Help Panel */}
+        {showHelp && (
+          <div className="p-3 bg-blue-500/10 border-b border-blue-500/20 text-xs">
+            <p className="font-medium text-blue-500 mb-1">n8n Webhook Setup</p>
+            <p className="text-muted-foreground">
+              In n8n, set Webhook Authentication to &quot;Header Auth&quot; with:
+            </p>
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              <li>Name: <code className="bg-muted px-1 rounded">X-Webhook-Secret</code></li>
+              <li>Value: Your secret from the <code className="bg-muted px-1 rounded">.env</code> file</li>
+            </ul>
+          </div>
+        )}
+
         {/* Content */}
-        <div className="p-4 space-y-6 overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1">
           {loading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <>
+            <div className="p-4 space-y-4">
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-500">
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm text-red-500 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
                   {error}
                 </div>
               )}
 
-              {/* AI Webhooks Section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap className="w-4 h-4 text-primary" />
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">AI Webhooks</h4>
+              {/* Authentication Status */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Webhook Secret</span>
                 </div>
-
-                {/* Prediction Webhook */}
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <Link2 className="w-4 h-4 text-green-500" />
-                    Prediction Webhook
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={predictionWebhook}
-                      onChange={(e) => setPredictionWebhook(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => setPredictionWebhook(DEFAULT_WEBHOOKS.prediction)}
-                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Generates match predictions via AI
-                  </p>
-                </div>
-
-                {/* Analysis Webhook */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <Link2 className="w-4 h-4 text-blue-500" />
-                    Analysis Webhook
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={analysisWebhook}
-                      onChange={(e) => setAnalysisWebhook(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => setAnalysisWebhook(DEFAULT_WEBHOOKS.analysis)}
-                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Generates post-match analysis via AI
-                  </p>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t" />
-
-              {/* Automation Webhooks Section */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Automation Webhooks</h4>
-                </div>
-
-                {/* Pre-Match Webhook */}
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <Link2 className="w-4 h-4 text-orange-500" />
-                    Pre-Match Webhook
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={preMatchWebhook}
-                      onChange={(e) => setPreMatchWebhook(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => setPreMatchWebhook(DEFAULT_WEBHOOKS.preMatch)}
-                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Triggered ~30 min before kickoff for data refresh
-                  </p>
-                </div>
-
-                {/* Live Webhook */}
-                <div className="mb-4">
-                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <Link2 className="w-4 h-4 text-red-500" />
-                    Live Webhook
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={liveWebhook}
-                      onChange={(e) => setLiveWebhook(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => setLiveWebhook(DEFAULT_WEBHOOKS.live)}
-                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Triggered every 5 min during live matches
-                  </p>
-                </div>
-
-                {/* Post-Match Webhook */}
-                <div>
-                  <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                    <Link2 className="w-4 h-4 text-purple-500" />
-                    Post-Match Webhook
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="url"
-                      value={postMatchWebhook}
-                      onChange={(e) => setPostMatchWebhook(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="https://..."
-                    />
-                    <button
-                      onClick={() => setPostMatchWebhook(DEFAULT_WEBHOOKS.postMatch)}
-                      className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg"
-                      title="Reset to default"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Triggered ~6 hours after match for final data sync
-                  </p>
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t" />
-
-              {/* Webhook Secret - Read Only */}
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                  <Shield className="w-4 h-4 text-primary" />
-                  Webhook Secret
-                </label>
-                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border rounded-lg">
+                <div className="flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${secretSet ? 'bg-green-500' : 'bg-yellow-500'}`} />
-                  <span className="text-sm">
-                    {secretSet ? 'Configured' : 'Not configured'}
+                  <span className={`text-xs ${secretSet ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {secretSet ? 'Configured' : 'Not set'}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  The webhook secret is configured via the <code className="bg-muted px-1 rounded">N8N_WEBHOOK_SECRET</code> environment variable in your <code className="bg-muted px-1 rounded">.env</code> file. It is sent as <code className="bg-muted px-1 rounded">X-Webhook-Secret</code> header for all webhooks.
-                </p>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2 ml-1">
+                Set via <code className="bg-muted px-1 rounded">N8N_WEBHOOK_SECRET</code> in .env file
+              </p>
+
+              {/* AI Webhooks Section */}
+              <div className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setAiExpanded(!aiExpanded)}
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm">AI Webhooks</span>
+                    <span className="text-xs text-muted-foreground">(Predictions & Analysis)</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${aiExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {aiExpanded && (
+                  <div className="p-3 pt-0 space-y-4 border-t">
+                    <WebhookField
+                      label="Prediction"
+                      value={predictionWebhook}
+                      onChange={setPredictionWebhook}
+                      defaultValue={DEFAULT_WEBHOOKS.prediction}
+                      description="Generates AI match predictions"
+                      color="bg-green-500"
+                    />
+                    <WebhookField
+                      label="Post-Match Analysis"
+                      value={analysisWebhook}
+                      onChange={setAnalysisWebhook}
+                      defaultValue={DEFAULT_WEBHOOKS.analysis}
+                      description="Generates AI analysis after matches"
+                      color="bg-blue-500"
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Info Box */}
-              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <Key className="w-4 h-4 text-blue-500 mt-0.5" />
-                  <div className="text-xs text-blue-500">
-                    <p className="font-medium mb-1">n8n Header Auth Setup</p>
-                    <p className="text-blue-500/80">
-                      In your n8n Webhook nodes, set Authentication to &quot;Header Auth&quot; with Name: <code className="bg-blue-500/20 px-1 rounded">X-Webhook-Secret</code> and Value matching this secret.
-                    </p>
+              {/* Automation Webhooks Section */}
+              <div className="border rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setAutomationExpanded(!automationExpanded)}
+                  className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span className="font-medium text-sm">Automation Webhooks</span>
+                    <span className="text-xs text-muted-foreground">(Data Sync)</span>
                   </div>
-                </div>
+                  <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${automationExpanded ? 'rotate-180' : ''}`} />
+                </button>
+
+                {automationExpanded && (
+                  <div className="p-3 pt-0 space-y-4 border-t">
+                    <WebhookField
+                      label="Pre-Match"
+                      value={preMatchWebhook}
+                      onChange={setPreMatchWebhook}
+                      defaultValue={DEFAULT_WEBHOOKS.preMatch}
+                      description="Triggers ~30 min before kickoff"
+                      color="bg-orange-500"
+                    />
+                    <WebhookField
+                      label="Live"
+                      value={liveWebhook}
+                      onChange={setLiveWebhook}
+                      defaultValue={DEFAULT_WEBHOOKS.live}
+                      description="Triggers every 5 min during matches"
+                      color="bg-red-500"
+                    />
+                    <WebhookField
+                      label="Post-Match"
+                      value={postMatchWebhook}
+                      onChange={setPostMatchWebhook}
+                      defaultValue={DEFAULT_WEBHOOKS.postMatch}
+                      description="Triggers ~6 hours after full time"
+                      color="bg-purple-500"
+                    />
+                  </div>
+                )}
               </div>
-            </>
+
+              {/* Reset All Button */}
+              {hasChanges && (
+                <button
+                  onClick={resetAllToDefaults}
+                  className="w-full flex items-center justify-center gap-2 p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset all to defaults
+                </button>
+              )}
+            </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 p-4 border-t bg-muted/30 shrink-0">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+        <div className="flex items-center justify-between p-4 border-t bg-muted/30 shrink-0">
+          <a
+            href="/docs/api-reference"
+            target="_blank"
+            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={loading || saving}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            Save Settings
-          </button>
+            <ExternalLink className="w-3 h-3" />
+            API Docs
+          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={loading || saving}
+              className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
