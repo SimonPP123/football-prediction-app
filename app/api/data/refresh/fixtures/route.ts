@@ -236,12 +236,22 @@ async function handleStreamingRefresh(
       const { data: venues } = await supabase.from('venues').select('id, api_id')
       const venueMap = new Map(venues?.map(v => [v.api_id, v.id]) || [])
 
-      let inserted = 0
-      let updated = 0
-      let errors = 0
       const total = data.response.length
 
       sendLog({ type: 'info', message: 'Processing fixtures...' })
+
+      // Get existing fixture api_ids for this league (single query instead of N queries)
+      const apiIds = data.response.map((item: any) => item.fixture.id)
+      const { data: existingFixtures } = await supabase
+        .from('fixtures')
+        .select('api_id')
+        .eq('league_id', league.id)
+        .in('api_id', apiIds)
+      const existingApiIds = new Set(existingFixtures?.map(f => f.api_id) || [])
+
+      // Collect all fixtures for batch upsert
+      const fixturesToUpsert: any[] = []
+      let skipped = 0
 
       for (let i = 0; i < data.response.length; i++) {
         const item = data.response[i]
@@ -251,12 +261,12 @@ async function handleStreamingRefresh(
         const goals = item.goals
         const score = item.score
 
-        // Send progress every 20 fixtures to avoid too many updates
-        if (i % 20 === 0) {
+        // Send progress every 50 fixtures
+        if (i % 50 === 0 && i > 0) {
           sendLog({
             type: 'progress',
-            message: `Processing fixtures...`,
-            details: { progress: { current: i + 1, total } }
+            message: `Preparing fixtures...`,
+            details: { progress: { current: i, total } }
           })
         }
 
@@ -264,46 +274,55 @@ async function handleStreamingRefresh(
         const awayTeamId = teamMap.get(teams_data.away.id)
 
         if (!homeTeamId || !awayTeamId) {
-          errors++
+          skipped++
           continue
         }
 
-        // Check if record exists for this league
-        const { data: existing } = await supabase
-          .from('fixtures')
-          .select('id')
-          .eq('api_id', fixture.id)
-          .eq('league_id', league.id)
-          .single()
+        fixturesToUpsert.push({
+          api_id: fixture.id,
+          league_id: league.id,
+          season: league.currentSeason,
+          round: leagueInfo.round,
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
+          match_date: fixture.date,
+          venue_id: venueMap.get(fixture.venue?.id) || null,
+          referee: fixture.referee,
+          status: fixture.status.short,
+          goals_home: goals.home,
+          goals_away: goals.away,
+          score_halftime: score.halftime,
+          score_fulltime: score.fulltime,
+          updated_at: new Date().toISOString(),
+        })
+      }
 
+      // Batch upsert all fixtures at once
+      let inserted = 0
+      let updated = 0
+      let errors = 0
+
+      if (fixturesToUpsert.length > 0) {
+        sendLog({ type: 'info', message: `Batch upserting ${fixturesToUpsert.length} fixtures...` })
         const { error } = await supabase
           .from('fixtures')
-          .upsert({
-            api_id: fixture.id,
-            league_id: league.id,
-            season: league.currentSeason,
-            round: leagueInfo.round,
-            home_team_id: homeTeamId,
-            away_team_id: awayTeamId,
-            match_date: fixture.date,
-            venue_id: venueMap.get(fixture.venue?.id) || null,
-            referee: fixture.referee,
-            status: fixture.status.short,
-            goals_home: goals.home,
-            goals_away: goals.away,
-            score_halftime: score.halftime,
-            score_fulltime: score.fulltime,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'api_id,league_id' })
+          .upsert(fixturesToUpsert, { onConflict: 'api_id,league_id' })
 
         if (error) {
-          errors++
-        } else if (existing) {
-          updated++
+          sendLog({ type: 'error', message: `Batch upsert error: ${error.message}` })
+          errors = fixturesToUpsert.length
         } else {
-          inserted++
+          // Count inserted vs updated based on existing set
+          for (const f of fixturesToUpsert) {
+            if (existingApiIds.has(f.api_id)) {
+              updated++
+            } else {
+              inserted++
+            }
+          }
         }
       }
+      errors += skipped
 
       const duration = Date.now() - startTime
       sendLog({ type: 'success', message: `Completed: ${inserted} new, ${updated} updated, ${errors} errors (${(duration / 1000).toFixed(1)}s)` })
@@ -369,11 +388,20 @@ async function handleBatchRefresh(
     const { data: venues } = await supabase.from('venues').select('id, api_id')
     const venueMap = new Map(venues?.map(v => [v.api_id, v.id]) || [])
 
-    let inserted = 0
-    let updated = 0
-    let errors = 0
-
     addLog('info', 'Processing fixtures...')
+
+    // Get existing fixture api_ids for this league (single query instead of N queries)
+    const apiIds = data.response.map((item: any) => item.fixture.id)
+    const { data: existingFixtures } = await supabase
+      .from('fixtures')
+      .select('api_id')
+      .eq('league_id', league.id)
+      .in('api_id', apiIds)
+    const existingApiIds = new Set(existingFixtures?.map(f => f.api_id) || [])
+
+    // Collect all fixtures for batch upsert
+    const fixturesToUpsert: any[] = []
+    let skipped = 0
 
     for (const item of data.response) {
       const fixture = item.fixture
@@ -386,46 +414,55 @@ async function handleBatchRefresh(
       const awayTeamId = teamMap.get(teams_data.away.id)
 
       if (!homeTeamId || !awayTeamId) {
-        errors++
+        skipped++
         continue
       }
 
-      // Check if record exists
-      const { data: existing } = await supabase
-        .from('fixtures')
-        .select('id')
-        .eq('api_id', fixture.id)
-        .eq('league_id', league.id)
-        .single()
+      fixturesToUpsert.push({
+        api_id: fixture.id,
+        league_id: league.id,
+        season: league.currentSeason,
+        round: leagueInfo.round,
+        home_team_id: homeTeamId,
+        away_team_id: awayTeamId,
+        match_date: fixture.date,
+        venue_id: venueMap.get(fixture.venue?.id) || null,
+        referee: fixture.referee,
+        status: fixture.status.short,
+        goals_home: goals.home,
+        goals_away: goals.away,
+        score_halftime: score.halftime,
+        score_fulltime: score.fulltime,
+        updated_at: new Date().toISOString(),
+      })
+    }
 
+    // Batch upsert all fixtures at once
+    let inserted = 0
+    let updated = 0
+    let errors = 0
+
+    if (fixturesToUpsert.length > 0) {
+      addLog('info', `Batch upserting ${fixturesToUpsert.length} fixtures...`)
       const { error } = await supabase
         .from('fixtures')
-        .upsert({
-          api_id: fixture.id,
-          league_id: league.id,
-          season: league.currentSeason,
-          round: leagueInfo.round,
-          home_team_id: homeTeamId,
-          away_team_id: awayTeamId,
-          match_date: fixture.date,
-          venue_id: venueMap.get(fixture.venue?.id) || null,
-          referee: fixture.referee,
-          status: fixture.status.short,
-          goals_home: goals.home,
-          goals_away: goals.away,
-          score_halftime: score.halftime,
-          score_fulltime: score.fulltime,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'api_id,league_id' })
+        .upsert(fixturesToUpsert, { onConflict: 'api_id,league_id' })
 
       if (error) {
-        errors++
-      } else if (existing) {
-        updated++
+        addLog('error', `Batch upsert error: ${error.message}`)
+        errors = fixturesToUpsert.length
       } else {
-        inserted++
+        // Count inserted vs updated based on existing set
+        for (const f of fixturesToUpsert) {
+          if (existingApiIds.has(f.api_id)) {
+            updated++
+          } else {
+            inserted++
+          }
+        }
       }
     }
+    errors += skipped
 
     addLog('success', `Completed: ${inserted} new, ${updated} updated, ${errors} errors`)
 

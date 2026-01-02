@@ -264,10 +264,14 @@ Current injury list per team.
 | `team_id` | UUID | Foreign key to teams |
 | `player_name` | TEXT | Player name |
 | `player_id` | INTEGER | API-Football player ID |
+| `player_api_id` | INTEGER | Alternative API-Football player ID |
 | `type` | TEXT | Injury type (e.g., "Muscle") |
 | `reason` | TEXT | Injury description |
+| `reported_date` | DATE | Date injury was reported |
 | `fixture_id` | UUID | Match where injured (optional) |
 | `created_at` | TIMESTAMPTZ | Created timestamp |
+
+**Note:** Players are matched by `player_id` or `player_api_id` (not player_name) to handle inconsistent name formats from API-Football.
 
 ---
 

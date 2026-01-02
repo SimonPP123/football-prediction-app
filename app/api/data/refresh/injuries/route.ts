@@ -117,24 +117,13 @@ async function handleStreamingRefresh(league: LeagueConfig, modeParams: InjuryMo
       const playerMap = new Map(players?.map(p => [p.api_id, p.id]) || [])
       sendLog({ type: 'info', message: `Loaded ${players?.length || 0} players for mapping` })
 
-      let imported = 0
-      let errors = 0
-      let skipped = 0
-
       sendLog({ type: 'info', message: 'Processing injury records...' })
 
-      for (let i = 0; i < data.response.length; i++) {
-        const item = data.response[i]
+      // Collect all injuries for batch upsert
+      const injuriesToUpsert: any[] = []
+      let skipped = 0
 
-        // Progress every 10 items
-        if (i % 10 === 0) {
-          sendLog({
-            type: 'progress',
-            message: 'Processing injuries...',
-            details: { progress: { current: i + 1, total: data.response.length } }
-          })
-        }
-
+      for (const item of data.response) {
         const teamId = teamMap.get(item.team.id)
         if (!teamId) {
           skipped++
@@ -143,26 +132,35 @@ async function handleStreamingRefresh(league: LeagueConfig, modeParams: InjuryMo
 
         const playerId = playerMap.get(item.player.id)
 
+        injuriesToUpsert.push({
+          player_id: playerId || null,
+          player_api_id: item.player.id,
+          player_name: item.player.name,
+          team_id: teamId,
+          league_id: league.id,
+          fixture_api_id: item.fixture?.id || null,
+          injury_type: item.player.type || null,
+          injury_reason: item.player.reason || null,
+          reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
+          updated_at: new Date().toISOString(),
+        })
+      }
+
+      // Batch upsert all injuries at once
+      let imported = 0
+      let errors = 0
+
+      if (injuriesToUpsert.length > 0) {
+        sendLog({ type: 'info', message: `Batch upserting ${injuriesToUpsert.length} injuries...` })
         const { error } = await supabase
           .from('injuries')
-          .upsert({
-            player_id: playerId || null,
-            player_api_id: item.player.id,
-            player_name: item.player.name,
-            team_id: teamId,
-            league_id: league.id,
-            fixture_api_id: item.fixture?.id || null,
-            injury_type: item.player.type || null,
-            injury_reason: item.player.reason || null,
-            reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'player_api_id,fixture_api_id' })
+          .upsert(injuriesToUpsert, { onConflict: 'player_api_id,fixture_api_id' })
 
         if (error) {
-          sendLog({ type: 'error', message: `Error updating ${item.player.name}: ${error.message}` })
-          errors++
+          sendLog({ type: 'error', message: `Batch upsert error: ${error.message}` })
+          errors = injuriesToUpsert.length
         } else {
-          imported++
+          imported = injuriesToUpsert.length
         }
       }
 
@@ -298,11 +296,11 @@ async function handleBatchRefresh(league: LeagueConfig, modeParams: InjuryModePa
     const playerMap = new Map(players?.map(p => [p.api_id, p.id]) || [])
     addLog('info', `Loaded ${players?.length || 0} players for mapping`)
 
-    let imported = 0
-    let errors = 0
-    let skipped = 0
-
     addLog('info', 'Processing injury records...')
+
+    // Collect all injuries for batch upsert
+    const injuriesToUpsert: any[] = []
+    let skipped = 0
 
     for (const item of data.response) {
       const teamId = teamMap.get(item.team.id)
@@ -314,26 +312,35 @@ async function handleBatchRefresh(league: LeagueConfig, modeParams: InjuryModePa
 
       const playerId = playerMap.get(item.player.id)
 
+      injuriesToUpsert.push({
+        player_id: playerId || null,
+        player_api_id: item.player.id,
+        player_name: item.player.name,
+        team_id: teamId,
+        league_id: league.id,
+        fixture_api_id: item.fixture?.id || null,
+        injury_type: item.player.type || null,
+        injury_reason: item.player.reason || null,
+        reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
+        updated_at: new Date().toISOString(),
+      })
+    }
+
+    // Batch upsert all injuries at once
+    let imported = 0
+    let errors = 0
+
+    if (injuriesToUpsert.length > 0) {
+      addLog('info', `Batch upserting ${injuriesToUpsert.length} injuries...`)
       const { error } = await supabase
         .from('injuries')
-        .upsert({
-          player_id: playerId || null,
-          player_api_id: item.player.id,
-          player_name: item.player.name,
-          team_id: teamId,
-          league_id: league.id,
-          fixture_api_id: item.fixture?.id || null,
-          injury_type: item.player.type || null,
-          injury_reason: item.player.reason || null,
-          reported_date: item.fixture?.date ? new Date(item.fixture.date).toISOString().split('T')[0] : null,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'player_api_id,fixture_api_id' })
+        .upsert(injuriesToUpsert, { onConflict: 'player_api_id,fixture_api_id' })
 
       if (error) {
-        addLog('error', `Error updating ${item.player.name}: ${error.message}`)
-        errors++
+        addLog('error', `Batch upsert error: ${error.message}`)
+        errors = injuriesToUpsert.length
       } else {
-        imported++
+        imported = injuriesToUpsert.length
       }
     }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import { PredictionCard } from '@/components/predictions/prediction-card'
 import { useLeague } from '@/contexts/league-context'
 
@@ -9,13 +9,32 @@ interface LiveMatchesSectionProps {
   onMatchesFinished?: () => void
 }
 
-export function LiveMatchesSection({
+// Helper to check if fixture data actually changed (not just reference)
+function fixturesChanged(oldFixtures: any[], newFixtures: any[]): boolean {
+  if (oldFixtures.length !== newFixtures.length) return true
+  for (let i = 0; i < newFixtures.length; i++) {
+    const oldF = oldFixtures.find((f: any) => f.id === newFixtures[i].id)
+    if (!oldF) return true
+    // Check if score or status changed (the important live data)
+    if (oldF.goals_home !== newFixtures[i].goals_home ||
+        oldF.goals_away !== newFixtures[i].goals_away ||
+        oldF.status !== newFixtures[i].status) {
+      return true
+    }
+  }
+  return false
+}
+
+function LiveMatchesSectionComponent({
   initialLiveFixtures,
   onMatchesFinished,
 }: LiveMatchesSectionProps) {
   const { currentLeague } = useLeague()
   const [liveFixtures, setLiveFixtures] = useState(initialLiveFixtures)
   const liveFixtureIdsRef = useRef<Set<string>>(new Set(initialLiveFixtures.map((m: any) => m.id)))
+  // Use ref for callback to avoid effect re-runs when parent doesn't memoize
+  const onMatchesFinishedRef = useRef(onMatchesFinished)
+  onMatchesFinishedRef.current = onMatchesFinished
 
   // Auto-refresh live fixtures every 60 seconds
   useEffect(() => {
@@ -33,11 +52,18 @@ export function LiveMatchesSection({
 
           // Update ref with current live fixture IDs
           liveFixtureIdsRef.current = currentLiveIds
-          setLiveFixtures(newLiveFixtures)
 
-          // Notify parent if matches finished
-          if (hasFinishedMatches && onMatchesFinished) {
-            onMatchesFinished()
+          // Only update state if data actually changed to avoid unnecessary re-renders
+          setLiveFixtures(prev => {
+            if (fixturesChanged(prev, newLiveFixtures)) {
+              return newLiveFixtures
+            }
+            return prev
+          })
+
+          // Notify parent if matches finished (use ref to avoid dependency)
+          if (hasFinishedMatches && onMatchesFinishedRef.current) {
+            onMatchesFinishedRef.current()
           }
         }
       } catch (error) {
@@ -51,7 +77,7 @@ export function LiveMatchesSection({
     const intervalId = setInterval(refreshLive, 60000) // Refresh every 60 seconds
 
     return () => clearInterval(intervalId)
-  }, [currentLeague?.id, onMatchesFinished])
+  }, [currentLeague?.id]) // Removed onMatchesFinished from deps - using ref instead
 
   if (liveFixtures.length === 0) {
     return null
@@ -84,3 +110,6 @@ export function LiveMatchesSection({
     </div>
   )
 }
+
+// Wrap with React.memo to prevent unnecessary re-renders
+export const LiveMatchesSection = memo(LiveMatchesSectionComponent)

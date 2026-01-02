@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3, Newspaper, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
@@ -8,6 +8,67 @@ import rehypeSanitize from 'rehype-sanitize'
 import remarkGfm from 'remark-gfm'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
+
+// Helper function for finding outcome - moved outside component for better performance
+function findOutcomeHelper(
+  values: OddsOutcome[] | undefined,
+  type: 'home' | 'draw' | 'away',
+  homeTeamName: string,
+  awayTeamName: string
+): OddsOutcome | undefined {
+  if (!values) return undefined
+  if (type === 'draw') {
+    return values.find(v => v.name?.toLowerCase() === 'draw')
+  }
+  if (type === 'home') {
+    return values.find(v => {
+      const name = v.name?.toLowerCase() || ''
+      if (name === 'draw') return false
+      return name.includes(homeTeamName.split(' ')[0]) || homeTeamName.includes(name.split(' ')[0])
+    }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(awayTeamName.split(' ')[0]))
+  }
+  return values.find(v => {
+    const name = v.name?.toLowerCase() || ''
+    if (name === 'draw') return false
+    return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
+  }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
+}
+
+// Helper function for calculating best H2H odds - moved outside component
+function calculateBestH2HOdds(odds: OddsMarket[], homeTeamName: string, awayTeamName: string) {
+  const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
+  let bestHome = { price: 0, bookmaker: '' }
+  let bestDraw = { price: 0, bookmaker: '' }
+  let bestAway = { price: 0, bookmaker: '' }
+
+  h2hOdds.forEach(o => {
+    const homeVal = findOutcomeHelper(o.values, 'home', homeTeamName, awayTeamName)
+    const drawVal = findOutcomeHelper(o.values, 'draw', homeTeamName, awayTeamName)
+    const awayVal = findOutcomeHelper(o.values, 'away', homeTeamName, awayTeamName)
+
+    if (homeVal && homeVal.price > bestHome.price) {
+      bestHome = { price: homeVal.price, bookmaker: o.bookmaker }
+    }
+    if (drawVal && drawVal.price > bestDraw.price) {
+      bestDraw = { price: drawVal.price, bookmaker: o.bookmaker }
+    }
+    if (awayVal && awayVal.price > bestAway.price) {
+      bestAway = { price: awayVal.price, bookmaker: o.bookmaker }
+    }
+  })
+
+  return { bestHome, bestDraw, bestAway }
+}
+
+// Helper function to get sorted prediction
+function getSortedPrediction(predictionData: Prediction | Prediction[] | undefined): Prediction | undefined {
+  if (!predictionData) return undefined
+  if (!Array.isArray(predictionData)) return predictionData
+  return predictionData.slice().sort((a: Prediction, b: Prediction) =>
+    new Date(b.updated_at || b.created_at || 0).getTime() -
+    new Date(a.updated_at || a.created_at || 0).getTime()
+  )[0]
+}
 
 interface PredictionTableProps {
   fixtures: any[]
@@ -17,83 +78,55 @@ interface PredictionTableProps {
   onClearError?: (fixtureId: string) => void
 }
 
-export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds = [], errorIds = {}, onClearError }: PredictionTableProps) {
+function PredictionTableComponent({ fixtures, onGeneratePrediction, generatingIds = [], errorIds = {}, onClearError }: PredictionTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [expandedHomeNews, setExpandedHomeNews] = useState<Record<string, boolean>>({})
   const [expandedAwayNews, setExpandedAwayNews] = useState<Record<string, boolean>>({})
 
-  const toggleHomeNews = (fixtureId: string) => {
+  const toggleHomeNews = useCallback((fixtureId: string) => {
     setExpandedHomeNews(prev => ({ ...prev, [fixtureId]: !prev[fixtureId] }))
-  }
+  }, [])
 
-  const toggleAwayNews = (fixtureId: string) => {
+  const toggleAwayNews = useCallback((fixtureId: string) => {
     setExpandedAwayNews(prev => ({ ...prev, [fixtureId]: !prev[fixtureId] }))
-  }
+  }, [])
 
-  const getPredictionBadgeColor = (result: string) => {
+  const getPredictionBadgeColor = useCallback((result: string) => {
     switch (result) {
       case '1': return 'bg-home text-white'
       case 'X': return 'bg-draw text-white'
       case '2': return 'bg-away text-white'
       default: return 'bg-muted text-muted-foreground'
     }
-  }
+  }, [])
 
-  const getConfidenceBadge = (confidence: number | null) => {
+  const getConfidenceBadge = useCallback((confidence: number | null) => {
     if (!confidence) return 'bg-muted text-muted-foreground'
     if (confidence >= 70) return 'bg-green-500/20 text-green-500'
     if (confidence >= 50) return 'bg-yellow-500/20 text-yellow-500'
     return 'bg-red-500/20 text-red-500'
-  }
+  }, [])
 
-  // Find outcome by type (home team, draw, or away team) - matches by name, not array index
-  const findOutcome = (values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away', homeTeamName: string, awayTeamName: string): OddsOutcome | undefined => {
-    if (!values) return undefined
-    if (type === 'draw') {
-      return values.find(v => v.name?.toLowerCase() === 'draw')
-    }
-    if (type === 'home') {
-      // Home team outcome - match by name or exclude draw and away
-      return values.find(v => {
-        const name = v.name?.toLowerCase() || ''
-        if (name === 'draw') return false
-        // Check if it matches home team name (partial match)
-        return name.includes(homeTeamName.split(' ')[0]) || homeTeamName.includes(name.split(' ')[0])
-      }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(awayTeamName.split(' ')[0]))
-    }
-    // Away team
-    return values.find(v => {
-      const name = v.name?.toLowerCase() || ''
-      if (name === 'draw') return false
-      return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
-    }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
-  }
+  // Memoize processed fixtures with predictions and odds
+  const processedFixtures = useMemo(() => {
+    return fixtures.map(fixture => {
+      const prediction = getSortedPrediction(fixture.prediction)
+      const odds: OddsMarket[] = fixture.odds || []
+      const hasOdds = odds.length > 0
+      const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
+      const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
+      const bestOdds = hasOdds
+        ? calculateBestH2HOdds(odds, homeTeamName, awayTeamName)
+        : { bestHome: { price: 0 }, bestDraw: { price: 0 }, bestAway: { price: 0 } }
 
-  // Get best odds for h2h
-  const getBestH2HOdds = (odds: OddsMarket[], homeTeamName: string, awayTeamName: string) => {
-    const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
-    let bestHome = { price: 0, bookmaker: '' }
-    let bestDraw = { price: 0, bookmaker: '' }
-    let bestAway = { price: 0, bookmaker: '' }
-
-    h2hOdds.forEach(o => {
-      const homeVal = findOutcome(o.values, 'home', homeTeamName, awayTeamName)
-      const drawVal = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)
-      const awayVal = findOutcome(o.values, 'away', homeTeamName, awayTeamName)
-
-      if (homeVal && homeVal.price > bestHome.price) {
-        bestHome = { price: homeVal.price, bookmaker: o.bookmaker }
-      }
-      if (drawVal && drawVal.price > bestDraw.price) {
-        bestDraw = { price: drawVal.price, bookmaker: o.bookmaker }
-      }
-      if (awayVal && awayVal.price > bestAway.price) {
-        bestAway = { price: awayVal.price, bookmaker: o.bookmaker }
+      return {
+        ...fixture,
+        processedPrediction: prediction,
+        processedOdds: bestOdds,
+        hasOdds
       }
     })
-
-    return { bestHome, bestDraw, bestAway }
-  }
+  }, [fixtures])
 
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -116,25 +149,14 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
             </tr>
           </thead>
           <tbody>
-            {fixtures.map((fixture) => {
-              // Handle both array and object formats from Supabase
-              // Sort by updated_at DESC to ensure we always show the most recent prediction
-              const prediction = Array.isArray(fixture.prediction)
-                ? fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
-                    new Date(b.updated_at || b.created_at || 0).getTime() -
-                    new Date(a.updated_at || a.created_at || 0).getTime()
-                  )[0]
-                : fixture.prediction
+            {processedFixtures.map((fixture) => {
+              // Use pre-processed data from memoized fixtures
+              const prediction = fixture.processedPrediction
+              const { bestHome, bestDraw, bestAway } = fixture.processedOdds
+              const hasOdds = fixture.hasOdds
               const isExpanded = expandedId === fixture.id
               const isGenerating = generatingIds.includes(fixture.id)
               const error = errorIds[fixture.id]
-
-              // Get odds data
-              const odds: OddsMarket[] = fixture.odds || []
-              const hasOdds = odds.length > 0
-              const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
-              const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
-              const { bestHome, bestDraw, bestAway } = hasOdds ? getBestH2HOdds(odds, homeTeamName, awayTeamName) : { bestHome: { price: 0 }, bestDraw: { price: 0 }, bestAway: { price: 0 } }
 
               return (
                 <>
@@ -250,7 +272,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                           {/* Tooltip with all bookmakers */}
                           <div className="hidden group-hover:block absolute z-50 bg-popover border border-border rounded-lg shadow-lg p-3 min-w-[280px] right-0 top-full mt-1">
                             <div className="text-xs font-medium mb-2 text-foreground">
-                              All Bookmakers ({odds.filter(o => o.bet_type === 'h2h').length})
+                              All Bookmakers ({(fixture.odds || []).filter((o: OddsMarket) => o.bet_type === 'h2h').length})
                             </div>
                             <div className="grid grid-cols-4 gap-1 text-xs mb-2 text-muted-foreground font-medium">
                               <span>Bookmaker</span>
@@ -259,10 +281,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                               <span className="text-center">2</span>
                             </div>
                             <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                              {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
-                                const homePrice = findOutcome(o.values, 'home', homeTeamName, awayTeamName)?.price || 0
-                                const drawPrice = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)?.price || 0
-                                const awayPrice = findOutcome(o.values, 'away', homeTeamName, awayTeamName)?.price || 0
+                              {(fixture.odds || []).filter((o: OddsMarket) => o.bet_type === 'h2h').map((o: OddsMarket, i: number) => {
+                                const homeName = fixture.home_team?.name?.toLowerCase() || ''
+                                const awayName = fixture.away_team?.name?.toLowerCase() || ''
+                                const homePrice = findOutcomeHelper(o.values, 'home', homeName, awayName)?.price || 0
+                                const drawPrice = findOutcomeHelper(o.values, 'draw', homeName, awayName)?.price || 0
+                                const awayPrice = findOutcomeHelper(o.values, 'away', homeName, awayName)?.price || 0
                                 return (
                                   <div key={i} className="grid grid-cols-4 gap-1 text-xs">
                                     <span className="text-muted-foreground truncate">{o.bookmaker}</span>
@@ -401,7 +425,7 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                           <div>
                             <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
                               <DollarSign className="w-4 h-4 text-green-500" />
-                              All Bookmakers ({odds.filter(o => o.bet_type === 'h2h').length})
+                              All Bookmakers ({(fixture.odds || []).filter((o: OddsMarket) => o.bet_type === 'h2h').length})
                             </h4>
                             {hasOdds ? (
                               <div className="space-y-1">
@@ -414,10 +438,12 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                                 </div>
                                 {/* Bookmaker rows */}
                                 <div className="max-h-[150px] overflow-y-auto space-y-1">
-                                  {odds.filter(o => o.bet_type === 'h2h').map((o, i) => {
-                                    const homePrice = findOutcome(o.values, 'home', homeTeamName, awayTeamName)?.price || 0
-                                    const drawPrice = findOutcome(o.values, 'draw', homeTeamName, awayTeamName)?.price || 0
-                                    const awayPrice = findOutcome(o.values, 'away', homeTeamName, awayTeamName)?.price || 0
+                                  {(fixture.odds || []).filter((o: OddsMarket) => o.bet_type === 'h2h').map((o: OddsMarket, i: number) => {
+                                    const homeName = fixture.home_team?.name?.toLowerCase() || ''
+                                    const awayName = fixture.away_team?.name?.toLowerCase() || ''
+                                    const homePrice = findOutcomeHelper(o.values, 'home', homeName, awayName)?.price || 0
+                                    const drawPrice = findOutcomeHelper(o.values, 'draw', homeName, awayName)?.price || 0
+                                    const awayPrice = findOutcomeHelper(o.values, 'away', homeName, awayName)?.price || 0
                                     return (
                                       <div key={i} className="grid grid-cols-4 gap-2 text-sm">
                                         <span className="text-muted-foreground truncate text-xs">{o.bookmaker}</span>
@@ -553,3 +579,6 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
     </div>
   )
 }
+
+// Wrap with React.memo to prevent unnecessary re-renders
+export const PredictionTable = memo(PredictionTableComponent)

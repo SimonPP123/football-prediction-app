@@ -4,7 +4,72 @@ All notable changes to the Football Prediction System are documented here.
 
 ---
 
-## [January 2026] - Security & Performance Audit
+## [January 2, 2026] - Bug Fixes & Documentation Update
+
+### Bug Fixes
+
+#### Injury Display Fix
+- **Issue**: Injuries weren't displaying correctly in team squad section
+- **Root Cause**: Name matching failed due to inconsistent API-Football formats (e.g., "B. Fernandes" vs "Bruno Fernandes")
+- **Fix**: Updated `squad-table.tsx` to match injuries by `player_id` and `player_api_id` instead of names
+- **File Changed**: `components/teams/squad-table.tsx`
+
+#### Fixtures Limit Fix
+- **Issue**: Only 20 upcoming fixtures showed on predictions page instead of all 190
+- **Root Cause**: `parseLimit()` used default of 20 when `undefined` passed as default value
+- **Fix**: Changed `parseLimit()` to properly handle `undefined` default values
+- **Files Changed**: `lib/validation.ts`, `app/api/automation/logs/route.ts`
+
+### Documentation Updates
+- Removed hardcoded API key from `docs/n8n_workflow_sync.md` (security)
+- Added `reported_date` and `player_api_id` fields to injuries table in `docs/DATABASE.md`
+- Consolidated FOOTBALL_API documentation (removed redundant v1 file, renamed v2 to `FOOTBALL_API_REFERENCE.md`)
+- Added note about player_id matching for injuries in DATABASE.md
+
+---
+
+## [January 2026] - Comprehensive Audit (Phase 2)
+
+### Security Fixes
+- **Fixed timing-safe comparison bug**: Corrected logic error in `middleware.ts:20` where comparison was comparing `a` with itself instead of doing meaningful constant-time work
+
+### Performance Improvements - Backend
+
+#### Batch Upserts (N+1 Query Elimination)
+| Route | Before | After | Improvement |
+|-------|--------|-------|-------------|
+| `fixtures/route.ts` | 760 DB calls (380 fixtures × 2) | 2 DB calls | ~99.7% reduction |
+| `teams/route.ts` | 80+ DB calls (20 teams × 4) | 4 DB calls | ~95% reduction |
+| `injuries/route.ts` | 50+ DB calls | 1 DB call | ~98% reduction |
+
+### Performance Improvements - Frontend
+
+#### React Memoization
+| Component | Changes |
+|-----------|---------|
+| `PredictionCard` | Added `useMemo` for prediction sorting, odds calculations; wrapped in `React.memo` |
+| `PredictionTable` | Moved helper functions outside component; memoized processed fixtures; wrapped in `React.memo` |
+| `LiveMatchesSection` | Added data comparison before state updates; used ref for callback; wrapped in `React.memo` |
+
+### Code Quality
+- **New utility**: Created `lib/error-utils.ts` with `getErrorMessage()`, `createErrorResponse()` for consistent error handling
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `middleware.ts` | Fixed timing-safe comparison bug |
+| `app/api/data/refresh/fixtures/route.ts` | Batch upsert (both streaming and batch handlers) |
+| `app/api/data/refresh/teams/route.ts` | Batch upsert for venues and teams |
+| `app/api/data/refresh/injuries/route.ts` | Batch upsert |
+| `components/predictions/prediction-card.tsx` | Added memoization, wrapped in React.memo |
+| `components/predictions/prediction-table.tsx` | Added memoization, wrapped in React.memo |
+| `components/dashboard/live-matches-section.tsx` | Fixed polling, added data comparison |
+| `lib/error-utils.ts` | NEW - Error handling utilities |
+
+---
+
+## [January 2026] - Security & Performance Audit (Phase 1)
 
 ### Security Improvements
 

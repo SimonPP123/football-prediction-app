@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, Target, Star, AlertCircle, DollarSign, Trash2, BookOpen, Newspaper, BarChart3, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,7 +25,7 @@ interface PredictionCardProps {
   isLive?: boolean  // Show live score instead of predicted score
 }
 
-export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, error, onClearError, isLive }: PredictionCardProps) {
+function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, error, onClearError, isLive }: PredictionCardProps) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -41,38 +41,44 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
 
   // Handle both array and object formats from Supabase
   // Sort by updated_at DESC to ensure we always show the most recent prediction
-  const prediction = Array.isArray(fixture.prediction)
-    ? fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
-        new Date(b.updated_at || b.created_at || 0).getTime() -
-        new Date(a.updated_at || a.created_at || 0).getTime()
-      )[0]
-    : fixture.prediction
+  // Memoize to avoid re-sorting on every render
+  const prediction = useMemo(() => {
+    if (!Array.isArray(fixture.prediction)) return fixture.prediction
+    return fixture.prediction.slice().sort((a: Prediction, b: Prediction) =>
+      new Date(b.updated_at || b.created_at || 0).getTime() -
+      new Date(a.updated_at || a.created_at || 0).getTime()
+    )[0]
+  }, [fixture.prediction])
   const hasPrediction = !!prediction
 
   // Get score predictions from prediction data - sort by probability descending and exclude "other"
-  const scorePredictons: ScorePrediction[] = (prediction?.score_predictions || [])
-    .slice() // Create a copy to avoid mutating original
-    .filter((sp: ScorePrediction) => sp.score?.toLowerCase() !== 'other')
-    .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
+  const scorePredictons: ScorePrediction[] = useMemo(() => {
+    return (prediction?.score_predictions || [])
+      .slice() // Create a copy to avoid mutating original
+      .filter((sp: ScorePrediction) => sp.score?.toLowerCase() !== 'other')
+      .sort((a: ScorePrediction, b: ScorePrediction) => (b.probability || 0) - (a.probability || 0))
+  }, [prediction?.score_predictions])
 
   // Most likely score is the one with highest probability
   const mostLikelyScore = scorePredictons.length > 0
     ? scorePredictons[0].score
     : (prediction?.most_likely_score || null)
 
-  // Get odds from fixture
+  // Get odds from fixture - memoize filtered arrays
   const odds: OddsMarket[] = fixture.odds || []
-  const h2hOdds = odds.filter(o => o.bet_type === 'h2h')
-  const totalOdds = odds.filter(o => o.bet_type === 'totals')
-  const spreadOdds = odds.filter(o => o.bet_type === 'spreads')
-  const hasOdds = odds.length > 0
+  const { h2hOdds, totalOdds, spreadOdds, hasOdds } = useMemo(() => ({
+    h2hOdds: odds.filter(o => o.bet_type === 'h2h'),
+    totalOdds: odds.filter(o => o.bet_type === 'totals'),
+    spreadOdds: odds.filter(o => o.bet_type === 'spreads'),
+    hasOdds: odds.length > 0
+  }), [odds])
 
   // Get team names for odds matching
   const homeTeamName = fixture.home_team?.name?.toLowerCase() || ''
   const awayTeamName = fixture.away_team?.name?.toLowerCase() || ''
 
-  // Find outcome by type (home team, draw, or away team)
-  const findOutcome = (values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away'): OddsOutcome | undefined => {
+  // Find outcome by type (home team, draw, or away team) - memoized callback
+  const findOutcome = useCallback((values: OddsOutcome[] | undefined, type: 'home' | 'draw' | 'away'): OddsOutcome | undefined => {
     if (!values) return undefined
     if (type === 'draw') {
       return values.find(v => v.name?.toLowerCase() === 'draw')
@@ -92,27 +98,30 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
       if (name === 'draw') return false
       return name.includes(awayTeamName.split(' ')[0]) || awayTeamName.includes(name.split(' ')[0])
     }) || values.find(v => v.name?.toLowerCase() !== 'draw' && !v.name?.toLowerCase().includes(homeTeamName.split(' ')[0]))
-  }
+  }, [homeTeamName, awayTeamName])
 
-  // Calculate best odds by outcome type
-  const getBestOdds = (oddsArr: OddsMarket[], type: 'home' | 'draw' | 'away') => {
-    let best = { price: 0, bookmaker: '' }
-    oddsArr.forEach(o => {
-      const val = findOutcome(o.values, type)
-      if (val && val.price > best.price) {
-        best = { price: val.price, bookmaker: o.bookmaker }
-      }
-    })
-    return best
-  }
+  // Calculate best odds by outcome type - memoized
+  const { bestHome, bestDraw, bestAway } = useMemo(() => {
+    const getBestOdds = (oddsArr: OddsMarket[], type: 'home' | 'draw' | 'away') => {
+      let best = { price: 0, bookmaker: '' }
+      oddsArr.forEach(o => {
+        const val = findOutcome(o.values, type)
+        if (val && val.price > best.price) {
+          best = { price: val.price, bookmaker: o.bookmaker }
+        }
+      })
+      return best
+    }
 
-  // Get best h2h odds
-  const bestHome = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'home') : { price: 0, bookmaker: '' }
-  const bestDraw = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'draw') : { price: 0, bookmaker: '' }
-  const bestAway = h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'away') : { price: 0, bookmaker: '' }
+    return {
+      bestHome: h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'home') : { price: 0, bookmaker: '' },
+      bestDraw: h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'draw') : { price: 0, bookmaker: '' },
+      bestAway: h2hOdds.length > 0 ? getBestOdds(h2hOdds, 'away') : { price: 0, bookmaker: '' }
+    }
+  }, [h2hOdds, findOutcome])
 
   // Format relative time for odds update
-  const formatRelativeTime = (dateStr: string) => {
+  const formatRelativeTime = useCallback((dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
     const diff = now.getTime() - date.getTime()
@@ -120,7 +129,7 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     if (hours < 1) return 'Just now'
     if (hours < 24) return `${hours}h ago`
     return `${Math.floor(hours / 24)}d ago`
-  }
+  }, [])
 
   // Fetch prediction history
   const fetchHistory = async () => {
@@ -1095,3 +1104,6 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
     </div>
   )
 }
+
+// Wrap with React.memo to prevent unnecessary re-renders
+export const PredictionCard = memo(PredictionCardComponent)

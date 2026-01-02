@@ -8,7 +8,7 @@
   4. Configure:
     - Name: Football API Key
     - Header Name: X-API-Key
-    - Header Value: a16aa462d591879ea5e9669c5550ff8f921c8498223205739ef2ac1d585e6726
+    - Header Value: <YOUR_ADMIN_API_KEY from .env.local>
   5. Click Save
 
   2. Import the Workflows

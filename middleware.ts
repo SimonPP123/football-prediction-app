@@ -14,10 +14,11 @@ interface AuthData {
  */
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) {
-    // Compare against self to maintain constant time even when lengths differ
-    let mismatch = 0
+    // Do constant-time work proportional to input length to prevent timing leaks
+    // Compare against 0 to ensure XOR produces meaningful work
+    let mismatch = 1 // Start with mismatch since lengths differ
     for (let i = 0; i < a.length; i++) {
-      mismatch |= a.charCodeAt(i) ^ a.charCodeAt(i)
+      mismatch |= a.charCodeAt(i) ^ 0
     }
     return false
   }

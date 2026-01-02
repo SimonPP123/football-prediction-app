@@ -107,88 +107,112 @@ async function handleStreamingRefresh(league: LeagueConfig) {
 
       sendLog({ type: 'info', message: `Received ${data.response.length} teams from API` })
 
-      let teamsInserted = 0
-      let teamsUpdated = 0
+      const total = data.response.length
+      let errors = 0
+
+      // STEP 1: Collect and batch upsert all venues
+      sendLog({ type: 'info', message: 'Processing venues...' })
+
+      // Collect unique venues
+      const venueMap = new Map<number, any>() // api_id -> venue data
+      for (const item of data.response) {
+        const venue = item.venue
+        if (venue && venue.id && !venueMap.has(venue.id)) {
+          const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
+          venueMap.set(venue.id, {
+            api_id: venue.id,
+            name: venue.name,
+            city: venue.city,
+            country: league.country,
+            capacity: venue.capacity,
+            surface: venue.surface,
+            lat: coords.lat,
+            lng: coords.lng,
+          })
+        }
+      }
+
+      // Get existing venue api_ids
+      const venueApiIds = Array.from(venueMap.keys())
+      const { data: existingVenues } = await supabase
+        .from('venues')
+        .select('api_id')
+        .in('api_id', venueApiIds)
+      const existingVenueApiIds = new Set(existingVenues?.map(v => v.api_id) || [])
+
+      // Batch upsert venues and get IDs back
+      const venuesToUpsert = Array.from(venueMap.values())
       let venuesInserted = 0
       let venuesUpdated = 0
-      let errors = 0
-      const total = data.response.length
+      const venueIdMap = new Map<number, string>() // api_id -> db id
 
-      for (let i = 0; i < data.response.length; i++) {
-        const item = data.response[i]
-        const team = item.team
-        const venue = item.venue
+      if (venuesToUpsert.length > 0) {
+        const { data: upsertedVenues, error: venueError } = await supabase
+          .from('venues')
+          .upsert(venuesToUpsert, { onConflict: 'api_id' })
+          .select('id, api_id')
 
-        sendLog({
-          type: 'progress',
-          message: `Processing: ${team.name}`,
-          details: { recordId: String(team.id), recordName: team.name, progress: { current: i + 1, total } }
-        })
-
-        let venueId = null
-        if (venue && venue.id) {
-          // Check if venue exists
-          const { data: existingVenue } = await supabase
-            .from('venues')
-            .select('id')
-            .eq('api_id', venue.id)
-            .single()
-
-          const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
-          const { data: venueData, error: venueError } = await supabase
-            .from('venues')
-            .upsert({
-              api_id: venue.id,
-              name: venue.name,
-              city: venue.city,
-              country: league.country,
-              capacity: venue.capacity,
-              surface: venue.surface,
-              lat: coords.lat,
-              lng: coords.lng,
-            }, { onConflict: 'api_id' })
-            .select('id')
-            .single()
-
-          if (venueError) {
-            sendLog({ type: 'warning', message: `Venue error for ${venue.name}: ${venueError.message}` })
-          } else if (venueData) {
-            venueId = venueData.id
-            if (existingVenue) {
+        if (venueError) {
+          sendLog({ type: 'warning', message: `Venue batch error: ${venueError.message}` })
+        } else if (upsertedVenues) {
+          for (const v of upsertedVenues) {
+            venueIdMap.set(v.api_id, v.id)
+            if (existingVenueApiIds.has(v.api_id)) {
               venuesUpdated++
             } else {
               venuesInserted++
             }
           }
         }
+      }
 
-        // Check if team exists for this league
-        const { data: existingTeam } = await supabase
-          .from('teams')
-          .select('id')
-          .eq('api_id', team.id)
-          .eq('league_id', league.id)
-          .single()
+      // STEP 2: Collect and batch upsert all teams
+      sendLog({ type: 'info', message: 'Processing teams...' })
 
+      // Get existing team api_ids for this league
+      const teamApiIds = data.response.map((item: any) => item.team.id)
+      const { data: existingTeams } = await supabase
+        .from('teams')
+        .select('api_id')
+        .eq('league_id', league.id)
+        .in('api_id', teamApiIds)
+      const existingTeamApiIds = new Set(existingTeams?.map(t => t.api_id) || [])
+
+      // Collect all teams for batch upsert
+      const teamsToUpsert = data.response.map((item: any) => {
+        const team = item.team
+        const venue = item.venue
+        return {
+          api_id: team.id,
+          league_id: league.id,
+          name: team.name,
+          code: team.code,
+          country: team.country,
+          logo: team.logo,
+          venue_id: venue?.id ? venueIdMap.get(venue.id) || null : null,
+        }
+      })
+
+      let teamsInserted = 0
+      let teamsUpdated = 0
+
+      if (teamsToUpsert.length > 0) {
+        sendLog({ type: 'info', message: `Batch upserting ${teamsToUpsert.length} teams...` })
         const { error: teamError } = await supabase
           .from('teams')
-          .upsert({
-            api_id: team.id,
-            league_id: league.id,
-            name: team.name,
-            code: team.code,
-            country: team.country,
-            logo: team.logo,
-            venue_id: venueId,
-          }, { onConflict: 'api_id,league_id' })
+          .upsert(teamsToUpsert, { onConflict: 'api_id,league_id' })
 
         if (teamError) {
-          sendLog({ type: 'error', message: `Error updating ${team.name}: ${teamError.message}` })
-          errors++
-        } else if (existingTeam) {
-          teamsUpdated++
+          sendLog({ type: 'error', message: `Team batch error: ${teamError.message}` })
+          errors = teamsToUpsert.length
         } else {
-          teamsInserted++
+          for (const t of teamsToUpsert) {
+            if (existingTeamApiIds.has(t.api_id)) {
+              teamsUpdated++
+            } else {
+              teamsInserted++
+            }
+          }
         }
       }
 
@@ -239,102 +263,113 @@ async function handleBatchRefresh(league: LeagueConfig) {
 
     addLog('info', `Received ${data.response.length} teams from API`)
 
-    let teamsInserted = 0
-    let teamsUpdated = 0
+    const total = data.response.length
+    let errors = 0
+
+    // STEP 1: Collect and batch upsert all venues
+    addLog('info', 'Processing venues...')
+
+    // Collect unique venues
+    const venueMap = new Map<number, any>() // api_id -> venue data
+    for (const item of data.response) {
+      const venue = item.venue
+      if (venue && venue.id && !venueMap.has(venue.id)) {
+        const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
+        venueMap.set(venue.id, {
+          api_id: venue.id,
+          name: venue.name,
+          city: venue.city,
+          country: league.country,
+          capacity: venue.capacity,
+          surface: venue.surface,
+          lat: coords.lat,
+          lng: coords.lng,
+        })
+      }
+    }
+
+    // Get existing venue api_ids
+    const venueApiIds = Array.from(venueMap.keys())
+    const { data: existingVenues } = await supabase
+      .from('venues')
+      .select('api_id')
+      .in('api_id', venueApiIds)
+    const existingVenueApiIds = new Set(existingVenues?.map(v => v.api_id) || [])
+
+    // Batch upsert venues and get IDs back
+    const venuesToUpsert = Array.from(venueMap.values())
     let venuesInserted = 0
     let venuesUpdated = 0
-    let errors = 0
-    const total = data.response.length
+    const venueIdMap = new Map<number, string>() // api_id -> db id
 
-    for (let i = 0; i < data.response.length; i++) {
-      const item = data.response[i]
-      const team = item.team
-      const venue = item.venue
+    if (venuesToUpsert.length > 0) {
+      addLog('info', `Batch upserting ${venuesToUpsert.length} venues...`)
+      const { data: upsertedVenues, error: venueError } = await supabase
+        .from('venues')
+        .upsert(venuesToUpsert, { onConflict: 'api_id' })
+        .select('id, api_id')
 
-      addLog('progress', `Processing: ${team.name}`, {
-        recordId: String(team.id),
-        recordName: team.name,
-        progress: { current: i + 1, total },
-      })
-
-      // Upsert venue first
-      let venueId = null
-      if (venue && venue.id) {
-        // Check if venue exists
-        const { data: existingVenue } = await supabase
-          .from('venues')
-          .select('id')
-          .eq('api_id', venue.id)
-          .single()
-
-        const coords = VENUE_COORDINATES[venue.name] || { lat: null, lng: null }
-        const { data: venueData, error: venueError } = await supabase
-          .from('venues')
-          .upsert({
-            api_id: venue.id,
-            name: venue.name,
-            city: venue.city,
-            country: league.country,
-            capacity: venue.capacity,
-            surface: venue.surface,
-            lat: coords.lat,
-            lng: coords.lng,
-          }, { onConflict: 'api_id' })
-          .select('id')
-          .single()
-
-        if (venueError) {
-          addLog('warning', `Venue error for ${venue.name}: ${venueError.message}`)
-        } else if (venueData) {
-          venueId = venueData.id
-          if (existingVenue) {
+      if (venueError) {
+        addLog('warning', `Venue batch error: ${venueError.message}`)
+      } else if (upsertedVenues) {
+        for (const v of upsertedVenues) {
+          venueIdMap.set(v.api_id, v.id)
+          if (existingVenueApiIds.has(v.api_id)) {
             venuesUpdated++
           } else {
             venuesInserted++
           }
         }
       }
+    }
 
-      // Check if team exists for this league
-      const { data: existingTeam } = await supabase
-        .from('teams')
-        .select('id')
-        .eq('api_id', team.id)
-        .eq('league_id', league.id)
-        .single()
+    // STEP 2: Collect and batch upsert all teams
+    addLog('info', 'Processing teams...')
 
-      // Upsert team with league_id
+    // Get existing team api_ids for this league
+    const teamApiIds = data.response.map((item: any) => item.team.id)
+    const { data: existingTeams } = await supabase
+      .from('teams')
+      .select('api_id')
+      .eq('league_id', league.id)
+      .in('api_id', teamApiIds)
+    const existingTeamApiIds = new Set(existingTeams?.map(t => t.api_id) || [])
+
+    // Collect all teams for batch upsert
+    const teamsToUpsert = data.response.map((item: any) => {
+      const team = item.team
+      const venue = item.venue
+      return {
+        api_id: team.id,
+        league_id: league.id,
+        name: team.name,
+        code: team.code,
+        country: team.country,
+        logo: team.logo,
+        venue_id: venue?.id ? venueIdMap.get(venue.id) || null : null,
+      }
+    })
+
+    let teamsInserted = 0
+    let teamsUpdated = 0
+
+    if (teamsToUpsert.length > 0) {
+      addLog('info', `Batch upserting ${teamsToUpsert.length} teams...`)
       const { error: teamError } = await supabase
         .from('teams')
-        .upsert({
-          api_id: team.id,
-          league_id: league.id,
-          name: team.name,
-          code: team.code,
-          country: team.country,
-          logo: team.logo,
-          venue_id: venueId,
-        }, { onConflict: 'api_id,league_id' })
+        .upsert(teamsToUpsert, { onConflict: 'api_id,league_id' })
 
       if (teamError) {
-        addLog('error', `Error updating ${team.name}: ${teamError.message}`, {
-          recordId: String(team.id),
-          recordName: team.name,
-          error: teamError.message,
-        })
-        errors++
-      } else if (existingTeam) {
-        addLog('success', `Updated: ${team.name}`, {
-          recordId: String(team.id),
-          recordName: team.name,
-        })
-        teamsUpdated++
+        addLog('error', `Team batch error: ${teamError.message}`)
+        errors = teamsToUpsert.length
       } else {
-        addLog('success', `Added: ${team.name}`, {
-          recordId: String(team.id),
-          recordName: team.name,
-        })
-        teamsInserted++
+        for (const t of teamsToUpsert) {
+          if (existingTeamApiIds.has(t.api_id)) {
+            teamsUpdated++
+          } else {
+            teamsInserted++
+          }
+        }
       }
     }
 
