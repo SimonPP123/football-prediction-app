@@ -243,24 +243,41 @@ export function PostMatchAnalysis({
             </MetricBox>
           )}
 
-          {/* Post-Match Score */}
+          {/* Score Index (Factor Points) */}
+          {prediction?.overall_index && (
+            <MetricBox label="Score Index" tooltip="Weighted factor score (1-100). >50 favors home, <50 favors away, 50 is neutral.">
+              <span className={cn(
+                "text-lg font-bold",
+                (prediction.overall_index || 50) > 55 ? "text-home" :
+                (prediction.overall_index || 50) < 45 ? "text-away" : "text-draw"
+              )}>
+                {prediction.overall_index}
+              </span>
+            </MetricBox>
+          )}
+
+          {/* Pre-Match Confidence */}
+          {(prediction?.certainty_score || prediction?.confidence_pct) && (
+            <MetricBox label="Confidence" tooltip={METRIC_TOOLTIPS.preMatch}>
+              <span className={cn(
+                "text-lg font-bold",
+                (prediction?.certainty_score || prediction?.confidence_pct || 0) >= 70 ? "text-green-500" :
+                (prediction?.certainty_score || prediction?.confidence_pct || 0) >= 50 ? "text-yellow-500" : "text-muted-foreground"
+              )}>
+                {prediction?.certainty_score || prediction?.confidence_pct}%
+              </span>
+            </MetricBox>
+          )}
+
+          {/* Post-Match Accuracy */}
           {analysis?.accuracy_score !== undefined && (
-            <MetricBox label="Post-Match" tooltip={METRIC_TOOLTIPS.postMatch}>
+            <MetricBox label="Accuracy" tooltip={METRIC_TOOLTIPS.postMatch}>
               <span className={cn(
                 "text-lg font-bold",
                 (analysis.accuracy_score || 0) >= 70 ? "text-green-500" :
                 (analysis.accuracy_score || 0) >= 50 ? "text-yellow-500" : "text-red-500"
               )}>
                 {Math.round(analysis.accuracy_score)}%
-              </span>
-            </MetricBox>
-          )}
-
-          {/* Original Confidence */}
-          {(analysis?.confidence_pct || prediction?.certainty_score || prediction?.confidence_pct) && (
-            <MetricBox label="Pre-Match" tooltip={METRIC_TOOLTIPS.preMatch}>
-              <span className="text-lg font-medium">
-                {analysis?.confidence_pct || prediction?.certainty_score || prediction?.confidence_pct}%
               </span>
             </MetricBox>
           )}
@@ -284,10 +301,23 @@ export function PostMatchAnalysis({
                   <span className="font-medium">{predictedScore}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Confidence:</span>
-                <span className="font-medium">{prediction?.overall_index || prediction?.certainty_score || '-'}%</span>
-              </div>
+              {prediction?.overall_index && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Score Index:</span>
+                  <span className={cn(
+                    "font-medium",
+                    prediction.overall_index > 55 ? "text-home" : prediction.overall_index < 45 ? "text-away" : ""
+                  )}>
+                    {prediction.overall_index}
+                  </span>
+                </div>
+              )}
+              {(prediction?.certainty_score || prediction?.confidence_pct) && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Confidence:</span>
+                  <span className="font-medium">{prediction?.certainty_score || prediction?.confidence_pct}%</span>
+                </div>
+              )}
               {predictedOverUnder && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">O/U 2.5:</span>

@@ -38,13 +38,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  // Get league_id from query params for multi-league support
+  const { searchParams } = new URL(request.url)
+  const leagueIdParam = searchParams.get('league_id')
+
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
+    return handleStreamingRefresh(leagueIdParam)
   }
-  return handleBatchRefresh()
+  return handleBatchRefresh(leagueIdParam)
 }
 
-async function handleStreamingRefresh() {
+async function handleStreamingRefresh(leagueIdParam: string | null) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
@@ -52,17 +56,33 @@ async function handleStreamingRefresh() {
     try {
       sendLog({ type: 'info', message: 'Starting top performers refresh...' })
 
-      const { data: leagueData } = await supabase
-        .from('leagues')
-        .select('id')
-        .eq('api_id', LEAGUE_ID)
-        .single()
+      // Look up league - by UUID if provided, otherwise by default LEAGUE_ID
+      let leagueData: { id: string; api_id: number; current_season: number } | null = null
+      if (leagueIdParam) {
+        const { data } = await supabase
+          .from('leagues')
+          .select('id, api_id, current_season')
+          .eq('id', leagueIdParam)
+          .single()
+        leagueData = data
+      } else {
+        const { data } = await supabase
+          .from('leagues')
+          .select('id, api_id, current_season')
+          .eq('api_id', LEAGUE_ID)
+          .single()
+        leagueData = data
+      }
 
       if (!leagueData) {
         sendLog({ type: 'error', message: 'League not found in database' })
         closeWithError('League not found in database', Date.now() - startTime)
         return
       }
+
+      const leagueApiId = leagueData.api_id
+      const leagueSeason = leagueData.current_season || SEASON
+      sendLog({ type: 'info', message: `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}` })
 
       const { data: teams } = await supabase.from('teams').select('id, api_id')
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
@@ -74,10 +94,10 @@ async function handleStreamingRefresh() {
       let errors = 0
 
       const categories = [
-        { name: 'goals', fetch: fetchTopScorers },
-        { name: 'assists', fetch: fetchTopAssists },
-        { name: 'yellow_cards', fetch: fetchTopYellowCards },
-        { name: 'red_cards', fetch: fetchTopRedCards },
+        { name: 'goals', fetch: () => fetchTopScorers(leagueApiId, leagueSeason) },
+        { name: 'assists', fetch: () => fetchTopAssists(leagueApiId, leagueSeason) },
+        { name: 'yellow_cards', fetch: () => fetchTopYellowCards(leagueApiId, leagueSeason) },
+        { name: 'red_cards', fetch: () => fetchTopRedCards(leagueApiId, leagueSeason) },
       ]
 
       for (let c = 0; c < categories.length; c++) {
@@ -117,7 +137,7 @@ async function handleStreamingRefresh() {
               .from('top_performers')
               .upsert({
                 league_id: leagueData.id,
-                season: SEASON,
+                season: leagueSeason,
                 category: category.name,
                 rank: i + 1,
                 player_api_id: player.id,
@@ -160,7 +180,7 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(leagueIdParam: string | null) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -176,12 +196,23 @@ async function handleBatchRefresh() {
   try {
     addLog('info', 'Starting top performers refresh...')
 
-    // Get league UUID
-    const { data: leagueData } = await supabase
-      .from('leagues')
-      .select('id')
-      .eq('api_id', LEAGUE_ID)
-      .single()
+    // Look up league - by UUID if provided, otherwise by default LEAGUE_ID
+    let leagueData: { id: string; api_id: number; current_season: number } | null = null
+    if (leagueIdParam) {
+      const { data } = await supabase
+        .from('leagues')
+        .select('id, api_id, current_season')
+        .eq('id', leagueIdParam)
+        .single()
+      leagueData = data
+    } else {
+      const { data } = await supabase
+        .from('leagues')
+        .select('id, api_id, current_season')
+        .eq('api_id', LEAGUE_ID)
+        .single()
+      leagueData = data
+    }
 
     if (!leagueData) {
       addLog('error', 'League not found in database')
@@ -191,6 +222,10 @@ async function handleBatchRefresh() {
         logs,
       }, { status: 400 })
     }
+
+    const leagueApiId = leagueData.api_id
+    const leagueSeason = leagueData.current_season || SEASON
+    addLog('info', `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}`)
 
     // Build team lookup
     const { data: teams } = await supabase.from('teams').select('id, api_id')
@@ -205,10 +240,10 @@ async function handleBatchRefresh() {
 
     // Fetch each category
     const categories = [
-      { name: 'goals', fetch: fetchTopScorers, endpoint: ENDPOINTS.topScorers.url },
-      { name: 'assists', fetch: fetchTopAssists, endpoint: ENDPOINTS.topAssists.url },
-      { name: 'yellow_cards', fetch: fetchTopYellowCards, endpoint: ENDPOINTS.topYellowCards.url },
-      { name: 'red_cards', fetch: fetchTopRedCards, endpoint: ENDPOINTS.topRedCards.url },
+      { name: 'goals', fetch: () => fetchTopScorers(leagueApiId, leagueSeason), endpoint: ENDPOINTS.topScorers.url },
+      { name: 'assists', fetch: () => fetchTopAssists(leagueApiId, leagueSeason), endpoint: ENDPOINTS.topAssists.url },
+      { name: 'yellow_cards', fetch: () => fetchTopYellowCards(leagueApiId, leagueSeason), endpoint: ENDPOINTS.topYellowCards.url },
+      { name: 'red_cards', fetch: () => fetchTopRedCards(leagueApiId, leagueSeason), endpoint: ENDPOINTS.topRedCards.url },
     ]
 
     for (const category of categories) {
@@ -246,7 +281,7 @@ async function handleBatchRefresh() {
             .from('top_performers')
             .upsert({
               league_id: leagueData.id,
-              season: SEASON,
+              season: leagueSeason,
               category: category.name,
               rank: i + 1,
               player_api_id: player.id,

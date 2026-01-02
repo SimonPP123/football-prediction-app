@@ -126,7 +126,9 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
     }
   }
 
-  // Use certainty_score (AI's confidence) not overall_index (factor points)
+  // Overall Index = weighted factor score (1-100, 50 is neutral)
+  const overallIndex = prediction?.overall_index || 0
+  // Confidence = AI's certainty in the prediction (0-100%)
   const confidence = prediction?.certainty_score || prediction?.confidence_pct || 0
 
   // Odds handling (same as PredictionCard)
@@ -270,9 +272,6 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                 )}>
                   {predictedResult || '?'}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  ({confidence}%)
-                </span>
               </div>
               <div className="flex items-center gap-2">
                 {wasCorrect ? (
@@ -288,6 +287,40 @@ export function RecentResultCard({ fixture }: RecentResultCardProps) {
                 </span>
               </div>
             </div>
+
+            {/* Score Index & Confidence */}
+            {(overallIndex > 0 || confidence > 0) && (
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                {overallIndex > 0 && (
+                  <div className="p-2 bg-muted/50 rounded">
+                    <p className="text-muted-foreground mb-0.5">Score Index</p>
+                    <p className={cn(
+                      "font-bold text-lg",
+                      overallIndex > 55 ? "text-home" : overallIndex < 45 ? "text-away" : "text-draw"
+                    )}>
+                      {overallIndex}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {overallIndex > 55 ? 'Favors Home' : overallIndex < 45 ? 'Favors Away' : 'Balanced'}
+                    </p>
+                  </div>
+                )}
+                {confidence > 0 && (
+                  <div className="p-2 bg-muted/50 rounded">
+                    <p className="text-muted-foreground mb-0.5">Confidence</p>
+                    <p className={cn(
+                      "font-bold text-lg",
+                      confidence >= 70 ? "text-green-500" : confidence >= 50 ? "text-yellow-500" : "text-muted-foreground"
+                    )}>
+                      {confidence}%
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {confidence >= 70 ? 'High' : confidence >= 50 ? 'Medium' : 'Low'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Probability Bars */}
             {prediction.factors && (
