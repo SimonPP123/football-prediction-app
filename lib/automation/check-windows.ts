@@ -5,13 +5,14 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Timing windows configuration (in minutes unless noted)
+// Timing windows configuration (in minutes)
+// Windows are 5 min wide to match cron interval - each fixture triggers exactly once
 export const TIMING_WINDOWS = {
-  PRE_MATCH: { minBefore: 25, maxBefore: 35 },    // 30 min ± 5 min before kickoff
-  PREDICTION: { minBefore: 20, maxBefore: 30 },   // 25 min ± 5 min before kickoff
+  PRE_MATCH: { minBefore: 28, maxBefore: 33 },    // 30 min before kickoff (5 min window)
+  PREDICTION: { minBefore: 23, maxBefore: 28 },   // 25 min before kickoff (5 min window)
   LIVE: { statuses: ['1H', '2H', 'HT', 'ET', 'BT', 'P'] },
-  POST_MATCH: { minAfter: 350, maxAfter: 370 },   // 6h ± 10 min after FT (in minutes)
-  ANALYSIS: { minAfter: 365, maxAfter: 385 }      // 6h15m ± 10 min after FT (in minutes)
+  POST_MATCH: { minAfter: 358, maxAfter: 363 },   // 6h after FT (5 min window)
+  ANALYSIS: { minAfter: 373, maxAfter: 378 }      // 6h 15min after FT (5 min window)
 } as const
 
 export type TriggerType = 'pre-match' | 'prediction' | 'live' | 'post-match' | 'analysis'
