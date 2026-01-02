@@ -6,6 +6,7 @@ import { ChevronDown, ChevronUp, TrendingUp, AlertTriangle, RefreshCw, History, 
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
+import remarkGfm from 'remark-gfm'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 import { LiveStats } from '../matches/live-stats'
@@ -480,8 +481,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                   )} />
                 </button>
                 {showHomeNews && (
-                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
+                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1 prose-table:text-xs prose-table:w-full prose-th:px-2 prose-th:py-1 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-border">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -502,8 +503,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                   )} />
                 </button>
                 {showAwayNews && (
-                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
+                  <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-xs prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1 prose-table:text-xs prose-table:w-full prose-th:px-2 prose-th:py-1 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-border">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
                   </div>
                 )}
               </div>
@@ -1051,8 +1052,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                                 <Home className="w-3 h-3 text-home" />
                                 {fixture.home_team?.name || 'Home'}
                               </div>
-                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
-                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{h.home_team_news}</ReactMarkdown>
+                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5 prose-table:text-[10px] prose-table:w-full prose-th:px-1 prose-th:py-0.5 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-1 prose-td:py-0.5 prose-td:border-t prose-td:border-border">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{h.home_team_news}</ReactMarkdown>
                               </div>
                             </div>
                           )}
@@ -1062,8 +1063,8 @@ export function PredictionCard({ fixture, onGeneratePrediction, isGenerating, er
                                 <Plane className="w-3 h-3 text-away" />
                                 {fixture.away_team?.name || 'Away'}
                               </div>
-                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5">
-                                <ReactMarkdown rehypePlugins={[rehypeSanitize]}>{h.away_team_news}</ReactMarkdown>
+                              <div className="prose prose-sm dark:prose-invert max-w-none prose-p:text-xs prose-p:text-muted-foreground prose-p:my-0.5 prose-ul:text-xs prose-ul:my-0.5 prose-li:my-0 prose-strong:text-foreground prose-headings:text-xs prose-headings:font-medium prose-headings:my-0.5 prose-table:text-[10px] prose-table:w-full prose-th:px-1 prose-th:py-0.5 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-1 prose-td:py-0.5 prose-td:border-t prose-td:border-border">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{h.away_team_news}</ReactMarkdown>
                               </div>
                             </div>
                           )}

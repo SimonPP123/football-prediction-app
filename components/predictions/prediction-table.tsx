@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, TrendingUp, AlertCircle, RefreshCw, DollarSign, BarChart3, Newspaper, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
+import rehypeSanitize from 'rehype-sanitize'
+import remarkGfm from 'remark-gfm'
 import type { OddsMarket, OddsOutcome, Prediction } from '@/types'
 import { FactorBreakdown } from './factor-breakdown'
 
@@ -498,8 +500,8 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                                       )} />
                                     </button>
                                     {expandedHomeNews[fixture.id] && (
-                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                                        <ReactMarkdown>{prediction.home_team_news}</ReactMarkdown>
+                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1 prose-table:text-xs prose-table:w-full prose-th:px-2 prose-th:py-1 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-border">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{prediction.home_team_news}</ReactMarkdown>
                                       </div>
                                     )}
                                   </div>
@@ -519,8 +521,8 @@ export function PredictionTable({ fixtures, onGeneratePrediction, generatingIds 
                                       )} />
                                     </button>
                                     {expandedAwayNews[fixture.id] && (
-                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1">
-                                        <ReactMarkdown>{prediction.away_team_news}</ReactMarkdown>
+                                      <div className="mt-1 p-3 bg-muted/30 rounded-lg prose prose-sm dark:prose-invert max-w-none prose-p:text-sm prose-p:text-muted-foreground prose-p:my-1 prose-ul:text-sm prose-ul:my-1 prose-li:my-0 prose-strong:text-foreground prose-headings:text-sm prose-headings:font-medium prose-headings:my-1 prose-table:text-xs prose-table:w-full prose-th:px-2 prose-th:py-1 prose-th:bg-muted prose-th:text-left prose-th:font-medium prose-td:px-2 prose-td:py-1 prose-td:border-t prose-td:border-border">
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{prediction.away_team_news}</ReactMarkdown>
                                       </div>
                                     )}
                                   </div>

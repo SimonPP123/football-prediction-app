@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Zap, Loader2, Check, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLeague } from '@/contexts/league-context'
@@ -96,6 +97,7 @@ interface RefreshResult {
 }
 
 export function DataRefreshModal({ isOpen, onClose }: DataRefreshModalProps) {
+  const router = useRouter()
   const { currentLeague } = useLeague()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [refreshingPhase, setRefreshingPhase] = useState<string | null>(null)
@@ -120,6 +122,11 @@ export function DataRefreshModal({ isOpen, onClose }: DataRefreshModalProps) {
       )
       const data = await res.json()
       setResult(data)
+
+      // Refresh the page data if the refresh was successful
+      if (data.success) {
+        router.refresh()
+      }
     } catch (err) {
       setResult({
         phase: phase.phase,
