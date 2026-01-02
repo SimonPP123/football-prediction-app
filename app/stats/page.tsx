@@ -785,7 +785,7 @@ export default function StatsPage() {
                                     {/* Home Team */}
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
                                       <span className="text-sm font-medium truncate">
-                                        {match.homeTeam?.short_name || match.homeTeam?.name || 'Home'}
+                                        {match.homeTeam?.code || match.homeTeam?.name || 'Home'}
                                       </span>
                                       {match.homeTeam?.logo && (
                                         <img src={match.homeTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
@@ -803,7 +803,7 @@ export default function StatsPage() {
                                         <img src={match.awayTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
                                       )}
                                       <span className="text-sm font-medium truncate">
-                                        {match.awayTeam?.short_name || match.awayTeam?.name || 'Away'}
+                                        {match.awayTeam?.code || match.awayTeam?.name || 'Away'}
                                       </span>
                                     </div>
                                   </div>

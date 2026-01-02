@@ -25,8 +25,8 @@ export async function GET(request: Request) {
           league_id,
           kickoff,
           status,
-          home_team:teams!fixtures_home_team_id_fkey(id, name, short_name, logo),
-          away_team:teams!fixtures_away_team_id_fkey(id, name, short_name, logo),
+          home_team:teams!fixtures_home_team_id_fkey(id, name, code, logo),
+          away_team:teams!fixtures_away_team_id_fkey(id, name, code, logo),
           home_score,
           away_score
         )
