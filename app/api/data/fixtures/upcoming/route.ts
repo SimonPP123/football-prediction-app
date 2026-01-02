@@ -24,7 +24,6 @@ export async function GET(request: Request) {
       .gte('match_date', new Date().toISOString())
       .eq('status', 'NS')
       .order('match_date', { ascending: true })
-      .limit(20)
 
     // Filter by league if available
     if (league?.id) {
