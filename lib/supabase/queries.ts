@@ -464,7 +464,7 @@ export async function getPredictionHistory(fixtureId: string) {
 }
 
 // Save prediction
-export async function savePrediction(fixtureId: string, prediction: any, modelUsed: string = 'openai/gpt-5.2') {
+export async function savePrediction(fixtureId: string, prediction: any, modelUsed: string = 'openai/gpt-5-mini') {
   // Use server client with service role key for UPSERT operations
   const serverSupabase = createServerClient()
 

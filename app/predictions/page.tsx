@@ -35,7 +35,7 @@ export default function PredictionsPage() {
   const [loading, setLoading] = useState(true)
   const [generatingIds, setGeneratingIds] = useState<string[]>([])
   const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK)
-  const [selectedModel, setSelectedModel] = useState('openai/gpt-5.2')
+  const [selectedModel, setSelectedModel] = useState('openai/gpt-5-mini')
   const [selectedRounds, setSelectedRounds] = useState<number[]>([])
   const [showRoundFilter, setShowRoundFilter] = useState(false)
   const [showModelDropdown, setShowModelDropdown] = useState(false)
@@ -848,7 +848,7 @@ export default function PredictionsPage() {
   "match_date": "2025-01-15T15:00:00Z",
   "venue": "Anfield",
   "round": "Regular Season - 21",
-  "model": "openai/gpt-5.2",
+  "model": "openai/gpt-5-mini",
   "custom_prompt": "You are an elite football analyst... (full prompt from Settings)",
   "memory_context": {
     "home_team_learnings": [
@@ -908,7 +908,7 @@ export default function PredictionsPage() {
                       </div>
                       <div className="flex gap-2">
                         <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">model</code>
-                        <span className="text-muted-foreground">AI model identifier (e.g., "openai/gpt-5.2")</span>
+                        <span className="text-muted-foreground">AI model identifier (e.g., "openai/gpt-5-mini")</span>
                       </div>
                       <div className="flex gap-2">
                         <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">custom_prompt</code>

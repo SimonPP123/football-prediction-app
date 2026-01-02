@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     // Default model if not provided
-    const selectedModel = model || 'openai/gpt-5.2'
+    const selectedModel = model || 'openai/gpt-5-mini'
 
     // Use only the default webhook URL (SSRF protection - no custom URLs allowed)
     const webhookUrl = DEFAULT_WEBHOOK_URL
