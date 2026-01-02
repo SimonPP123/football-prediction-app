@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { isAdmin } from '@/lib/auth'
-import { getAutomationConfig } from '@/lib/automation/check-windows'
+import { getAutomationConfig, updateAutomationConfig } from '@/lib/automation/check-windows'
 
 export const dynamic = 'force-dynamic'
 
@@ -135,4 +135,60 @@ export async function GET() {
       analysis_hours_after: config.analysis_hours_after
     }
   })
+}
+
+/**
+ * PATCH - Update automation config (enable/disable, trigger settings)
+ */
+export async function PATCH(request: Request) {
+  if (!isAdmin()) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+
+  try {
+    const body = await request.json()
+
+    // Validate allowed fields
+    const allowedFields = [
+      'is_enabled',
+      'pre_match_enabled',
+      'prediction_enabled',
+      'live_enabled',
+      'post_match_enabled',
+      'analysis_enabled',
+      'pre_match_minutes_before',
+      'prediction_minutes_before',
+      'post_match_hours_after',
+      'analysis_hours_after'
+    ]
+
+    const updates: Record<string, any> = {}
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updates[field] = body[field]
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    // Add updated_at timestamp
+    updates.updated_at = new Date().toISOString()
+
+    const result = await updateAutomationConfig(updates)
+
+    if (!result) {
+      return NextResponse.json({ error: 'Failed to update config' }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Automation config updated',
+      config: result
+    })
+  } catch (error) {
+    console.error('Failed to update automation config:', error)
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 }

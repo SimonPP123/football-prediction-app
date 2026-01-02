@@ -9,7 +9,8 @@ import {
   Power,
   AlertCircle,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react'
 
 interface TriggerStats {
@@ -58,6 +59,7 @@ export function AutomationStatusPanel({ className }: AutomationStatusPanelProps)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
+  const [toggling, setToggling] = useState(false)
 
   const fetchStatus = async () => {
     try {
@@ -92,6 +94,27 @@ export function AutomationStatusPanel({ className }: AutomationStatusPanelProps)
       console.error('Manual trigger failed:', err)
     } finally {
       setTriggering(false)
+    }
+  }
+
+  const handleToggleAutomation = async () => {
+    if (toggling || !status) return
+    setToggling(true)
+    try {
+      const res = await fetch('/api/automation/status', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_enabled: !status.isEnabled })
+      })
+      if (!res.ok) throw new Error('Toggle failed')
+      // Update local state optimistically
+      setStatus(prev => prev ? { ...prev, isEnabled: !prev.isEnabled } : null)
+    } catch (err) {
+      console.error('Toggle automation failed:', err)
+      // Refresh to get actual state
+      await fetchStatus()
+    } finally {
+      setToggling(false)
     }
   }
 
@@ -134,14 +157,36 @@ export function AutomationStatusPanel({ className }: AutomationStatusPanelProps)
           <h3 className="text-sm font-medium">Automation Status</h3>
         </div>
         <div className="flex items-center gap-3">
-          {/* Status indicator */}
-          <div className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs',
-            status.isEnabled ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
-          )}>
-            <Power className="w-3 h-3" />
-            {status.isEnabled ? 'Active' : 'Disabled'}
-          </div>
+          {/* Toggle switch */}
+          <button
+            onClick={handleToggleAutomation}
+            disabled={toggling}
+            className={cn(
+              'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+              'border',
+              status.isEnabled
+                ? 'bg-green-500/10 border-green-500/30 text-green-600 hover:bg-green-500/20'
+                : 'bg-muted border-border text-muted-foreground hover:bg-muted/80',
+              toggling && 'opacity-70 cursor-wait'
+            )}
+          >
+            {toggling ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Power className="w-3.5 h-3.5" />
+            )}
+            <span>{status.isEnabled ? 'Enabled' : 'Disabled'}</span>
+            {/* Toggle indicator */}
+            <div className={cn(
+              'w-8 h-4 rounded-full relative transition-colors',
+              status.isEnabled ? 'bg-green-500' : 'bg-muted-foreground/30'
+            )}>
+              <div className={cn(
+                'absolute w-3 h-3 rounded-full bg-white top-0.5 transition-transform shadow-sm',
+                status.isEnabled ? 'translate-x-4.5 left-0.5' : 'left-0.5'
+              )} style={{ transform: status.isEnabled ? 'translateX(16px)' : 'translateX(0)' }} />
+            </div>
+          </button>
 
           {/* Manual trigger button */}
           <button
