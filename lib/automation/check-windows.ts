@@ -10,8 +10,8 @@ export const TIMING_WINDOWS = {
   PRE_MATCH: { minBefore: 25, maxBefore: 35 },    // 30 min ± 5 min before kickoff
   PREDICTION: { minBefore: 20, maxBefore: 30 },   // 25 min ± 5 min before kickoff
   LIVE: { statuses: ['1H', '2H', 'HT', 'ET', 'BT', 'P'] },
-  POST_MATCH: { minAfter: 230, maxAfter: 250 },   // 4h ± 10 min after FT (in minutes)
-  ANALYSIS: { minAfter: 245, maxAfter: 265 }      // 4h15m ± 10 min after FT (in minutes)
+  POST_MATCH: { minAfter: 350, maxAfter: 370 },   // 6h ± 10 min after FT (in minutes)
+  ANALYSIS: { minAfter: 365, maxAfter: 385 }      // 6h15m ± 10 min after FT (in minutes)
 } as const
 
 export type TriggerType = 'pre-match' | 'prediction' | 'live' | 'post-match' | 'analysis'
