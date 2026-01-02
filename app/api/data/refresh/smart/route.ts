@@ -4,20 +4,9 @@ import { createClient } from '@supabase/supabase-js'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { getFixtureWindows } from '@/lib/api/fixture-windows'
 import { detectCurrentPhase, getPhaseDisplayInfo, MatchPhase } from '@/lib/api/match-phase'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

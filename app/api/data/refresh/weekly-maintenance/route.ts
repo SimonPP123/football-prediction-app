@@ -1,20 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createSSEStream } from '@/lib/utils/streaming'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 // Weekly maintenance endpoints - run every Sunday to refresh aggregated stats
 // These endpoints update cumulative statistics that change over time

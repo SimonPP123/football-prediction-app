@@ -1,34 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
 import { hashPassword, validatePassword } from '@/lib/auth/password'
-
-// Helper to check if request is from admin
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
-
-function getAdminUserId(): string | null {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return null
-
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.userId || null
-  } catch {
-    return null
-  }
-}
+import { isAdmin, getAuthUserId } from '@/lib/auth'
 
 interface RouteParams {
   params: { id: string }
@@ -61,7 +34,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
-  const adminUserId = getAdminUserId()
+  const adminUserId = getAuthUserId()
 
   let password, newIsAdmin, isActive
   try {
@@ -152,7 +125,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
-  const adminUserId = getAdminUserId()
+  const adminUserId = getAuthUserId()
 
   // Prevent admin from deleting themselves
   if (params.id === adminUserId) {

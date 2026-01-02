@@ -143,19 +143,19 @@ async function handleStreamingRefresh(mode: StatsRefreshMode) {
             continue
           }
 
-          for (const teamStats of data.response) {
-            const teamId = teamMap.get(teamStats.team?.id)
-            if (!teamId) continue
+          // Collect all team stats for batch upsert (instead of N+1 individual upserts)
+          const statsToUpsert = data.response
+            .map((teamStats: any) => {
+              const teamId = teamMap.get(teamStats.team?.id)
+              if (!teamId) return null
 
-            const stats: Record<string, any> = {}
-            for (const stat of teamStats.statistics || []) {
-              const key = stat.type?.toLowerCase().replace(/ /g, '_')
-              if (key) stats[key] = stat.value
-            }
+              const stats: Record<string, any> = {}
+              for (const stat of teamStats.statistics || []) {
+                const key = stat.type?.toLowerCase().replace(/ /g, '_')
+                if (key) stats[key] = stat.value
+              }
 
-            const { error } = await supabase
-              .from('fixture_statistics')
-              .upsert({
+              return {
                 fixture_id: fixture.id,
                 team_id: teamId,
                 shots_total: parseInt(stats.total_shots) || null,
@@ -175,17 +175,24 @@ async function handleStreamingRefresh(mode: StatsRefreshMode) {
                 passes_accurate: parseInt(stats.passes_accurate) || null,
                 passes_pct: stats.passes_pct ? parseInt(stats.passes_pct.replace('%', '')) : null,
                 expected_goals: stats.expected_goals ? parseFloat(stats.expected_goals) : null,
-              }, { onConflict: 'fixture_id,team_id' })
+              }
+            })
+            .filter((s: any): s is NonNullable<typeof s> => s !== null)
+
+          if (statsToUpsert.length > 0) {
+            const { error } = await supabase
+              .from('fixture_statistics')
+              .upsert(statsToUpsert, { onConflict: 'fixture_id,team_id' })
 
             if (error) {
               sendLog({ type: 'warning', message: `Stats error for ${matchName}: ${error.message}` })
               errors++
             } else {
-              imported++
+              imported += statsToUpsert.length
             }
           }
 
-          sendLog({ type: 'success', message: `Imported stats for ${matchName}` })
+          sendLog({ type: 'success', message: `Imported ${statsToUpsert.length} stats for ${matchName}` })
         } catch (err) {
           sendLog({ type: 'error', message: `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}` })
           errors++
@@ -306,21 +313,19 @@ async function handleBatchRefresh(mode: StatsRefreshMode) {
           continue
         }
 
-        // Process statistics for each team
-        for (const teamStats of data.response) {
-          const teamId = teamMap.get(teamStats.team?.id)
-          if (!teamId) continue
+        // Collect all team stats for batch upsert (instead of N+1 individual upserts)
+        const statsToUpsert = data.response
+          .map((teamStats: any) => {
+            const teamId = teamMap.get(teamStats.team?.id)
+            if (!teamId) return null
 
-          // Extract statistics
-          const stats: Record<string, any> = {}
-          for (const stat of teamStats.statistics || []) {
-            const key = stat.type?.toLowerCase().replace(/ /g, '_')
-            if (key) stats[key] = stat.value
-          }
+            const stats: Record<string, any> = {}
+            for (const stat of teamStats.statistics || []) {
+              const key = stat.type?.toLowerCase().replace(/ /g, '_')
+              if (key) stats[key] = stat.value
+            }
 
-          const { error } = await supabase
-            .from('fixture_statistics')
-            .upsert({
+            return {
               fixture_id: fixture.id,
               team_id: teamId,
               shots_total: parseInt(stats.total_shots) || null,
@@ -340,17 +345,24 @@ async function handleBatchRefresh(mode: StatsRefreshMode) {
               passes_accurate: parseInt(stats.passes_accurate) || null,
               passes_pct: stats.passes_pct ? parseInt(stats.passes_pct.replace('%', '')) : null,
               expected_goals: stats.expected_goals ? parseFloat(stats.expected_goals) : null,
-            }, { onConflict: 'fixture_id,team_id' })
+            }
+          })
+          .filter((s: any): s is NonNullable<typeof s> => s !== null)
+
+        if (statsToUpsert.length > 0) {
+          const { error } = await supabase
+            .from('fixture_statistics')
+            .upsert(statsToUpsert, { onConflict: 'fixture_id,team_id' })
 
           if (error) {
             addLog('error', `Error for ${matchName}: ${error.message}`)
             errors++
           } else {
-            imported++
+            imported += statsToUpsert.length
           }
         }
 
-        addLog('success', `Imported stats for ${matchName}`)
+        addLog('success', `Imported ${statsToUpsert.length} stats for ${matchName}`)
       } catch (err) {
         addLog('error', `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}`, {
           recordName: matchName,

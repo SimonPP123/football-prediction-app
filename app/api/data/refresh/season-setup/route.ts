@@ -1,21 +1,9 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createSSEStream } from '@/lib/utils/streaming'
 import { getLeagueFromRequest } from '@/lib/league-context'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 // Season setup endpoints - run once at start of season or first-time setup
 // Order matters: teams must be first (foundation), then dependent data

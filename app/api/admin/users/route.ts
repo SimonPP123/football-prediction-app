@@ -1,34 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
 import { hashPassword, validatePassword, validateUsername } from '@/lib/auth/password'
-
-// Helper to check if request is from admin
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
-
-function getAdminUserId(): string | null {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return null
-
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.userId || null
-  } catch {
-    return null
-  }
-}
+import { isAdmin, getAuthUserId } from '@/lib/auth'
 
 // GET - List all users
 export async function GET() {
@@ -78,7 +51,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = createServerClient()
-    const adminUserId = getAdminUserId()
+    const adminUserId = getAuthUserId()
 
     // Check if username already exists
     const { data: existingUser } = await supabase

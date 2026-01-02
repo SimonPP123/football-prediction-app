@@ -9,36 +9,15 @@ export interface AuthData {
 }
 
 /**
- * Parses and verifies the auth cookie
- * Supports both signed and unsigned cookies for backward compatibility
+ * Parses and verifies the auth cookie (signed format only - no legacy fallback)
  */
 export function getAuthData(): AuthData | null {
   const cookieStore = cookies()
   const authCookie = cookieStore.get('football_auth')?.value
   if (!authCookie) return null
 
-  // Try to verify as signed cookie first
-  const signedData = verifyAuthCookie(authCookie)
-  if (signedData) {
-    return signedData
-  }
-
-  // Fall back to unsigned JSON for backward compatibility
-  // This allows existing sessions to keep working
-  try {
-    const data = JSON.parse(authCookie)
-    if (data.authenticated === true) {
-      return {
-        authenticated: data.authenticated,
-        userId: data.userId,
-        username: data.username,
-        isAdmin: data.isAdmin === true
-      }
-    }
-    return null
-  } catch {
-    return null
-  }
+  // Only accept signed cookies - no legacy fallback for security
+  return verifyAuthCookie(authCookie)
 }
 
 /**

@@ -1,22 +1,8 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase/client'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
-
-// Helper to check if request is from admin
-function isAdmin(): boolean {
-  const cookieStore = cookies()
-  const authCookie = cookieStore.get('football_auth')?.value
-  if (!authCookie) return false
-
-  try {
-    const authData = JSON.parse(authCookie)
-    return authData.isAdmin === true
-  } catch {
-    return false
-  }
-}
 
 // GET all leagues (including inactive) - Admin only
 export async function GET() {

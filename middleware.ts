@@ -80,29 +80,74 @@ async function unsignCookie(signedValue: string): Promise<string | null> {
 async function parseAuthCookie(cookieValue: string | undefined): Promise<AuthData | null> {
   if (!cookieValue) return null
 
-  // Try to unsign the cookie first (new signed format)
+  // Only accept signed cookies - no legacy fallback for security
   const unsignedValue = await unsignCookie(cookieValue)
-  const jsonValue = unsignedValue || cookieValue // Fall back to raw value for legacy
+  if (!unsignedValue) return null
 
   try {
-    const data = JSON.parse(jsonValue)
+    const data = JSON.parse(unsignedValue)
     if (data.authenticated === true) {
       return data as AuthData
     }
     return null
   } catch {
-    // Handle legacy cookie format (just 'authenticated' string)
-    if (cookieValue === 'authenticated') {
-      return null // Force re-login for old cookie format
-    }
     return null
   }
+}
+
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  // Prevent clickjacking
+  response.headers.set('X-Frame-Options', 'DENY')
+
+  // Enable HSTS (HTTP Strict Transport Security)
+  // max-age=1 year, includeSubDomains
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains'
+  )
+
+  // Prevent MIME type sniffing
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+
+  // Control referrer information
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+  // XSS Protection (legacy but still useful for older browsers)
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+
+  // Content Security Policy
+  // Allow: self, inline styles (for Tailwind), images from API-Football, fonts
+  response.headers.set(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-eval in dev
+      "style-src 'self' 'unsafe-inline'", // Tailwind uses inline styles
+      "img-src 'self' data: https://media.api-sports.io https://*.supabase.co blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; ')
+  )
+
+  // Permissions Policy (formerly Feature-Policy)
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+  )
+
+  return response
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow access to public routes
+  // Allow access to public routes (still add security headers)
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
@@ -110,17 +155,17 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/fixtures') ||  // Live fixtures need to sync without auth
     pathname === '/api/match-analysis/auto-trigger'  // Called by Vercel cron
   ) {
-    return NextResponse.next()
+    return addSecurityHeaders(NextResponse.next())
   }
 
   // Allow API key authenticated requests (for n8n and external automation)
   const apiKey = request.headers.get('x-api-key')
   const adminApiKey = process.env.ADMIN_API_KEY
   if (apiKey && adminApiKey && timingSafeEqual(apiKey, adminApiKey)) {
-    return NextResponse.next()
+    return addSecurityHeaders(NextResponse.next())
   }
 
-  // Allow static files and Next.js internals
+  // Allow static files and Next.js internals (skip security headers for performance)
   // Use explicit extension matching instead of includes('.') to avoid matching API routes like /api/v1.0
   const staticExtensions = /\.(ico|png|jpg|jpeg|gif|svg|webp|css|js|woff|woff2|ttf|eot|map|json|txt|xml|webmanifest)$/i
   if (
@@ -141,21 +186,21 @@ export async function middleware(request: NextRequest) {
       // Redirect non-admins to home or login
       if (authData) {
         // Authenticated but not admin - redirect to home
-        return NextResponse.redirect(new URL('/', request.url))
+        return addSecurityHeaders(NextResponse.redirect(new URL('/', request.url)))
       }
       // Not authenticated - redirect to login
-      return NextResponse.redirect(new URL('/login', request.url))
+      return addSecurityHeaders(NextResponse.redirect(new URL('/login', request.url)))
     }
-    return NextResponse.next()
+    return addSecurityHeaders(NextResponse.next())
   }
 
   // All other protected routes require authentication
   if (!authData) {
     const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
+    return addSecurityHeaders(NextResponse.redirect(loginUrl))
   }
 
-  return NextResponse.next()
+  return addSecurityHeaders(NextResponse.next())
 }
 
 export const config = {

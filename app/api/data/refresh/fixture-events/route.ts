@@ -104,9 +104,12 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
       // For other modes, check which fixtures already have events
       let fixturesToProcess = fixtures
       if (mode !== 'live' && mode !== 'all') {
+        // Filter by fixture IDs to avoid full table scan
+        const fixtureIds = fixtures.map(f => f.id)
         const { data: existingEvents } = await supabase
           .from('fixture_events')
           .select('fixture_id')
+          .in('fixture_id', fixtureIds)
 
         const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
         fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
@@ -143,29 +146,27 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
             continue
           }
 
-          let fixtureEvents = 0
-          for (const event of data.response) {
-            const teamId = teamMap.get(event.team?.id)
+          // Collect all events for batch upsert (instead of N+1 individual upserts)
+          const eventsToUpsert = data.response
+            .filter((event: any) => event.time?.elapsed !== undefined && event.time?.elapsed !== null)
+            .map((event: any) => ({
+              fixture_id: fixture.id,
+              team_id: teamMap.get(event.team?.id) || null,
+              elapsed: event.time.elapsed,
+              extra_time: event.time?.extra || null,
+              type: event.type || 'Unknown',
+              detail: event.detail || null,
+              player_name: event.player?.name || null,
+              player_id: event.player?.id || null,
+              assist_name: event.assist?.name || null,
+              assist_id: event.assist?.id || null,
+              comments: event.comments || null,
+            }))
 
-            if (event.time?.elapsed === undefined || event.time?.elapsed === null) {
-              continue
-            }
-
+          if (eventsToUpsert.length > 0) {
             const { error } = await supabase
               .from('fixture_events')
-              .upsert({
-                fixture_id: fixture.id,
-                team_id: teamId || null,
-                elapsed: event.time.elapsed,
-                extra_time: event.time?.extra || null,
-                type: event.type || 'Unknown',
-                detail: event.detail || null,
-                player_name: event.player?.name || null,
-                player_id: event.player?.id || null,
-                assist_name: event.assist?.name || null,
-                assist_id: event.assist?.id || null,
-                comments: event.comments || null,
-              }, {
+              .upsert(eventsToUpsert, {
                 onConflict: 'fixture_id,elapsed,type,player_name',
                 ignoreDuplicates: true
               })
@@ -175,14 +176,12 @@ async function handleStreamingRefresh(mode: EventsRefreshMode) {
                 sendLog({ type: 'warning', message: `Event error for ${matchName}: ${error.message}` })
                 errors++
               }
-              // Duplicates are silently ignored
             } else {
-              fixtureEvents++
-              imported++
+              imported += eventsToUpsert.length
             }
           }
 
-          sendLog({ type: 'success', message: `${matchName}: ${fixtureEvents} events imported` })
+          sendLog({ type: 'success', message: `${matchName}: ${eventsToUpsert.length} events imported` })
         } catch (err) {
           sendLog({ type: 'error', message: `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}` })
           errors++
@@ -262,9 +261,12 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
     // For other modes, check which fixtures already have events
     let fixturesToProcess = fixtures
     if (mode !== 'live' && mode !== 'all') {
+      // Filter by fixture IDs to avoid full table scan
+      const fixtureIds = fixtures.map(f => f.id)
       const { data: existingEvents } = await supabase
         .from('fixture_events')
         .select('fixture_id')
+        .in('fixture_id', fixtureIds)
 
       const existingSet = new Set(existingEvents?.map(e => e.fixture_id) || [])
       fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
@@ -303,30 +305,27 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
           continue
         }
 
-        let fixtureEvents = 0
-        for (const event of data.response) {
-          const teamId = teamMap.get(event.team?.id)
+        // Collect all events for batch upsert (instead of N+1 individual upserts)
+        const eventsToUpsert = data.response
+          .filter((event: any) => event.time?.elapsed !== undefined && event.time?.elapsed !== null)
+          .map((event: any) => ({
+            fixture_id: fixture.id,
+            team_id: teamMap.get(event.team?.id) || null,
+            elapsed: event.time.elapsed,
+            extra_time: event.time?.extra || null,
+            type: event.type || 'Unknown',
+            detail: event.detail || null,
+            player_name: event.player?.name || null,
+            player_id: event.player?.id || null,
+            assist_name: event.assist?.name || null,
+            assist_id: event.assist?.id || null,
+            comments: event.comments || null,
+          }))
 
-          // Skip events without elapsed time (required field)
-          if (event.time?.elapsed === undefined || event.time?.elapsed === null) {
-            continue
-          }
-
+        if (eventsToUpsert.length > 0) {
           const { error } = await supabase
             .from('fixture_events')
-            .upsert({
-              fixture_id: fixture.id,
-              team_id: teamId || null,
-              elapsed: event.time.elapsed,
-              extra_time: event.time?.extra || null,
-              type: event.type || 'Unknown',
-              detail: event.detail || null,
-              player_name: event.player?.name || null,
-              player_id: event.player?.id || null,
-              assist_name: event.assist?.name || null,
-              assist_id: event.assist?.id || null,
-              comments: event.comments || null,
-            }, {
+            .upsert(eventsToUpsert, {
               onConflict: 'fixture_id,elapsed,type,player_name',
               ignoreDuplicates: true
             })
@@ -335,14 +334,12 @@ async function handleBatchRefresh(mode: EventsRefreshMode) {
             if (!error.message.includes('duplicate')) {
               errors++
             }
-            // Duplicates are silently ignored
           } else {
-            fixtureEvents++
-            imported++
+            imported += eventsToUpsert.length
           }
         }
 
-        addLog('success', `${matchName}: ${fixtureEvents} events imported`)
+        addLog('success', `${matchName}: ${eventsToUpsert.length} events imported`)
       } catch (err) {
         addLog('error', `Failed for ${matchName}: ${err instanceof Error ? err.message : 'Unknown'}`, {
           recordName: matchName,

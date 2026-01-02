@@ -12,7 +12,27 @@ import { verifyAuthCookie } from '@/lib/auth/cookie-sign'
  */
 
 /**
- * Parse the auth cookie (handles both signed and unsigned formats)
+ * Timing-safe string comparison to prevent timing attacks
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Compare against self to maintain constant time even when lengths differ
+    let mismatch = 0
+    for (let i = 0; i < a.length; i++) {
+      mismatch |= a.charCodeAt(i) ^ a.charCodeAt(i)
+    }
+    return false
+  }
+
+  let mismatch = 0
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return mismatch === 0
+}
+
+/**
+ * Parse and verify the auth cookie (signed format only - no legacy fallback)
  */
 function parseAuthCookie(cookieValue: string | undefined): {
   authenticated: boolean
@@ -22,20 +42,8 @@ function parseAuthCookie(cookieValue: string | undefined): {
 } | null {
   if (!cookieValue) return null
 
-  // Try signed cookie format first
-  const verified = verifyAuthCookie(cookieValue)
-  if (verified) return verified
-
-  // Fall back to legacy unsigned format
-  try {
-    const data = JSON.parse(cookieValue)
-    if (data.authenticated === true) {
-      return data
-    }
-    return null
-  } catch {
-    return null
-  }
+  // Only accept signed cookies - no legacy fallback for security
+  return verifyAuthCookie(cookieValue)
 }
 
 /**
@@ -46,11 +54,10 @@ export function isAdmin(): boolean {
   // Check API key first (for n8n and external automation)
   const headersList = headers()
   const apiKey = headersList.get('x-api-key')
+  const adminApiKey = process.env.ADMIN_API_KEY
 
-  if (apiKey && process.env.ADMIN_API_KEY) {
-    if (apiKey === process.env.ADMIN_API_KEY) {
-      return true
-    }
+  if (apiKey && adminApiKey && timingSafeEqual(apiKey, adminApiKey)) {
+    return true
   }
 
   // Fall back to cookie auth (for web app)
@@ -68,11 +75,10 @@ export function isAuthenticated(): boolean {
   // API key grants full access
   const headersList = headers()
   const apiKey = headersList.get('x-api-key')
+  const adminApiKey = process.env.ADMIN_API_KEY
 
-  if (apiKey && process.env.ADMIN_API_KEY) {
-    if (apiKey === process.env.ADMIN_API_KEY) {
-      return true
-    }
+  if (apiKey && adminApiKey && timingSafeEqual(apiKey, adminApiKey)) {
+    return true
   }
 
   // Check cookie auth
@@ -81,4 +87,14 @@ export function isAuthenticated(): boolean {
   const authData = parseAuthCookie(authCookie)
 
   return authData?.authenticated === true || authData?.isAdmin === true
+}
+
+/**
+ * Get the authenticated user's ID from the cookie
+ */
+export function getAuthUserId(): string | null {
+  const cookieStore = cookies()
+  const authCookie = cookieStore.get('football_auth')?.value
+  const authData = parseAuthCookie(authCookie)
+  return authData?.userId || null
 }

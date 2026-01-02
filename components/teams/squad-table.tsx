@@ -13,12 +13,14 @@ interface Player {
   nationality?: string
   age?: number
   injured?: boolean
+  api_id?: number  // For matching with injuries
 }
 
 interface SquadMember {
   id: string
   position: string
   number?: number
+  player_id?: string  // Direct player ID reference
   player?: Player
 }
 
@@ -26,6 +28,8 @@ interface SquadTableProps {
   squad: SquadMember[]
   injuries?: Array<{
     player_name: string
+    player_id?: string | null  // UUID for matching with squad
+    player_api_id?: number | null  // API ID for matching with squad
     injury_reason?: string | null
     reason?: string | null  // Legacy field
     reported_date?: string | null
@@ -81,8 +85,56 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
     })
   })()
 
-  // Create injury lookup from latest injuries only
-  const injuredPlayers = new Set(latestInjuries.map(i => i.player_name.toLowerCase()))
+  // Create injury lookups from latest injuries only
+  // Use multiple strategies: player_id, player_api_id, and name
+  const injuredByPlayerId = new Set(
+    latestInjuries
+      .filter(i => i.player_id)
+      .map(i => i.player_id as string)
+  )
+  const injuredByApiId = new Set(
+    latestInjuries
+      .filter(i => i.player_api_id)
+      .map(i => i.player_api_id as number)
+  )
+  const injuredByName = new Set(latestInjuries.map(i => i.player_name.toLowerCase()))
+
+  // Helper to check if a squad member is injured
+  const isPlayerInjured = (member: SquadMember): boolean => {
+    // Try matching by player_id first (most reliable)
+    if (member.player_id && injuredByPlayerId.has(member.player_id)) return true
+    if (member.player?.id && injuredByPlayerId.has(member.player.id)) return true
+
+    // Try matching by api_id
+    if (member.player?.api_id && injuredByApiId.has(member.player.api_id)) return true
+
+    // Fall back to name matching
+    const playerName = member.player?.name?.toLowerCase() || ''
+    return injuredByName.has(playerName)
+  }
+
+  // Helper to find injury details for a player
+  const findInjury = (member: SquadMember) => {
+    // Try matching by player_id first
+    if (member.player_id) {
+      const injury = latestInjuries.find(i => i.player_id === member.player_id)
+      if (injury) return injury
+    }
+    if (member.player?.id) {
+      const injury = latestInjuries.find(i => i.player_id === member.player?.id)
+      if (injury) return injury
+    }
+
+    // Try matching by api_id
+    if (member.player?.api_id) {
+      const injury = latestInjuries.find(i => i.player_api_id === member.player?.api_id)
+      if (injury) return injury
+    }
+
+    // Fall back to name matching
+    const playerName = member.player?.name?.toLowerCase() || ''
+    return latestInjuries.find(i => i.player_name.toLowerCase() === playerName)
+  }
 
   // Group by position
   const groupedSquad = squad.reduce((acc, member) => {
@@ -118,9 +170,7 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
       {sortedPositions.map(position => {
         const players = groupedSquad[position]
         const isExpanded = expandedPosition === position
-        const injuredCount = players.filter(
-          p => injuredPlayers.has(p.player?.name?.toLowerCase() || '')
-        ).length
+        const injuredCount = players.filter(isPlayerInjured).length
 
         return (
           <div key={position} className="border border-border rounded-lg overflow-hidden">
@@ -157,10 +207,8 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
             {isExpanded && (
               <div className="divide-y divide-border">
                 {players.map(member => {
-                  const isInjured = injuredPlayers.has(member.player?.name?.toLowerCase() || '')
-                  const injury = latestInjuries.find(
-                    i => i.player_name.toLowerCase() === member.player?.name?.toLowerCase()
-                  )
+                  const isInjured = isPlayerInjured(member)
+                  const injury = findInjury(member)
 
                   return (
                     <div

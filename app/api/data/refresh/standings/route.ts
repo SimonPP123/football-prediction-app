@@ -67,28 +67,16 @@ async function handleStreamingRefresh(league: LeagueConfig) {
       const standings = data.response[0].league.standings[0]
       sendLog({ type: 'info', message: `Processing ${standings.length} team standings...` })
 
-      let imported = 0
-      let errors = 0
-
-      for (let i = 0; i < standings.length; i++) {
-        const item = standings[i]
-        const teamId = teamMap.get(item.team.id)
-
-        sendLog({
-          type: 'progress',
-          message: `Processing: ${item.team.name}`,
-          details: { progress: { current: i + 1, total: standings.length } }
-        })
-
-        if (!teamId) {
-          sendLog({ type: 'warning', message: `Team not found: ${item.team.name}` })
-          errors++
-          continue
-        }
-
-        const { error } = await supabase
-          .from('standings')
-          .upsert({
+      // Collect all standings for batch upsert (instead of N+1 individual upserts)
+      const missingTeams: string[] = []
+      const standingsToUpsert = standings
+        .map((item: any) => {
+          const teamId = teamMap.get(item.team.id)
+          if (!teamId) {
+            missingTeams.push(item.team.name)
+            return null
+          }
+          return {
             league_id: league.id,
             season: league.currentSeason,
             team_id: teamId,
@@ -106,13 +94,29 @@ async function handleStreamingRefresh(league: LeagueConfig) {
             home_record: item.home,
             away_record: item.away,
             updated_at: new Date().toISOString(),
-          }, { onConflict: 'league_id,season,team_id' })
+          }
+        })
+        .filter((s: any): s is NonNullable<typeof s> => s !== null)
+
+      if (missingTeams.length > 0) {
+        sendLog({ type: 'warning', message: `Teams not found: ${missingTeams.join(', ')}` })
+      }
+
+      let imported = 0
+      let errors = missingTeams.length
+
+      if (standingsToUpsert.length > 0) {
+        sendLog({ type: 'progress', message: `Batch upserting ${standingsToUpsert.length} standings...` })
+
+        const { error } = await supabase
+          .from('standings')
+          .upsert(standingsToUpsert, { onConflict: 'league_id,season,team_id' })
 
         if (error) {
-          sendLog({ type: 'error', message: `Error updating ${item.team.name}: ${error.message}` })
-          errors++
+          sendLog({ type: 'error', message: `Batch upsert error: ${error.message}` })
+          errors += standingsToUpsert.length
         } else {
-          imported++
+          imported = standingsToUpsert.length
         }
       }
 
@@ -165,20 +169,16 @@ async function handleBatchRefresh(league: LeagueConfig) {
     const standings = data.response[0].league.standings[0]
     addLog('info', `Processing ${standings.length} team standings...`)
 
-    let imported = 0
-    let errors = 0
-
-    for (const item of standings) {
-      const teamId = teamMap.get(item.team.id)
-      if (!teamId) {
-        addLog('warning', `Team not found: ${item.team.name}`)
-        errors++
-        continue
-      }
-
-      const { error } = await supabase
-        .from('standings')
-        .upsert({
+    // Collect all standings for batch upsert (instead of N+1 individual upserts)
+    const missingTeams: string[] = []
+    const standingsToUpsert = standings
+      .map((item: any) => {
+        const teamId = teamMap.get(item.team.id)
+        if (!teamId) {
+          missingTeams.push(item.team.name)
+          return null
+        }
+        return {
           league_id: league.id,
           season: league.currentSeason,
           team_id: teamId,
@@ -196,13 +196,27 @@ async function handleBatchRefresh(league: LeagueConfig) {
           home_record: item.home,
           away_record: item.away,
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'league_id,season,team_id' })
+        }
+      })
+      .filter((s: any): s is NonNullable<typeof s> => s !== null)
+
+    if (missingTeams.length > 0) {
+      addLog('warning', `Teams not found: ${missingTeams.join(', ')}`)
+    }
+
+    let imported = 0
+    let errors = missingTeams.length
+
+    if (standingsToUpsert.length > 0) {
+      const { error } = await supabase
+        .from('standings')
+        .upsert(standingsToUpsert, { onConflict: 'league_id,season,team_id' })
 
       if (error) {
-        addLog('error', `Error updating ${item.team.name}: ${error.message}`)
-        errors++
+        addLog('error', `Batch upsert error: ${error.message}`)
+        errors += standingsToUpsert.length
       } else {
-        imported++
+        imported = standingsToUpsert.length
       }
     }
 
