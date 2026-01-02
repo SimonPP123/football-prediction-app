@@ -38,6 +38,7 @@ export function AccuracyStatsPanel() {
   const [stats, setStats] = useState<AccuracyStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     fetchStats()
@@ -89,8 +90,6 @@ export function AccuracyStatsPanel() {
     if (accuracy >= 50) return 'bg-yellow-500/10 border-yellow-500/20'
     return 'bg-red-500/10 border-red-500/20'
   }
-
-  const [expanded, setExpanded] = useState(false)
 
   return (
     <div className="p-4 bg-card border rounded-lg">
