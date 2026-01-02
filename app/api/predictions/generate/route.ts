@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     // Type assertion for fixture data
     const fixtureData = fixture as any
 
-    // Fetch recent match analyses for memory context (last 5 for each team)
+    // Fetch ALL match analyses for memory context (for each team)
     // Include comprehensive learning data for AI to use in predictions
     // Join with teams and fixtures to provide full context about which match was played
     const { data: homeAnalyses } = await supabase
@@ -86,7 +86,6 @@ export async function POST(request: Request) {
       `)
       .or(`home_team_id.eq.${fixtureData.home_team_id},away_team_id.eq.${fixtureData.home_team_id}`)
       .order('created_at', { ascending: false })
-      .limit(5)
 
     const { data: awayAnalyses } = await supabase
       .from('match_analysis')
@@ -109,7 +108,6 @@ export async function POST(request: Request) {
       `)
       .or(`home_team_id.eq.${fixtureData.away_team_id},away_team_id.eq.${fixtureData.away_team_id}`)
       .order('created_at', { ascending: false })
-      .limit(5)
 
     // Trigger n8n webhook for AI prediction
     const webhookPayload = {
