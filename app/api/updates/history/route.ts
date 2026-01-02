@@ -9,7 +9,17 @@ export async function GET(request: Request) {
     const supabase = createServerClient()
     const { searchParams } = new URL(request.url)
 
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 500)
+    // Validate limit parameter to prevent NaN issues
+    const limitParam = searchParams.get('limit') || '100'
+    const parsedLimit = parseInt(limitParam, 10)
+    if (isNaN(parsedLimit) || parsedLimit < 1) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid limit parameter. Must be a positive integer.' },
+        { status: 400 }
+      )
+    }
+    const limit = Math.min(parsedLimit, 500)
+
     const category = searchParams.get('category')
     const leagueId = searchParams.get('league_id')
     const status = searchParams.get('status')

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
+import { verifyAuthCookie } from '@/lib/auth/cookie-sign'
 
 export async function POST() {
   try {
@@ -9,18 +10,18 @@ export async function POST() {
 
     // Log the logout activity if user was authenticated
     if (authCookie?.value) {
-      try {
-        const authData = JSON.parse(authCookie.value)
-        if (authData.userId) {
+      const authData = verifyAuthCookie(authCookie.value)
+      if (authData?.userId) {
+        try {
           const supabase = createServerClient()
           await supabase.from('user_activity_log').insert({
             user_id: authData.userId,
             action: 'logout',
             details: { username: authData.username }
           })
+        } catch {
+          // Ignore logging errors during logout
         }
-      } catch {
-        // Ignore parsing errors
       }
     }
 

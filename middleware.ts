@@ -8,6 +8,27 @@ interface AuthData {
   isAdmin: boolean
 }
 
+/**
+ * Timing-safe string comparison to prevent timing attacks
+ * Works in Edge Runtime where crypto.timingSafeEqual is not available
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Compare against self to maintain constant time even when lengths differ
+    let mismatch = 0
+    for (let i = 0; i < a.length; i++) {
+      mismatch |= a.charCodeAt(i) ^ a.charCodeAt(i)
+    }
+    return false
+  }
+
+  let mismatch = 0
+  for (let i = 0; i < a.length; i++) {
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return mismatch === 0
+}
+
 // Web Crypto API based HMAC for Edge Runtime
 async function createHmacSignature(value: string, secret: string): Promise<string> {
   const encoder = new TextEncoder()
@@ -36,7 +57,12 @@ async function createHmacSignature(value: string, secret: string): Promise<strin
 
 // Inline unsign function (can't import from lib in middleware edge runtime)
 async function unsignCookie(signedValue: string): Promise<string | null> {
-  const secret = process.env.COOKIE_SECRET || 'default-secret-change-in-production'
+  const secret = process.env.COOKIE_SECRET
+  if (!secret) {
+    console.error('[Middleware] COOKIE_SECRET environment variable is required')
+    return null
+  }
+
   const lastDotIndex = signedValue.lastIndexOf('.')
   if (lastDotIndex === -1) return null
 
@@ -45,8 +71,8 @@ async function unsignCookie(signedValue: string): Promise<string | null> {
 
   const expectedSignature = await createHmacSignature(value, secret)
 
-  // Simple comparison (timing-safe not critical in middleware)
-  if (signature !== expectedSignature) return null
+  // Timing-safe comparison to prevent timing attacks
+  if (!timingSafeEqual(signature, expectedSignature)) return null
 
   return value
 }
@@ -89,7 +115,8 @@ export async function middleware(request: NextRequest) {
 
   // Allow API key authenticated requests (for n8n and external automation)
   const apiKey = request.headers.get('x-api-key')
-  if (apiKey && process.env.ADMIN_API_KEY && apiKey === process.env.ADMIN_API_KEY) {
+  const adminApiKey = process.env.ADMIN_API_KEY
+  if (apiKey && adminApiKey && timingSafeEqual(apiKey, adminApiKey)) {
     return NextResponse.next()
   }
 

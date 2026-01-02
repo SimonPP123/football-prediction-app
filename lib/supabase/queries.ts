@@ -72,6 +72,9 @@ export async function getUpcomingFixtures(limit?: number, leagueId?: string) {
 
   if (limit) {
     query = query.limit(limit)
+  } else {
+    // Ensure we get all fixtures (Supabase default limit is 1000)
+    query = query.limit(500)
   }
 
   const { data, error } = await query

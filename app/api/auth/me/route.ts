@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { verifyAuthCookie } from '@/lib/auth/cookie-sign'
 
 export async function GET() {
   const cookieStore = cookies()
@@ -9,22 +10,19 @@ export async function GET() {
     return NextResponse.json({ user: null }, { status: 401 })
   }
 
-  try {
-    const authData = JSON.parse(authCookie)
+  // Verify signature and parse cookie data
+  const authData = verifyAuthCookie(authCookie)
 
-    if (!authData.authenticated) {
-      return NextResponse.json({ user: null }, { status: 401 })
-    }
-
-    return NextResponse.json({
-      user: {
-        authenticated: true,
-        userId: authData.userId,
-        username: authData.username,
-        isAdmin: authData.isAdmin
-      }
-    })
-  } catch {
+  if (!authData || !authData.authenticated) {
     return NextResponse.json({ user: null }, { status: 401 })
   }
+
+  return NextResponse.json({
+    user: {
+      authenticated: true,
+      userId: authData.userId,
+      username: authData.username,
+      isAdmin: authData.isAdmin
+    }
+  })
 }

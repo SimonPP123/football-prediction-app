@@ -49,15 +49,16 @@ async function syncFinishedMatches(leagueId?: string) {
     const data = await response.json()
     if (!data.response || !Array.isArray(data.response)) return
 
-    // Update each fixture with its new status
-    for (const fixture of data.response) {
-      const apiId = fixture.fixture?.id
-      const newStatus = fixture.fixture?.status?.short
-      const goalsHome = fixture.goals?.home
-      const goalsAway = fixture.goals?.away
+    // Batch update fixtures in parallel (instead of sequential N+1 queries)
+    const updatePromises = data.response
+      .filter((fixture: any) => fixture.fixture?.id && fixture.fixture?.status?.short)
+      .map((fixture: any) => {
+        const apiId = fixture.fixture.id
+        const newStatus = fixture.fixture.status.short
+        const goalsHome = fixture.goals?.home
+        const goalsAway = fixture.goals?.away
 
-      if (apiId && newStatus) {
-        await supabase
+        return supabase
           .from('fixtures')
           .update({
             status: newStatus,
@@ -66,8 +67,9 @@ async function syncFinishedMatches(leagueId?: string) {
             updated_at: new Date().toISOString()
           })
           .eq('api_id', apiId)
-      }
-    }
+      })
+
+    await Promise.all(updatePromises)
   } catch (error) {
     console.error('Error syncing finished matches:', error)
   }

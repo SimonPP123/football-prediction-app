@@ -1,12 +1,18 @@
 import { createHmac } from 'crypto'
 
-const COOKIE_SECRET = process.env.COOKIE_SECRET || 'default-secret-change-in-production'
+function getCookieSecret(): string {
+  const secret = process.env.COOKIE_SECRET
+  if (!secret) {
+    throw new Error('COOKIE_SECRET environment variable is required')
+  }
+  return secret
+}
 
 /**
  * Signs a value using HMAC-SHA256
  */
 export function sign(value: string): string {
-  const signature = createHmac('sha256', COOKIE_SECRET)
+  const signature = createHmac('sha256', getCookieSecret())
     .update(value)
     .digest('base64url')
   return `${value}.${signature}`
@@ -23,7 +29,7 @@ export function unsign(signedValue: string): string | null {
   const value = signedValue.slice(0, lastDotIndex)
   const signature = signedValue.slice(lastDotIndex + 1)
 
-  const expectedSignature = createHmac('sha256', COOKIE_SECRET)
+  const expectedSignature = createHmac('sha256', getCookieSecret())
     .update(value)
     .digest('base64url')
 
