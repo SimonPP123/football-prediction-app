@@ -84,8 +84,13 @@ async function handleStreamingRefresh(leagueIdParam: string | null) {
       const leagueSeason = leagueData.current_season || SEASON
       sendLog({ type: 'info', message: `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}` })
 
-      const { data: teams } = await supabase.from('teams').select('id, api_id')
+      // Filter teams by current league to get correct UUIDs
+      const { data: teams } = await supabase
+        .from('teams')
+        .select('id, api_id')
+        .eq('league_id', leagueData.id)
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
+      sendLog({ type: 'info', message: `Found ${teams?.length || 0} teams in league` })
 
       const { data: players } = await supabase.from('players').select('id, api_id')
       const playerMap = new Map(players?.map(p => [p.api_id, p.id]) || [])
@@ -227,9 +232,13 @@ async function handleBatchRefresh(leagueIdParam: string | null) {
     const leagueSeason = leagueData.current_season || SEASON
     addLog('info', `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}`)
 
-    // Build team lookup
-    const { data: teams } = await supabase.from('teams').select('id, api_id')
+    // Build team lookup - filter by current league to get correct UUIDs
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id, api_id')
+      .eq('league_id', leagueData.id)
     const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
+    addLog('info', `Found ${teams?.length || 0} teams in league`)
 
     // Build player lookup
     const { data: players } = await supabase.from('players').select('id, api_id')

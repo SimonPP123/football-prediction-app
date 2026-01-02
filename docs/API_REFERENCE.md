@@ -233,7 +233,7 @@ All refresh endpoints support these query parameters:
 
 | Phase | Required Endpoints | Optional |
 |-------|-------------------|----------|
-| `pre-match` | fixtures, standings, injuries, teams, team-stats, odds | head-to-head, weather, player-stats |
+| `pre-match` | fixtures, standings, injuries, teams, team-stats | head-to-head, weather, player-stats |
 | `imminent` | lineups, odds, injuries | weather |
 | `live` | fixtures, fixture-statistics, fixture-events | |
 | `post-match` | fixtures, fixture-statistics, fixture-events, standings, team-stats, player-stats, top-performers | lineups |

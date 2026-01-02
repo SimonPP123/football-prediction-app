@@ -56,12 +56,11 @@ Day Before (pre-match)
 ├── 06:15  fixtures           │ Core data
 ├── 07:00  team-stats         │ for upcoming
 ├── 07:30  injuries          ─┘ matches
-└── 09:00  odds, weather
+└── 09:00  weather
 
 Matchday Morning (pre-match)
 ├── 08:00  standings refresh
-├── 08:30  injuries refresh
-└── 10:00  odds refresh
+└── 08:30  injuries refresh
 
 1-2 Hours Before (imminent)
 ├── 13:00  odds final
@@ -89,13 +88,12 @@ Post-Match (post-match)
 ```
 POST /api/data/refresh/phase?phase=pre-match
 
-Required:
+Required (5 endpoints):
 ├── fixtures?mode=next&count=10   # Upcoming matches
 ├── standings                      # League table
 ├── injuries?mode=upcoming         # Current injuries
 ├── teams                          # Team data
-├── team-stats                     # Season statistics
-└── odds                           # Betting odds
+└── team-stats                     # Season statistics
 
 Optional:
 ├── head-to-head                   # H2H history
@@ -293,7 +291,7 @@ Be mindful of API-Football daily quotas when refreshing.
 
 | Operation | Approx Requests |
 |-----------|-----------------|
-| Phase: pre-match | 6-9 requests |
+| Phase: pre-match | 5-8 requests |
 | Phase: imminent | 3-4 requests |
 | Phase: live | 3 requests per match |
 | Phase: post-match | 7-8 requests |

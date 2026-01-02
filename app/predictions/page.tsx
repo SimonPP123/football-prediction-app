@@ -83,23 +83,47 @@ export default function PredictionsPage() {
     if (savedModel) {
       setSelectedModel(savedModel)
     }
-    // Load custom prompt from localStorage
-    const savedPrompt = localStorage.getItem('prediction_custom_prompt')
-    if (savedPrompt) {
-      // Migration: Clear old-format prompts that contain the header or output format
-      // New format should start with "FACTOR A" section, not "You are an elite"
-      if (savedPrompt.includes('You are an elite football analyst') ||
-          savedPrompt.includes('OUTPUT FORMAT (JSON)')) {
-        // Old format detected - clear it to use the new editable-only default
-        localStorage.removeItem('prediction_custom_prompt')
-        console.log('Cleared old-format custom prompt from localStorage')
-      } else {
-        setCustomPrompt(savedPrompt)
-      }
-    }
+    // Load custom prompt from database
+    loadCustomPrompt()
     // Load webhook secret status from API
     loadWebhookSecretStatus()
   }, [])
+
+  const loadCustomPrompt = async () => {
+    try {
+      // First check if there's a localStorage prompt to migrate
+      const localPrompt = localStorage.getItem('prediction_custom_prompt')
+      if (localPrompt) {
+        // Skip old-format prompts
+        if (!localPrompt.includes('You are an elite football analyst') &&
+            !localPrompt.includes('OUTPUT FORMAT (JSON)')) {
+          // Migrate to database
+          await fetch('/api/automation/prompt', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ custom_prompt: localPrompt })
+          })
+          setCustomPrompt(localPrompt)
+        }
+        // Clear localStorage after migration
+        localStorage.removeItem('prediction_custom_prompt')
+        console.log('Migrated custom prompt from localStorage to database')
+        return
+      }
+
+      // Load from database
+      const res = await fetch('/api/automation/prompt', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.custom_prompt) {
+          setCustomPrompt(data.custom_prompt)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load custom prompt:', err)
+    }
+  }
 
   useEffect(() => {
     // Cancel any pending request when league changes or component unmounts
@@ -317,26 +341,58 @@ export default function PredictionsPage() {
 
 
   // Prompt editor handlers
+  const [savingPrompt, setSavingPrompt] = useState(false)
+
   const openPromptEditor = () => {
     setTempPrompt(customPrompt || DEFAULT_PREDICTION_PROMPT)
     setShowPromptEditor(true)
     setShowSettingsDropdown(false)
   }
 
-  const savePrompt = () => {
-    setCustomPrompt(tempPrompt)
-    localStorage.setItem('prediction_custom_prompt', tempPrompt)
-    setShowPromptEditor(false)
+  const savePrompt = async () => {
+    setSavingPrompt(true)
+    try {
+      const res = await fetch('/api/automation/prompt', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ custom_prompt: tempPrompt })
+      })
+      if (res.ok) {
+        setCustomPrompt(tempPrompt)
+        setShowPromptEditor(false)
+      } else {
+        console.error('Failed to save prompt')
+      }
+    } catch (err) {
+      console.error('Error saving prompt:', err)
+    } finally {
+      setSavingPrompt(false)
+    }
   }
 
   const resetPrompt = () => {
     setTempPrompt(DEFAULT_PREDICTION_PROMPT)
   }
 
-  const clearCustomPrompt = () => {
-    setCustomPrompt('')
-    localStorage.removeItem('prediction_custom_prompt')
-    setShowPromptEditor(false)
+  const clearCustomPrompt = async () => {
+    setSavingPrompt(true)
+    try {
+      const res = await fetch('/api/automation/prompt', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ custom_prompt: null })
+      })
+      if (res.ok) {
+        setCustomPrompt('')
+        setShowPromptEditor(false)
+      }
+    } catch (err) {
+      console.error('Error clearing prompt:', err)
+    } finally {
+      setSavingPrompt(false)
+    }
   }
 
   // Webhook docs handlers
@@ -1392,9 +1448,10 @@ export default function PredictionsPage() {
                 {customPrompt && (
                   <button
                     onClick={clearCustomPrompt}
-                    className="px-3 py-1.5 text-sm text-red-500 hover:text-red-600"
+                    disabled={savingPrompt}
+                    className="px-3 py-1.5 text-sm text-red-500 hover:text-red-600 disabled:opacity-50"
                   >
-                    Clear Custom Prompt
+                    {savingPrompt ? 'Clearing...' : 'Clear Custom Prompt'}
                   </button>
                 )}
               </div>
@@ -1407,10 +1464,15 @@ export default function PredictionsPage() {
                 </button>
                 <button
                   onClick={savePrompt}
-                  className="flex items-center gap-1 px-4 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  disabled={savingPrompt}
+                  className="flex items-center gap-1 px-4 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
-                  Save Prompt
+                  {savingPrompt ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {savingPrompt ? 'Saving...' : 'Save Prompt'}
                 </button>
               </div>
             </div>

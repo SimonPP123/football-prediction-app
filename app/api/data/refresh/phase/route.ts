@@ -14,14 +14,13 @@ type OrchestratablePhase = 'pre-match' | 'imminent' | 'live' | 'post-match'
 // All endpoints needed for each phase to fully refresh relevant data
 const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optional: string[] }> = {
   'pre-match': {
-    // Core data for upcoming matches
+    // Core data for upcoming matches (5 endpoints)
     required: [
       'fixtures?mode=next&count=10',  // Upcoming fixtures
       'standings',                     // League table
       'injuries?mode=upcoming',        // Current injuries
       'teams',                         // Team data
       'team-stats',                    // Team season stats
-      'odds',                          // Betting odds
     ],
     optional: ['head-to-head', 'weather', 'player-stats'],
   },
