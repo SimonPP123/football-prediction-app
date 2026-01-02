@@ -102,7 +102,6 @@ export interface DataStats {
 
   // External Data
   odds: TableStats
-  weather: TableStats
   referee_stats: TableStats
   transfers: TableStats
 

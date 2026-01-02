@@ -50,6 +50,20 @@ export async function GET(
 
     console.log(`[Fixture API] Fixture ${id}: events=${fixture.events?.length || 0}, odds=${fixture.odds?.length || 0}, predictions=${fixture.prediction?.length || 0}, statistics=${fixture.statistics?.length || 0}`)
 
+    // Fetch weather if venue has coordinates
+    let weather = null
+    if (fixture.venue?.latitude && fixture.venue?.longitude) {
+      const { data: weatherData } = await supabase
+        .from('weather')
+        .select('*')
+        .eq('fixture_id', id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      weather = weatherData
+    }
+
     // Fetch head-to-head if both teams exist
     let headToHead = null
     if (fixture.home_team_id && fixture.away_team_id) {
@@ -65,6 +79,7 @@ export async function GET(
 
     return NextResponse.json({
       ...fixture,
+      weather,
       head_to_head: headToHead,
     })
   } catch (error) {

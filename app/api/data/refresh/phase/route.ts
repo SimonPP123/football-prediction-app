@@ -22,7 +22,7 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
       'teams',                         // Team data
       'team-stats',                    // Team season stats
     ],
-    optional: ['head-to-head', 'weather', 'player-stats'],
+    optional: ['head-to-head', 'player-stats'],
   },
   'imminent': {
     // Final data before kickoff
@@ -31,7 +31,7 @@ const PHASE_ENDPOINTS: Record<OrchestratablePhase, { required: string[]; optiona
       'odds',                          // Latest odds
       'injuries?mode=upcoming',        // Last-minute injuries
     ],
-    optional: ['weather'],
+    optional: [],
   },
   'live': {
     // Real-time match updates
