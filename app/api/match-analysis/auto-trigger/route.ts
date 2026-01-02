@@ -6,9 +6,37 @@ const ANALYSIS_DELAY_HOURS = 1 // Wait this long after match ends before analyzi
 const MAX_AGE_DAYS = 7 // Don't process matches older than this
 const RATE_LIMIT_MS = 2000 // Delay between requests to avoid overwhelming n8n
 
-// Note: This endpoint is called by Vercel cron job, not user requests
-// Auth is handled by Vercel's cron security (cron jobs are internal)
+/**
+ * Validate cron secret to prevent unauthorized triggering
+ * Uses timing-safe comparison to prevent timing attacks
+ */
+function validateCronSecret(request: Request): boolean {
+  const cronSecret = request.headers.get('x-cron-secret')
+  const expectedSecret = process.env.CRON_SECRET
+
+  if (!cronSecret || !expectedSecret) {
+    return false
+  }
+
+  // Timing-safe comparison
+  if (cronSecret.length !== expectedSecret.length) {
+    return false
+  }
+
+  let mismatch = 0
+  for (let i = 0; i < cronSecret.length; i++) {
+    mismatch |= cronSecret.charCodeAt(i) ^ expectedSecret.charCodeAt(i)
+  }
+  return mismatch === 0
+}
+
+// This endpoint requires CRON_SECRET header for security
+// Called by external cron service (Vercel, n8n, or similar)
 export async function POST(request: Request) {
+  // Validate cron secret
+  if (!validateCronSecret(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     const now = new Date()
 

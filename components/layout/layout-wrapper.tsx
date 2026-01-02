@@ -28,6 +28,13 @@ import { LeagueSelector } from '@/components/layout/league-selector'
 
 const SIDEBAR_COLLAPSED_KEY = 'football-ai-sidebar-collapsed'
 
+interface AuthData {
+  authenticated: boolean
+  userId: string
+  username: string
+  isAdmin: boolean
+}
+
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
   { href: '/predictions', label: 'Predictions', icon: TrendingUp },
@@ -35,9 +42,9 @@ const navItems = [
   { href: '/teams', label: 'Teams', icon: Users },
   { href: '/matches', label: 'Matches', icon: Calendar },
   { href: '/stats', label: 'Statistics', icon: BarChart3 },
-  { href: '/activity', label: 'Activity', icon: Activity },
-  { href: '/data', label: 'Data', icon: Database },
-  { href: '/data/docs', label: 'API Docs', icon: FileText },
+  { href: '/activity', label: 'Activity', icon: Activity, adminOnly: true },
+  { href: '/data', label: 'Data', icon: Database, adminOnly: true },
+  { href: '/data/docs', label: 'API Docs', icon: FileText, adminOnly: true },
 ]
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
@@ -61,6 +68,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [authData, setAuthData] = useState<AuthData | null>(null)
   const pathname = usePathname()
   const { currentLeague } = useLeague()
 
@@ -75,6 +83,22 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to load sidebar state:', error)
     }
+  }, [])
+
+  // Fetch auth data to determine admin status
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          setAuthData(data.user)
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+    checkAuth()
   }, [])
 
   // Save collapsed state to localStorage
@@ -181,7 +205,9 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
           {/* Navigation */}
           <nav className="space-y-1 flex-1">
-            {navItems.map((item) => {
+            {navItems
+              .filter(item => !item.adminOnly || authData?.isAdmin)
+              .map((item) => {
               const isActive = pathname === item.href ||
                 (item.href !== '/' && pathname.startsWith(item.href))
               const Icon = item.icon

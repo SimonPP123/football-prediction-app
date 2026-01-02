@@ -121,11 +121,17 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
 
   // Content Security Policy
   // Allow: self, inline styles (for Tailwind), images from API-Football, fonts
+  // Note: unsafe-eval only in development (Next.js dev server requires it)
+  const isDev = process.env.NODE_ENV !== 'production'
+  const scriptSrc = isDev
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'"
+
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-eval in dev
+      scriptSrc,
       "style-src 'self' 'unsafe-inline'", // Tailwind uses inline styles
       "img-src 'self' data: https://media.api-sports.io https://*.supabase.co blob:",
       "font-src 'self' data:",
@@ -149,14 +155,35 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Allow access to public routes (still add security headers)
+  // Note: /api/match-analysis/auto-trigger removed - now requires CRON_SECRET header
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/api/leagues') ||
-    pathname.startsWith('/api/fixtures') ||  // Live fixtures need to sync without auth
-    pathname === '/api/match-analysis/auto-trigger'  // Called by Vercel cron
+    pathname.startsWith('/api/fixtures')  // Live fixtures need to sync without auth
   ) {
     return addSecurityHeaders(NextResponse.next())
+  }
+
+  // Allow cron endpoints with secret header (bypass auth cookie requirement)
+  if (pathname === '/api/match-analysis/auto-trigger') {
+    const cronSecret = request.headers.get('x-cron-secret')
+    if (cronSecret && process.env.CRON_SECRET) {
+      // Timing-safe comparison
+      if (cronSecret.length === process.env.CRON_SECRET.length) {
+        let mismatch = 0
+        for (let i = 0; i < cronSecret.length; i++) {
+          mismatch |= cronSecret.charCodeAt(i) ^ process.env.CRON_SECRET.charCodeAt(i)
+        }
+        if (mismatch === 0) {
+          return addSecurityHeaders(NextResponse.next())
+        }
+      }
+    }
+    // Invalid or missing secret - return 401
+    return addSecurityHeaders(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    )
   }
 
   // Allow API key authenticated requests (for n8n and external automation)

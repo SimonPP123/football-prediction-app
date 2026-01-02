@@ -46,6 +46,13 @@ const ENV_VARS: EnvVar[] = [
     description: 'Secret key for signing auth cookies',
     validate: (v) => v.length >= 32,
   },
+  {
+    name: 'CRON_SECRET',
+    required: true,
+    productionOnly: true,
+    description: 'Secret for authenticating cron job requests',
+    validate: (v) => v.length >= 32,
+  },
 
   // n8n (optional - only needed for prediction workflows)
   {
