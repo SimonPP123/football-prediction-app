@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@supabase/supabase-js'
+import { SEASON } from '@/lib/api-football'
 
 export const dynamic = 'force-dynamic'
+
+// Use service role for API routes
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function GET(request: Request) {
   try {
@@ -22,11 +29,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Invalid stat type' }, { status: 400 })
     }
 
+    // Get the season from the league's current_season, fallback to default
+    let season = SEASON
+    if (leagueId) {
+      const { data: league } = await supabase
+        .from('leagues')
+        .select('current_season')
+        .eq('id', leagueId)
+        .single()
+      if (league?.current_season) {
+        season = league.current_season
+      }
+    }
+
     let query = supabase
       .from('top_performers')
       .select('*')
       .eq('category', category)
-      .eq('season', 2025)
+      .eq('season', season)
       .order('rank', { ascending: true })
       .limit(20)
 
