@@ -23,12 +23,12 @@ export async function GET(request: Request) {
         fixture:fixtures!inner(
           id,
           league_id,
-          kickoff,
+          match_date,
           status,
           home_team:teams!fixtures_home_team_id_fkey(id, name, code, logo),
           away_team:teams!fixtures_away_team_id_fkey(id, name, code, logo),
-          home_score,
-          away_score
+          goals_home,
+          goals_away
         )
       `)
       .order('created_at', { ascending: false })
@@ -362,7 +362,7 @@ export async function GET(request: Request) {
       const prediction = predictionMap.get(a.fixture_id)
       return {
         id: a.fixture_id,
-        kickoff: a.fixture?.kickoff,
+        kickoff: a.fixture?.match_date,
         homeTeam: a.fixture?.home_team,
         awayTeam: a.fixture?.away_team,
         actualScore: a.actual_score,
