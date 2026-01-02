@@ -534,6 +534,140 @@ export default function StatsPage() {
                   </div>
                 )}
 
+                {/* Score Index Analysis */}
+                {predictionStats.scoreIndex && (
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <Crosshair className="w-4 h-4 text-primary" />
+                      Score Index Analysis
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Score Index: Weighted factor score (1-100). &gt;50 favors home, &lt;50 favors away, 50 is neutral.
+                    </p>
+
+                    {/* Average Score Index */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-2xl font-bold">{predictionStats.scoreIndex.average}</p>
+                        <p className="text-xs text-muted-foreground">Average Index</p>
+                      </div>
+                      <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-green-500">{predictionStats.scoreIndex.correctAvg}</p>
+                        <p className="text-xs text-muted-foreground">Correct Predictions</p>
+                      </div>
+                      <div className="text-center p-3 bg-red-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-red-500">{predictionStats.scoreIndex.incorrectAvg}</p>
+                        <p className="text-xs text-muted-foreground">Incorrect Predictions</p>
+                      </div>
+                    </div>
+
+                    {/* Accuracy by Score Index Range */}
+                    <h4 className="text-sm font-medium mb-2">Accuracy by Index Range</h4>
+                    <div className="space-y-2">
+                      {Object.entries(predictionStats.scoreIndex.byRange).map(([key, data]: [string, any]) => {
+                        if (data.total === 0) return null
+                        const label = key === 'strong_home' ? 'Strong Home (70-100)' :
+                                     key === 'lean_home' ? 'Lean Home (55-69)' :
+                                     key === 'balanced' ? 'Balanced (45-54)' :
+                                     key === 'lean_away' ? 'Lean Away (31-44)' :
+                                     'Strong Away (1-30)'
+                        const color = key.includes('home') ? 'bg-home' :
+                                     key.includes('away') ? 'bg-away' : 'bg-draw'
+                        return (
+                          <div key={key} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span>{label}</span>
+                              <span className="font-medium">{data.accuracy}%</span>
+                            </div>
+                            <div className="h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={cn("h-full rounded-full", color)}
+                                style={{ width: `${data.accuracy}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {data.correct}/{data.total} predictions
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Confidence Analysis */}
+                {predictionStats.confidenceStats && (
+                  <div className="bg-card border border-border rounded-lg p-4">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                      Confidence Analysis
+                    </h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      AI's certainty level in its predictions (0-100%)
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-2xl font-bold">{predictionStats.confidenceStats.average}%</p>
+                        <p className="text-xs text-muted-foreground">Average Confidence</p>
+                      </div>
+                      <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-green-500">{predictionStats.confidenceStats.correctAvg}%</p>
+                        <p className="text-xs text-muted-foreground">When Correct</p>
+                      </div>
+                      <div className="text-center p-3 bg-red-500/10 rounded-lg">
+                        <p className="text-2xl font-bold text-red-500">{predictionStats.confidenceStats.incorrectAvg}%</p>
+                        <p className="text-xs text-muted-foreground">When Incorrect</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Market Stats */}
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <h3 className="font-semibold mb-4">Prediction Market Accuracy</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-muted/30 rounded-lg">
+                      <p className={cn(
+                        "text-2xl font-bold",
+                        predictionStats.result_accuracy >= 50 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {Math.round(predictionStats.result_accuracy)}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">1X2 Result</p>
+                    </div>
+                    <div className="text-center p-3 bg-muted/30 rounded-lg">
+                      <p className={cn(
+                        "text-2xl font-bold",
+                        predictionStats.over_under_accuracy >= 50 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {Math.round(predictionStats.over_under_accuracy)}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">Over/Under 2.5</p>
+                    </div>
+                    <div className="text-center p-3 bg-muted/30 rounded-lg">
+                      <p className={cn(
+                        "text-2xl font-bold",
+                        predictionStats.btts_accuracy >= 50 ? "text-green-500" : "text-red-500"
+                      )}>
+                        {Math.round(predictionStats.btts_accuracy)}%
+                      </p>
+                      <p className="text-xs text-muted-foreground">BTTS</p>
+                    </div>
+                    {predictionStats.scorePrediction && (
+                      <div className="text-center p-3 bg-muted/30 rounded-lg">
+                        <p className="text-2xl font-bold text-primary">
+                          {predictionStats.scorePrediction.accuracy}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">Exact Score</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          ({predictionStats.scorePrediction.closeAccuracy}% within 1 goal)
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Model comparison */}
                 {predictionStats.byModel && Object.keys(predictionStats.byModel).length > 0 && (
                   <div className="bg-card border border-border rounded-lg p-4">

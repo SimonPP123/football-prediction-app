@@ -49,10 +49,10 @@ export async function GET(request: Request) {
     // Get fixture IDs from analyses
     const fixtureIds = analyses.map(a => a.fixture_id).filter(Boolean)
 
-    // Fetch related predictions separately
+    // Fetch related predictions separately with more fields
     const { data: predictions } = await supabase
       .from('predictions')
-      .select('fixture_id, prediction_result, confidence_pct, confidence_level, model_used, model_version')
+      .select('fixture_id, prediction_result, confidence_pct, confidence_level, model_used, model_version, overall_index, certainty_score, most_likely_score')
       .in('fixture_id', fixtureIds)
 
     // Create a map of predictions by fixture_id
@@ -192,6 +192,154 @@ export async function GET(request: Request) {
       }
     })
 
+    // Calculate Score Index statistics
+    const scoreIndexStats = {
+      count: 0,
+      average: 0,
+      correctAvg: 0,
+      incorrectAvg: 0,
+      byRange: {
+        strong_home: { range: '70-100', total: 0, correct: 0, accuracy: 0 }, // Strongly favors home
+        lean_home: { range: '55-69', total: 0, correct: 0, accuracy: 0 },    // Leans home
+        balanced: { range: '45-54', total: 0, correct: 0, accuracy: 0 },     // Balanced
+        lean_away: { range: '31-44', total: 0, correct: 0, accuracy: 0 },    // Leans away
+        strong_away: { range: '1-30', total: 0, correct: 0, accuracy: 0 },   // Strongly favors away
+      } as Record<string, { range: string; total: number; correct: number; accuracy: number }>
+    }
+
+    let totalIndex = 0
+    let correctIndexSum = 0
+    let correctIndexCount = 0
+    let incorrectIndexSum = 0
+    let incorrectIndexCount = 0
+
+    analyses.forEach(a => {
+      const prediction = predictionMap.get(a.fixture_id)
+      const overallIndex = prediction?.overall_index
+
+      if (overallIndex !== undefined && overallIndex !== null) {
+        scoreIndexStats.count++
+        totalIndex += overallIndex
+
+        if (a.prediction_correct) {
+          correctIndexSum += overallIndex
+          correctIndexCount++
+        } else {
+          incorrectIndexSum += overallIndex
+          incorrectIndexCount++
+        }
+
+        // Categorize by range
+        let rangeKey: string
+        if (overallIndex >= 70) rangeKey = 'strong_home'
+        else if (overallIndex >= 55) rangeKey = 'lean_home'
+        else if (overallIndex >= 45) rangeKey = 'balanced'
+        else if (overallIndex >= 31) rangeKey = 'lean_away'
+        else rangeKey = 'strong_away'
+
+        scoreIndexStats.byRange[rangeKey].total++
+        if (a.prediction_correct) {
+          scoreIndexStats.byRange[rangeKey].correct++
+        }
+      }
+    })
+
+    if (scoreIndexStats.count > 0) {
+      scoreIndexStats.average = Math.round(totalIndex / scoreIndexStats.count)
+    }
+    if (correctIndexCount > 0) {
+      scoreIndexStats.correctAvg = Math.round(correctIndexSum / correctIndexCount)
+    }
+    if (incorrectIndexCount > 0) {
+      scoreIndexStats.incorrectAvg = Math.round(incorrectIndexSum / incorrectIndexCount)
+    }
+
+    // Calculate accuracy for each score index range
+    Object.keys(scoreIndexStats.byRange).forEach(key => {
+      const range = scoreIndexStats.byRange[key]
+      if (range.total > 0) {
+        range.accuracy = Math.round((range.correct / range.total) * 100)
+      }
+    })
+
+    // Calculate detailed Confidence (certainty_score) statistics
+    const confidenceStats = {
+      count: 0,
+      average: 0,
+      correctAvg: 0,
+      incorrectAvg: 0,
+    }
+
+    let totalConfidence = 0
+    let correctConfidenceSum = 0
+    let correctConfidenceCount = 0
+    let incorrectConfidenceSum = 0
+    let incorrectConfidenceCount = 0
+
+    analyses.forEach(a => {
+      const prediction = predictionMap.get(a.fixture_id)
+      const confidence = prediction?.certainty_score || prediction?.confidence_pct || a.confidence_pct
+
+      if (confidence !== undefined && confidence !== null && confidence > 0) {
+        confidenceStats.count++
+        totalConfidence += confidence
+
+        if (a.prediction_correct) {
+          correctConfidenceSum += confidence
+          correctConfidenceCount++
+        } else {
+          incorrectConfidenceSum += confidence
+          incorrectConfidenceCount++
+        }
+      }
+    })
+
+    if (confidenceStats.count > 0) {
+      confidenceStats.average = Math.round(totalConfidence / confidenceStats.count)
+    }
+    if (correctConfidenceCount > 0) {
+      confidenceStats.correctAvg = Math.round(correctConfidenceSum / correctConfidenceCount)
+    }
+    if (incorrectConfidenceCount > 0) {
+      confidenceStats.incorrectAvg = Math.round(incorrectConfidenceSum / incorrectConfidenceCount)
+    }
+
+    // Calculate Score Prediction statistics
+    const scorePredictionStats = {
+      total: 0,
+      correct: 0,
+      accuracy: 0,
+      closeCount: 0, // Within 1 goal total
+      closeAccuracy: 0,
+    }
+
+    analyses.forEach(a => {
+      const prediction = predictionMap.get(a.fixture_id)
+      if (prediction?.most_likely_score && a.actual_score) {
+        scorePredictionStats.total++
+
+        if (a.score_correct) {
+          scorePredictionStats.correct++
+        }
+
+        // Check if close (within 1 goal total difference)
+        const [predHome, predAway] = prediction.most_likely_score.split('-').map(Number)
+        const [actHome, actAway] = a.actual_score.split('-').map(Number)
+
+        if (!isNaN(predHome) && !isNaN(predAway) && !isNaN(actHome) && !isNaN(actAway)) {
+          const goalDiff = Math.abs((predHome + predAway) - (actHome + actAway))
+          if (goalDiff <= 1) {
+            scorePredictionStats.closeCount++
+          }
+        }
+      }
+    })
+
+    if (scorePredictionStats.total > 0) {
+      scorePredictionStats.accuracy = Math.round((scorePredictionStats.correct / scorePredictionStats.total) * 100)
+      scorePredictionStats.closeAccuracy = Math.round((scorePredictionStats.closeCount / scorePredictionStats.total) * 100)
+    }
+
     return NextResponse.json({
       total,
       correct,
@@ -205,6 +353,10 @@ export async function GET(request: Request) {
       byOutcome: Object.values(byOutcome).some(v => v.total > 0) ? byOutcome : null,
       byConfidence: Object.values(byConfidence).some(v => v.total > 0) ? byConfidence : null,
       byModel: Object.keys(byModel).length > 0 ? byModel : null,
+      // New comprehensive stats
+      scoreIndex: scoreIndexStats.count > 0 ? scoreIndexStats : null,
+      confidenceStats: confidenceStats.count > 0 ? confidenceStats : null,
+      scorePrediction: scorePredictionStats.total > 0 ? scorePredictionStats : null,
     })
   } catch (error) {
     console.error('Error fetching accuracy stats:', error)

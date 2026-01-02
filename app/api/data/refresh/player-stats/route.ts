@@ -30,13 +30,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
+  // Get league_id from query params for multi-league support
+  const { searchParams } = new URL(request.url)
+  const leagueIdParam = searchParams.get('league_id')
+
   if (wantsStreaming(request)) {
-    return handleStreamingRefresh()
+    return handleStreamingRefresh(leagueIdParam)
   }
-  return handleBatchRefresh()
+  return handleBatchRefresh(leagueIdParam)
 }
 
-async function handleStreamingRefresh() {
+async function handleStreamingRefresh(leagueIdParam: string | null) {
   const { stream, sendLog, close, closeWithError, headers } = createSSEStream()
   const startTime = Date.now()
 
@@ -44,17 +48,33 @@ async function handleStreamingRefresh() {
     try {
       sendLog({ type: 'info', message: 'Starting player season stats refresh...' })
 
-      const { data: leagueData } = await supabase
-        .from('leagues')
-        .select('id')
-        .eq('api_id', LEAGUE_ID)
-        .single()
+      // Look up league - by UUID if provided, otherwise by default LEAGUE_ID
+      let leagueData: { id: string; api_id: number; current_season: number } | null = null
+      if (leagueIdParam) {
+        const { data } = await supabase
+          .from('leagues')
+          .select('id, api_id, current_season')
+          .eq('id', leagueIdParam)
+          .single()
+        leagueData = data
+      } else {
+        const { data } = await supabase
+          .from('leagues')
+          .select('id, api_id, current_season')
+          .eq('api_id', LEAGUE_ID)
+          .single()
+        leagueData = data
+      }
 
       if (!leagueData) {
         sendLog({ type: 'error', message: 'League not found in database' })
         closeWithError('League not found in database', Date.now() - startTime)
         return
       }
+
+      const leagueApiId = leagueData.api_id
+      const leagueSeason = leagueData.current_season || SEASON
+      sendLog({ type: 'info', message: `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}` })
 
       const { data: teams } = await supabase.from('teams').select('id, api_id')
       const teamMap = new Map(teams?.map(t => [t.api_id, t.id]) || [])
@@ -110,7 +130,7 @@ async function handleStreamingRefresh() {
               player_id: playerData.id,
               team_id: teamId || null,
               league_id: leagueData.id,
-              season: SEASON,
+              season: leagueSeason,
               position: stats.games?.position,
               appearances: stats.games?.appearences || 0,
               lineups: stats.games?.lineups || 0,
@@ -152,7 +172,7 @@ async function handleStreamingRefresh() {
 
       sendLog({ type: 'info', message: 'Fetching page 1...' })
 
-      const firstPage = await fetchPlayers(1)
+      const firstPage = await fetchPlayers(1, leagueApiId, leagueSeason)
       totalPages = firstPage.paging?.total || 1
 
       sendLog({ type: 'info', message: `Found ${totalPages} pages of player data` })
@@ -170,7 +190,7 @@ async function handleStreamingRefresh() {
         })
 
         try {
-          const data = await fetchPlayers(page)
+          const data = await fetchPlayers(page, leagueApiId, leagueSeason)
           await processPage(data)
         } catch (err) {
           sendLog({ type: 'error', message: `Failed page ${page}: ${err instanceof Error ? err.message : 'Unknown'}` })
@@ -193,7 +213,7 @@ async function handleStreamingRefresh() {
   return new Response(stream, { headers })
 }
 
-async function handleBatchRefresh() {
+async function handleBatchRefresh(leagueIdParam: string | null) {
   const logs: LogEntry[] = []
   const startTime = Date.now()
 
@@ -209,12 +229,23 @@ async function handleBatchRefresh() {
   try {
     addLog('info', 'Starting player season stats refresh...')
 
-    // Get league UUID
-    const { data: leagueData } = await supabase
-      .from('leagues')
-      .select('id')
-      .eq('api_id', LEAGUE_ID)
-      .single()
+    // Look up league - by UUID if provided, otherwise by default LEAGUE_ID
+    let leagueData: { id: string; api_id: number; current_season: number } | null = null
+    if (leagueIdParam) {
+      const { data } = await supabase
+        .from('leagues')
+        .select('id, api_id, current_season')
+        .eq('id', leagueIdParam)
+        .single()
+      leagueData = data
+    } else {
+      const { data } = await supabase
+        .from('leagues')
+        .select('id, api_id, current_season')
+        .eq('api_id', LEAGUE_ID)
+        .single()
+      leagueData = data
+    }
 
     if (!leagueData) {
       addLog('error', 'League not found in database')
@@ -224,6 +255,10 @@ async function handleBatchRefresh() {
         logs,
       }, { status: 400 })
     }
+
+    const leagueApiId = leagueData.api_id
+    const leagueSeason = leagueData.current_season || SEASON
+    addLog('info', `Fetching for league API ID: ${leagueApiId}, season: ${leagueSeason}`)
 
     // Build team lookup
     const { data: teams } = await supabase.from('teams').select('id, api_id')
@@ -282,7 +317,7 @@ async function handleBatchRefresh() {
             player_id: playerData.id,
             team_id: teamId || null,
             league_id: leagueData.id,
-            season: SEASON,
+            season: leagueSeason,
             position: stats.games?.position,
             appearances: stats.games?.appearences || 0,
             lineups: stats.games?.lineups || 0,
@@ -324,10 +359,10 @@ async function handleBatchRefresh() {
 
     // First call to get total pages
     addLog('info', `Fetching page 1...`, {
-      endpoint: `${ENDPOINTS.players.path}?league=${LEAGUE_ID}&season=${SEASON}&page=1`,
+      endpoint: `${ENDPOINTS.players.path}?league=${leagueApiId}&season=${leagueSeason}&page=1`,
     })
 
-    const firstPage = await fetchPlayers(1)
+    const firstPage = await fetchPlayers(1, leagueApiId, leagueSeason)
     totalPages = firstPage.paging?.total || 1
 
     addLog('info', `Found ${totalPages} pages of player data`)
@@ -341,12 +376,12 @@ async function handleBatchRefresh() {
       await delay(400) // Rate limiting
 
       addLog('progress', `Fetching page ${page}/${totalPages}...`, {
-        endpoint: `${ENDPOINTS.players.path}?league=${LEAGUE_ID}&season=${SEASON}&page=${page}`,
+        endpoint: `${ENDPOINTS.players.path}?league=${leagueApiId}&season=${leagueSeason}&page=${page}`,
         progress: { current: page, total: totalPages },
       })
 
       try {
-        const data = await fetchPlayers(page)
+        const data = await fetchPlayers(page, leagueApiId, leagueSeason)
         await processPage(data)
       } catch (err) {
         addLog('error', `Failed page ${page}: ${err instanceof Error ? err.message : 'Unknown'}`)

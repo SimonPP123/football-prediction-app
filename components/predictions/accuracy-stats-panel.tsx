@@ -1,16 +1,37 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BarChart3, Target, TrendingUp, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { BarChart3, Target, TrendingUp, CheckCircle, XCircle, Loader2, Crosshair, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AccuracyStats {
   total: number
+  correct: number
+  incorrect: number
+  accuracy: number
   result_accuracy: number
   score_accuracy: number
   over_under_accuracy: number
   btts_accuracy: number
   average_accuracy: number
+  scoreIndex?: {
+    count: number
+    average: number
+    correctAvg: number
+    incorrectAvg: number
+  }
+  confidenceStats?: {
+    count: number
+    average: number
+    correctAvg: number
+    incorrectAvg: number
+  }
+  scorePrediction?: {
+    total: number
+    correct: number
+    accuracy: number
+    closeAccuracy: number
+  }
 }
 
 export function AccuracyStatsPanel() {
@@ -69,6 +90,8 @@ export function AccuracyStatsPanel() {
     return 'bg-red-500/10 border-red-500/20'
   }
 
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div className="p-4 bg-card border rounded-lg">
       <div className="flex items-center justify-between mb-4">
@@ -76,11 +99,21 @@ export function AccuracyStatsPanel() {
           <BarChart3 className="w-5 h-5 text-primary" />
           Historical Accuracy
         </h3>
-        <span className="text-sm text-muted-foreground">
-          {stats.total} match{stats.total !== 1 ? 'es' : ''} analyzed
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {stats.total} match{stats.total !== 1 ? 'es' : ''} analyzed
+          </span>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs text-primary flex items-center gap-1 hover:underline"
+          >
+            {expanded ? 'Less' : 'More'}
+            <ChevronDown className={cn("w-3 h-3 transition-transform", expanded && "rotate-180")} />
+          </button>
+        </div>
       </div>
 
+      {/* Main accuracy grid */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {/* Overall Average */}
         <div className={cn(
@@ -122,6 +155,11 @@ export function AccuracyStatsPanel() {
             {Math.round(stats.score_accuracy)}%
           </div>
           <div className="text-xs text-muted-foreground">Exact Score</div>
+          {stats.scorePrediction && (
+            <div className="text-[10px] text-muted-foreground">
+              ({stats.scorePrediction.closeAccuracy}% close)
+            </div>
+          )}
         </div>
 
         {/* Over/Under 2.5 */}
@@ -152,6 +190,83 @@ export function AccuracyStatsPanel() {
           <div className="text-xs text-muted-foreground">BTTS</div>
         </div>
       </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="mt-4 pt-4 border-t border-border space-y-4">
+          {/* Score Index & Confidence Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Score Index */}
+            {stats.scoreIndex && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <Crosshair className="w-3 h-3" />
+                  Score Index (Factor Points)
+                </h4>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  1-100 scale: &gt;50 favors home, &lt;50 favors away
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <p className="text-lg font-bold">{stats.scoreIndex.average}</p>
+                    <p className="text-muted-foreground">Average</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-green-500">{stats.scoreIndex.correctAvg}</p>
+                    <p className="text-muted-foreground">When Correct</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-red-500">{stats.scoreIndex.incorrectAvg}</p>
+                    <p className="text-muted-foreground">When Wrong</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Confidence */}
+            {stats.confidenceStats && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  Confidence (AI Certainty %)
+                </h4>
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  How confident the AI was in its predictions
+                </p>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <p className="text-lg font-bold">{stats.confidenceStats.average}%</p>
+                    <p className="text-muted-foreground">Average</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-green-500">{stats.confidenceStats.correctAvg}%</p>
+                    <p className="text-muted-foreground">When Correct</p>
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-red-500">{stats.confidenceStats.incorrectAvg}%</p>
+                    <p className="text-muted-foreground">When Wrong</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Correct vs Incorrect Summary */}
+          <div className="flex items-center justify-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span><strong className="text-green-500">{stats.correct}</strong> Correct</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4 text-red-500" />
+              <span><strong className="text-red-500">{stats.incorrect}</strong> Incorrect</span>
+            </div>
+            <div className="text-muted-foreground">
+              ({stats.accuracy?.toFixed(1)}% accuracy)
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
