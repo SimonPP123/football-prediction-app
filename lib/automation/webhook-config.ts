@@ -117,11 +117,18 @@ export async function getWebhookUrl(
 }
 
 /**
- * Gets the webhook secret with fallback to env var
+ * Gets the webhook secret from environment variable only
+ * Note: Secret is ONLY configurable via .env file, not the database
  */
-export async function getWebhookSecret(): Promise<string> {
-  const config = await getWebhookConfig()
-  return config.webhook_secret || process.env.N8N_WEBHOOK_SECRET || ''
+export function getWebhookSecret(): string {
+  return process.env.N8N_WEBHOOK_SECRET || ''
+}
+
+/**
+ * Checks if webhook secret is configured in environment
+ */
+export function isWebhookSecretSet(): boolean {
+  return !!process.env.N8N_WEBHOOK_SECRET
 }
 
 /**

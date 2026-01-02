@@ -36,8 +36,7 @@ export function SettingsModal({
   const [liveWebhook, setLiveWebhook] = useState(DEFAULT_WEBHOOKS.live)
   const [postMatchWebhook, setPostMatchWebhook] = useState(DEFAULT_WEBHOOKS.postMatch)
 
-  // Secret
-  const [webhookSecret, setWebhookSecret] = useState('')
+  // Secret status (read-only, configured via .env only)
   const [secretSet, setSecretSet] = useState(false)
 
   // Load config from API when modal opens
@@ -65,7 +64,6 @@ export function SettingsModal({
       setLiveWebhook(data.live_webhook_url || DEFAULT_WEBHOOKS.live)
       setPostMatchWebhook(data.post_match_webhook_url || DEFAULT_WEBHOOKS.postMatch)
       setSecretSet(data.webhook_secret_set || false)
-      setWebhookSecret('') // Don't load actual secret
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load configuration')
     } finally {
@@ -110,10 +108,7 @@ export function SettingsModal({
         updates.post_match_webhook_url = null
       }
 
-      // Only update secret if it was changed
-      if (webhookSecret) {
-        updates.webhook_secret = webhookSecret
-      }
+      // Note: webhook_secret is NOT configurable via UI - it's set via .env file only
 
       const res = await fetch('/api/automation/webhooks', {
         method: 'PATCH',
@@ -131,24 +126,6 @@ export function SettingsModal({
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save configuration')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const clearSecret = async () => {
-    setSaving(true)
-    try {
-      const res = await fetch('/api/automation/webhooks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ webhook_secret: null })
-      })
-      if (res.ok) {
-        setSecretSet(false)
-        setWebhookSecret('')
-      }
     } finally {
       setSaving(false)
     }
@@ -341,36 +318,20 @@ export function SettingsModal({
               {/* Divider */}
               <div className="border-t" />
 
-              {/* Webhook Secret */}
+              {/* Webhook Secret - Read Only */}
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium mb-2">
                   <Shield className="w-4 h-4 text-primary" />
                   Webhook Secret
-                  {secretSet && !webhookSecret && (
-                    <span className="text-xs text-green-500 font-normal">(Currently set)</span>
-                  )}
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    value={webhookSecret}
-                    onChange={(e) => setWebhookSecret(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder={secretSet ? "Enter new secret to change..." : "Enter secret for authentication..."}
-                  />
-                  {secretSet && (
-                    <button
-                      onClick={clearSecret}
-                      disabled={saving}
-                      className="px-3 py-2 text-sm text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-lg disabled:opacity-50"
-                      title="Clear secret"
-                    >
-                      Clear
-                    </button>
-                  )}
+                <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 border rounded-lg">
+                  <div className={`w-2 h-2 rounded-full ${secretSet ? 'bg-green-500' : 'bg-yellow-500'}`} />
+                  <span className="text-sm">
+                    {secretSet ? 'Configured' : 'Not configured'}
+                  </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sent as <code className="bg-muted px-1 rounded">X-Webhook-Secret</code> header for all webhooks
+                <p className="text-xs text-muted-foreground mt-2">
+                  The webhook secret is configured via the <code className="bg-muted px-1 rounded">N8N_WEBHOOK_SECRET</code> environment variable in your <code className="bg-muted px-1 rounded">.env</code> file. It is sent as <code className="bg-muted px-1 rounded">X-Webhook-Secret</code> header for all webhooks.
                 </p>
               </div>
 
