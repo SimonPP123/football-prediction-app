@@ -548,16 +548,38 @@ export default function StatsPage() {
                     {/* Average Score Index */}
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <div className="text-center p-3 bg-muted/30 rounded-lg">
-                        <p className="text-2xl font-bold">{predictionStats.scoreIndex.average}</p>
+                        <p className={cn(
+                          "text-2xl font-bold",
+                          predictionStats.scoreIndex.average > 55 ? "text-home" :
+                          predictionStats.scoreIndex.average < 45 ? "text-away" : ""
+                        )}>
+                          {predictionStats.scoreIndex.average}
+                        </p>
                         <p className="text-xs text-muted-foreground">Average Index</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {predictionStats.scoreIndex.average > 55 ? 'Lean Home' :
+                           predictionStats.scoreIndex.average < 45 ? 'Lean Away' : 'Balanced'}
+                        </p>
                       </div>
                       <div className="text-center p-3 bg-green-500/10 rounded-lg">
-                        <p className="text-2xl font-bold text-green-500">{predictionStats.scoreIndex.correctAvg}</p>
-                        <p className="text-xs text-muted-foreground">Correct Predictions</p>
+                        <p className={cn(
+                          "text-2xl font-bold",
+                          predictionStats.scoreIndex.correctAvg > 55 ? "text-home" :
+                          predictionStats.scoreIndex.correctAvg < 45 ? "text-away" : "text-green-500"
+                        )}>
+                          {predictionStats.scoreIndex.correctAvg}
+                        </p>
+                        <p className="text-xs text-muted-foreground">When Correct</p>
                       </div>
                       <div className="text-center p-3 bg-red-500/10 rounded-lg">
-                        <p className="text-2xl font-bold text-red-500">{predictionStats.scoreIndex.incorrectAvg}</p>
-                        <p className="text-xs text-muted-foreground">Incorrect Predictions</p>
+                        <p className={cn(
+                          "text-2xl font-bold",
+                          predictionStats.scoreIndex.incorrectAvg > 55 ? "text-home" :
+                          predictionStats.scoreIndex.incorrectAvg < 45 ? "text-away" : "text-red-500"
+                        )}>
+                          {predictionStats.scoreIndex.incorrectAvg}
+                        </p>
+                        <p className="text-xs text-muted-foreground">When Incorrect</p>
                       </div>
                     </div>
 
@@ -620,6 +642,34 @@ export default function StatsPage() {
                         <p className="text-xs text-muted-foreground">When Incorrect</p>
                       </div>
                     </div>
+
+                    {/* Calibration warning */}
+                    {predictionStats.confidenceStats.incorrectAvg > predictionStats.confidenceStats.correctAvg && (
+                      <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <p className="font-medium text-orange-600">Calibration Issue Detected</p>
+                          <p className="text-muted-foreground">
+                            The AI is more confident when incorrect ({predictionStats.confidenceStats.incorrectAvg}%)
+                            than when correct ({predictionStats.confidenceStats.correctAvg}%).
+                            This suggests the model may need recalibration.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Good calibration indicator */}
+                    {predictionStats.confidenceStats.correctAvg > predictionStats.confidenceStats.incorrectAvg && (
+                      <div className="mt-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-start gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                        <div className="text-xs">
+                          <p className="font-medium text-green-600">Good Calibration</p>
+                          <p className="text-muted-foreground">
+                            The AI is more confident when correct - this indicates proper calibration.
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

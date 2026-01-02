@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BarChart3, Target, TrendingUp, CheckCircle, XCircle, Loader2, Crosshair, ChevronDown } from 'lucide-react'
+import { BarChart3, Target, TrendingUp, CheckCircle, XCircle, Loader2, Crosshair, ChevronDown, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface AccuracyStats {
@@ -204,19 +204,37 @@ export function AccuracyStatsPanel() {
                   Score Index (Factor Points)
                 </h4>
                 <p className="text-[10px] text-muted-foreground mb-2">
-                  1-100 scale: &gt;50 favors home, &lt;50 favors away
+                  1-100 scale: &gt;50 favors home, &lt;50 favors away, 50 neutral
                 </p>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div>
-                    <p className="text-lg font-bold">{stats.scoreIndex.average}</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      stats.scoreIndex.average > 55 ? "text-home" :
+                      stats.scoreIndex.average < 45 ? "text-away" : ""
+                    )}>
+                      {stats.scoreIndex.average}
+                    </p>
                     <p className="text-muted-foreground">Average</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-green-500">{stats.scoreIndex.correctAvg}</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      stats.scoreIndex.correctAvg > 55 ? "text-home" :
+                      stats.scoreIndex.correctAvg < 45 ? "text-away" : "text-green-500"
+                    )}>
+                      {stats.scoreIndex.correctAvg}
+                    </p>
                     <p className="text-muted-foreground">When Correct</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-red-500">{stats.scoreIndex.incorrectAvg}</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      stats.scoreIndex.incorrectAvg > 55 ? "text-home" :
+                      stats.scoreIndex.incorrectAvg < 45 ? "text-away" : "text-red-500"
+                    )}>
+                      {stats.scoreIndex.incorrectAvg}
+                    </p>
                     <p className="text-muted-foreground">When Wrong</p>
                   </div>
                 </div>
@@ -247,6 +265,15 @@ export function AccuracyStatsPanel() {
                     <p className="text-muted-foreground">When Wrong</p>
                   </div>
                 </div>
+                {/* Calibration warning */}
+                {stats.confidenceStats.incorrectAvg > stats.confidenceStats.correctAvg && (
+                  <div className="mt-2 p-2 bg-orange-500/10 border border-orange-500/20 rounded text-[10px] flex items-start gap-1">
+                    <AlertTriangle className="w-3 h-3 text-orange-500 shrink-0 mt-0.5" />
+                    <span className="text-orange-600">
+                      Calibration issue: AI more confident when wrong
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
