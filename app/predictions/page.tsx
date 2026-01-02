@@ -60,23 +60,30 @@ export default function PredictionsPage() {
   const [showPromptEditor, setShowPromptEditor] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
   const [tempPrompt, setTempPrompt] = useState('')
-  // Webhook secret state
-  const [webhookSecret, setWebhookSecret] = useState('')
+  // Webhook secret state (just for display - actual value is in database)
+  const [webhookSecretSet, setWebhookSecretSet] = useState(false)
 
-  // Load saved settings from localStorage on mount
-  useEffect(() => {
-    const savedUrl = localStorage.getItem('prediction_webhook_url')
-    if (savedUrl) {
-      setWebhookUrl(savedUrl)
+  // Load webhook secret status from API
+  const loadWebhookSecretStatus = async () => {
+    try {
+      const res = await fetch('/api/automation/webhooks', { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setWebhookSecretSet(data.webhook_secret_set || false)
+      }
+    } catch {
+      // Ignore errors - just won't show secret status
     }
+  }
+
+  // Load saved settings on mount
+  useEffect(() => {
+    // Load model from localStorage (still client-side preference)
     const savedModel = localStorage.getItem('prediction_model')
     if (savedModel) {
       setSelectedModel(savedModel)
     }
-    const savedAnalysisUrl = localStorage.getItem('analysis_webhook_url')
-    if (savedAnalysisUrl) {
-      setAnalysisWebhookUrl(savedAnalysisUrl)
-    }
+    // Load custom prompt from localStorage
     const savedPrompt = localStorage.getItem('prediction_custom_prompt')
     if (savedPrompt) {
       // Migration: Clear old-format prompts that contain the header or output format
@@ -90,10 +97,8 @@ export default function PredictionsPage() {
         setCustomPrompt(savedPrompt)
       }
     }
-    const savedSecret = localStorage.getItem('webhook_secret')
-    if (savedSecret) {
-      setWebhookSecret(savedSecret)
-    }
+    // Load webhook secret status from API
+    loadWebhookSecretStatus()
   }, [])
 
   useEffect(() => {
@@ -273,10 +278,8 @@ export default function PredictionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fixture_id: fixtureId,
-          webhook_url: webhookUrl,
           model: selectedModel,
           custom_prompt: customPrompt || DEFAULT_PREDICTION_PROMPT,
-          webhook_secret: webhookSecret || undefined,
         }),
       })
 
@@ -312,32 +315,6 @@ export default function PredictionsPage() {
     })
   }
 
-  // Settings modal save handler
-  const saveSettings = (predictionUrl: string, analysisUrl: string, secret: string) => {
-    setWebhookUrl(predictionUrl)
-    setAnalysisWebhookUrl(analysisUrl)
-    setWebhookSecret(secret)
-
-    if (predictionUrl && predictionUrl !== DEFAULT_WEBHOOK) {
-      localStorage.setItem('prediction_webhook_url', predictionUrl)
-    } else {
-      localStorage.removeItem('prediction_webhook_url')
-    }
-
-    if (analysisUrl && analysisUrl !== DEFAULT_ANALYSIS_WEBHOOK) {
-      localStorage.setItem('analysis_webhook_url', analysisUrl)
-    } else {
-      localStorage.removeItem('analysis_webhook_url')
-    }
-
-    if (secret) {
-      localStorage.setItem('webhook_secret', secret)
-    } else {
-      localStorage.removeItem('webhook_secret')
-    }
-
-    setShowSettingsModal(false)
-  }
 
   // Prompt editor handlers
   const openPromptEditor = () => {
@@ -479,8 +456,8 @@ export default function PredictionsPage() {
                     <div className="p-3 border-b space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Webhook Secret</span>
-                        <span className={webhookSecret ? "text-green-500" : "text-muted-foreground"}>
-                          {webhookSecret ? '✓ Set' : 'Not set'}
+                        <span className={webhookSecretSet ? "text-green-500" : "text-muted-foreground"}>
+                          {webhookSecretSet ? '✓ Set' : 'Not set'}
                         </span>
                       </div>
                     </div>
@@ -1446,12 +1423,10 @@ export default function PredictionsPage() {
         <SettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          onSave={saveSettings}
-          initialPredictionWebhook={webhookUrl}
-          initialAnalysisWebhook={analysisWebhookUrl}
-          initialWebhookSecret={webhookSecret}
-          defaultPredictionWebhook={DEFAULT_WEBHOOK}
-          defaultAnalysisWebhook={DEFAULT_ANALYSIS_WEBHOOK}
+          onSaved={() => {
+            // Refresh webhook secret status
+            loadWebhookSecretStatus()
+          }}
         />
       )}
 

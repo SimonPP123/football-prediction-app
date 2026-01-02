@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 import type { FixtureForTrigger, LeagueWithFixtures, TriggerType } from './check-windows'
+import { getWebhookUrl, getWebhookSecret, DEFAULT_WEBHOOKS } from './webhook-config'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const N8N_WEBHOOK_BASE_URL = process.env.N8N_WEBHOOK_BASE_URL || 'https://nn.analyserinsights.com/webhook'
-const N8N_WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET || ''
 const DEFAULT_TIMEOUT_MS = 60000
 
 export interface WebhookResult {
@@ -30,12 +29,12 @@ export interface TriggerResult {
  * Send webhook to n8n and return result
  */
 async function sendWebhook(
-  path: string,
+  url: string,
   payload: Record<string, any>,
   timeoutMs: number = DEFAULT_TIMEOUT_MS
 ): Promise<WebhookResult> {
   const startTime = Date.now()
-  const url = `${N8N_WEBHOOK_BASE_URL}/${path}`
+  const webhookSecret = await getWebhookSecret()
 
   try {
     const controller = new AbortController()
@@ -45,7 +44,7 @@ async function sendWebhook(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(N8N_WEBHOOK_SECRET && { 'X-Webhook-Secret': N8N_WEBHOOK_SECRET })
+        ...(webhookSecret && { 'X-Webhook-Secret': webhookSecret })
       },
       body: JSON.stringify(payload),
       signal: controller.signal
@@ -131,6 +130,7 @@ export async function triggerPreMatch(
   leagues: LeagueWithFixtures[]
 ): Promise<TriggerResult[]> {
   const results: TriggerResult[] = []
+  const webhookUrl = await getWebhookUrl('pre-match')
 
   for (const league of leagues) {
     const payload = {
@@ -145,7 +145,7 @@ export async function triggerPreMatch(
       trigger_type: 'pre-match'
     }
 
-    const webhookResult = await sendWebhook('trigger/pre-match', payload)
+    const webhookResult = await sendWebhook(webhookUrl, payload)
 
     await logAutomationEvent({
       cronRunId,
@@ -153,7 +153,7 @@ export async function triggerPreMatch(
       leagueId: league.league_id,
       fixtureIds: league.fixtures.map(f => f.id),
       fixtureCount: league.fixtures.length,
-      webhookUrl: `${N8N_WEBHOOK_BASE_URL}/trigger/pre-match`,
+      webhookUrl,
       webhookStatus: webhookResult.status,
       webhookResponse: webhookResult.response,
       webhookDurationMs: webhookResult.duration,
@@ -275,6 +275,7 @@ export async function triggerLive(
   leagues: { league_id: string; league_name: string; live_count: number }[]
 ): Promise<TriggerResult[]> {
   const results: TriggerResult[] = []
+  const webhookUrl = await getWebhookUrl('live')
 
   for (const league of leagues) {
     const payload = {
@@ -282,14 +283,14 @@ export async function triggerLive(
       trigger_type: 'live'
     }
 
-    const webhookResult = await sendWebhook('trigger/live', payload)
+    const webhookResult = await sendWebhook(webhookUrl, payload)
 
     await logAutomationEvent({
       cronRunId,
       triggerType: 'live',
       leagueId: league.league_id,
       fixtureCount: league.live_count,
-      webhookUrl: `${N8N_WEBHOOK_BASE_URL}/trigger/live`,
+      webhookUrl,
       webhookStatus: webhookResult.status,
       webhookResponse: webhookResult.response,
       webhookDurationMs: webhookResult.duration,
@@ -320,6 +321,7 @@ export async function triggerPostMatch(
   leagues: { league_id: string; league_name: string; finished_count: number }[]
 ): Promise<TriggerResult[]> {
   const results: TriggerResult[] = []
+  const webhookUrl = await getWebhookUrl('post-match')
 
   for (const league of leagues) {
     const payload = {
@@ -327,14 +329,14 @@ export async function triggerPostMatch(
       trigger_type: 'post-match'
     }
 
-    const webhookResult = await sendWebhook('trigger/post-match', payload)
+    const webhookResult = await sendWebhook(webhookUrl, payload)
 
     await logAutomationEvent({
       cronRunId,
       triggerType: 'post-match',
       leagueId: league.league_id,
       fixtureCount: league.finished_count,
-      webhookUrl: `${N8N_WEBHOOK_BASE_URL}/trigger/post-match`,
+      webhookUrl,
       webhookStatus: webhookResult.status,
       webhookResponse: webhookResult.response,
       webhookDurationMs: webhookResult.duration,

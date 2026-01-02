@@ -13,6 +13,7 @@ import {
   BarChart3,
   Database,
   FileText,
+  BookOpen,
 } from 'lucide-react'
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/matches', label: 'Matches', icon: Calendar },
   { href: '/stats', label: 'Statistics', icon: BarChart3 },
   { href: '/data', label: 'Data Management', icon: Database },
+  { href: '/docs', label: 'Documentation', icon: BookOpen },
   { href: '/data/docs', label: 'API Docs', icon: FileText },
 ]
 

@@ -1,8 +1,32 @@
 # Factor System Documentation
 
+*Last Updated: January 2, 2026*
+
+---
+
 ## Overview
 
-The Football Prediction System uses a structured factor-based approach to generate match predictions. Each match is analyzed across 9 major factor groups (A-I), with sub-factors scored 1-100.
+The Football Prediction System uses a **6-factor weighted analysis model** (A-F) to generate match predictions. Each factor is scored 0-100 and weighted according to its predictive importance.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    6-FACTOR ANALYSIS MODEL                       │
+│                                                                  │
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│   │ A: Base      │  │ B: Form      │  │ C: Key       │          │
+│   │ Strength     │  │              │  │ Players      │          │
+│   │    24%       │  │    22%       │  │    11%       │          │
+│   └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                                                  │
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│   │ D: Tactical  │  │ E: Table     │  │ F: Head-to-  │          │
+│   │ Matchup      │  │ Position     │  │ Head         │          │
+│   │    20%       │  │    13%       │  │    10%       │          │
+│   └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                                                  │
+│                    Total: 100%                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 The **overall_index** represents home team advantage:
 - **> 50**: Favors home team
@@ -11,216 +35,330 @@ The **overall_index** represents home team advantage:
 
 ---
 
-## Factor Groups
+## Factor Weights
 
-### A - Base Strength (Weight: 18%)
+| Factor | Name | Weight | Max Weighted Score |
+|--------|------|--------|-------------------|
+| **A** | Base Strength | 24% | 24.0 |
+| **B** | Form | 22% | 22.0 |
+| **C** | Key Players | 11% | 11.0 |
+| **D** | Tactical Matchup | 20% | 20.0 |
+| **E** | Table Position & Context | 13% | 13.0 |
+| **F** | Head-to-Head | 10% | 10.0 |
+| | **Total** | **100%** | **100.0** |
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| xG Ratings | A1 | Expected goals for/against per 90 | `team_season_stats.goals_for_avg`, `fixture_statistics.expected_goals` |
-| Home Advantage | A2 | Team's home vs away performance differential | `team_season_stats.home_stats`, `team_season_stats.away_stats` |
-| Defensive Stability | A3 | Goals conceded, clean sheets | `team_season_stats.goals_against_avg`, `team_season_stats.clean_sheets` |
-| Offensive Production | A4 | Goals scored, shots on target | `team_season_stats.goals_for_avg`, `fixture_statistics.shots_on_goal` |
-| xG Luck | A5 | Actual goals vs xG (over/under-performing) | Compare `goals` vs `expected_goals` over last 10 |
+---
 
-### B - Form (Weight: 16%)
+## Factor Descriptions
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| xG Form | B1 | xG trend over last 10 matches | Last 10 `fixture_statistics.expected_goals` |
-| Results Form | B2 | W/D/L in last 5-10 games | `team_season_stats.form`, last 10 `fixtures` |
-| Opponent Quality | B3 | Strength of recent opponents | Cross-reference opponent `standings.rank` |
-| Consistency | B4 | Variance in performance | Standard deviation of xG/goals last 10 |
+### A - Base Strength (24%)
 
-### C - Squad & Availability (Weight: 14%)
+The foundational comparison of team quality based on season-long metrics.
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Key Absences | C1 | Number/quality of injured key players | `injuries` table, cross with player importance |
-| Returns | C2 | Players returning from injury | `injuries` end dates vs match date |
-| XI Cohesion | C3 | Consistency of starting lineup | `lineups.starting_xi` comparison last 5 |
-| Rotation Risk | C4 | Likelihood of squad rotation | Match congestion + cup commitments |
-| New Coach | C5 | Manager tenure < 10 games | Coach start date vs fixture date |
-| Goalkeeper Effect | C6 | GK quality and form | GK player stats if available |
-| Set Pieces | C7 | Corner/free-kick threat | `fixture_statistics.corners` + set piece goals |
-| Penalties | C8 | Penalty conversion rate | `team_season_stats.penalties_scored/missed` |
+**What it considers:**
+- xG (Expected Goals) balance - xG for vs xG against
+- Home advantage differential
+- Defensive stability (clean sheets, goals conceded)
+- Offensive production (goals scored, shots on target)
 
-### D - Load & Calendar (Weight: 10%)
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| Season Stats | `team_season_stats` | `goals_for_avg`, `goals_against_avg`, `clean_sheets` |
+| Match Stats | `fixture_statistics` | `expected_goals`, `shots_on_goal` |
+| Home/Away Split | `team_season_stats` | `home_stats`, `away_stats` |
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Rest Days | D1 | Days since last match | Previous `fixtures.match_date` |
-| Congestion | D2 | Matches in last 7/14 days | Count `fixtures` in date range |
-| Travel | D3 | Distance traveled recently | Venue locations + last away match |
-| Competition Priority | D4 | Focus on other competitions | Check for CL/EL/Cup matches nearby |
-| Match Time | D5 | Unusual kickoff time | `fixtures.match_date` time component |
+**Scoring Example:**
+- Score 75: Home team significantly stronger overall
+- Score 50: Teams evenly matched
+- Score 25: Away team significantly stronger
 
-### E - Tactical Matchup (Weight: 12%)
+---
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Press vs Build-up | E1 | High press team vs possession team | `fixture_statistics` passing/duels patterns |
-| High Line vs Pace | E2 | Defensive line style vs counter threat | Offsides, through ball success |
-| Aerial Duels | E3 | Height advantage in aerials | Headed goals, corner threat |
-| Transitions | E4 | Counter-attack efficiency | Quick goal patterns, fouls |
-| Coach H2H | E5 | Historical manager matchups | Filter H2H by coach names |
+### B - Form (22%)
 
-### F - Motivation & Stakes (Weight: 10%)
+Recent performance trends over the last 5-10 matches.
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Table Stakes | F1 | Title race, relegation, European spots | `standings.rank` + `standings.description` |
-| Derby Factor | F2 | Rivalry intensity | Hardcoded derby pairs |
-| European Hangover | F3 | CL/EL match 3-4 days prior | Check fixtures for European games |
-| Club Context | F4 | News, off-pitch issues | Manual/external news API |
-| Holiday Factor | F5 | Major holidays affecting prep | Calendar check |
+**What it considers:**
+- xG form trend (improving/declining)
+- Results form (W/D/L pattern)
+- Quality of recent opponents faced
+- Consistency vs volatility
 
-### G - Referee (Weight: 5%)
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| Recent Form | `team_season_stats` | `form` (e.g., "WDWWL") |
+| Last 10 xG | `fixture_statistics` | `expected_goals` (last 10 matches) |
+| Opponent Quality | `standings` | `rank` of recent opponents |
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Card Tendency | G1 | Yellow/red cards per game | `referee_stats.avg_yellow_cards`, `avg_red_cards` |
-| Penalty Tendency | G2 | Penalties awarded per game | `referee_stats.penalties_per_match` |
+**Scoring Example:**
+- Score 80: Home team on hot streak, away team struggling
+- Score 50: Both teams in similar form
+- Score 30: Away team in better form
 
-### H - Stadium & Weather (Weight: 8%)
+---
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| Pitch Condition | H1 | Surface type compatibility | `venues.surface` vs team style |
-| Attendance Effect | H2 | Home crowd intensity | `venues.capacity` + historical attendance |
-| Neutral Venue | H3 | Playing away from home stadium | `fixtures.venue_id` vs `teams.venue_id` |
-| Weather - Rain | H4 | Heavy precipitation impact | `weather.precipitation` |
-| Weather - Temp | H5 | Extreme temperature impact | `weather.temperature` |
+### C - Key Players (11%)
 
-### I - Head-to-Head (Weight: 7%)
+Impact of personnel availability and quality.
 
-| Factor | Code | Description | Data Source |
-|--------|------|-------------|-------------|
-| H2H Results | I1 | Win/draw/loss in last 10 meetings | `head_to_head.fixture_data` |
-| H2H Quality | I2 | xG difference in H2H matches | H2H fixtures' `fixture_statistics` |
+**What it considers:**
+- Key absences (injuries, suspensions)
+- Star player availability
+- Penalty taker availability
+- Top scorer/assister form
+
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| Injuries | `injuries` | `player_name`, `type`, `reason` |
+| Lineups | `lineups` | `starting_xi` (when available) |
+| Penalties | `team_season_stats` | `penalties_scored`, `penalties_missed` |
+
+**Scoring Example:**
+- Score 70: Away missing key players, home at full strength
+- Score 50: Both teams have similar availability
+- Score 35: Home missing star striker
+
+---
+
+### D - Tactical Matchup (20%)
+
+How the teams' playing styles interact.
+
+**What it considers:**
+- Press vs build-up style matchup
+- High line vs pace/counter-attack threat
+- Aerial duel advantage
+- Transition efficiency
+
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| Playing Style | `fixture_statistics` | `ball_possession`, `passes_total`, `offsides` |
+| Physical | `fixture_statistics` | `fouls`, duels patterns |
+| Set Pieces | `fixture_statistics` | `corners`, headed goals |
+
+**Scoring Example:**
+- Score 65: Home's pressing style suits against away's slow build-up
+- Score 50: No clear tactical advantage
+- Score 40: Away's counter-attack exploits home's high line
+
+---
+
+### E - Table Position & Context (13%)
+
+League standing and situational motivation.
+
+**What it considers:**
+- Current league position and points gap
+- Stakes (title race, relegation, European spots)
+- Derby/rivalry intensity
+- Club context (manager changes, off-field issues)
+
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| Standings | `standings` | `rank`, `points`, `description` |
+| Fixture Context | `fixtures` | `round`, match timing |
+
+**Scoring Example:**
+- Score 70: Home fighting for title, away mid-table with nothing to play for
+- Score 50: Similar stakes for both teams
+- Score 35: Away in must-win relegation battle
+
+---
+
+### F - Head-to-Head (10%)
+
+Historical record between the two teams.
+
+**What it considers:**
+- Results in last 5-10 meetings
+- Patterns at this venue
+- Goal-scoring trends in H2H matches
+- Any psychological edge
+
+**Data Sources:**
+| Source | Table | Fields |
+|--------|-------|--------|
+| H2H History | `head_to_head` | `fixture_data` (last 10 meetings) |
+| Venue H2H | `fixtures` | Historical matches at venue |
+
+**Scoring Example:**
+- Score 75: Home has won 8 of last 10 meetings
+- Score 50: Even split in recent meetings
+- Score 30: Away team dominates historically
 
 ---
 
 ## Scoring Guidelines
 
-Each factor is scored 1-100:
+Each factor is scored 0-100:
 
-| Score | Meaning |
-|-------|---------|
-| 1-20 | Strongly favors AWAY team |
-| 21-40 | Slightly favors AWAY team |
-| 41-60 | Neutral / Even |
-| 51-60 | Slightly favors HOME team |
-| 61-80 | Moderately favors HOME team |
-| 81-100 | Strongly favors HOME team |
+| Score Range | Interpretation |
+|-------------|----------------|
+| **0-20** | Strongly favors AWAY team |
+| **21-40** | Moderately favors AWAY team |
+| **41-49** | Slightly favors AWAY team |
+| **50** | Neutral / Even |
+| **51-59** | Slightly favors HOME team |
+| **60-79** | Moderately favors HOME team |
+| **80-100** | Strongly favors HOME team |
 
 ---
 
 ## Weighted Calculation
 
 ```
-overall_index = (A_score * 0.18) + (B_score * 0.16) + (C_score * 0.14) +
-                (D_score * 0.10) + (E_score * 0.12) + (F_score * 0.10) +
-                (G_score * 0.05) + (H_score * 0.08) + (I_score * 0.07)
+overall_index = (A_score × 0.24) + (B_score × 0.22) + (C_score × 0.11) +
+                (D_score × 0.20) + (E_score × 0.13) + (F_score × 0.10)
 ```
 
-Where each group score is the average of its sub-factors.
+**Example Calculation:**
+
+| Factor | Score | Weight | Weighted |
+|--------|-------|--------|----------|
+| A | 65 | 0.24 | 15.6 |
+| B | 72 | 0.22 | 15.8 |
+| C | 45 | 0.11 | 5.0 |
+| D | 60 | 0.20 | 12.0 |
+| E | 55 | 0.13 | 7.2 |
+| F | 70 | 0.10 | 7.0 |
+| **Total** | | | **62.6** |
+
+Result: `overall_index = 63` (favors home team)
 
 ---
 
-## Prediction Output
+## Prediction Output Format
+
+The AI returns predictions in this JSON structure:
 
 ```json
 {
-  "overall_index": 65,
-  "prediction_result": "1",
-  "confidence_level": "medium",
+  "prediction": "1",
+  "certainty_score": 72,
+  "confidence_pct": 68,
+  "overall_index": 63,
+  "home_win_pct": 55,
+  "draw_pct": 25,
+  "away_win_pct": 20,
   "factors": {
-    "a1_xg_ratings": 72,
-    "a2_home_advantage": 68,
-    "a3_defensive_stability": 55,
-    "a4_offensive_production": 70,
-    "a5_xg_luck": 48,
-    "b1_xg_form": 65,
-    "b2_results_form": 60,
-    "b3_opponent_quality": 58,
-    "b4_consistency": 62,
-    "c1_key_absences": 75,
-    "c2_returns": 50,
-    "c3_xi_cohesion": 55,
-    "c4_rotation_risk": 60,
-    "c5_new_coach": 50,
-    "c6_goalkeeper_effect": 55,
-    "c7_set_pieces": 65,
-    "c8_penalties": 58,
-    "d1_rest_days": 70,
-    "d2_congestion": 55,
-    "d3_travel": 60,
-    "d4_competition_priority": 50,
-    "d5_match_time": 50,
-    "e1_press_vs_buildup": 60,
-    "e2_high_line_vs_pace": 55,
-    "e3_aerial_duels": 65,
-    "e4_transitions": 58,
-    "e5_coach_h2h": 50,
-    "f1_table_stakes": 70,
-    "f2_derby_factor": 50,
-    "f3_european_hangover": 55,
-    "f4_club_context": 50,
-    "f5_holiday_factor": 50,
-    "g1_card_tendency": 52,
-    "g2_penalty_tendency": 55,
-    "h1_pitch_condition": 55,
-    "h2_attendance_effect": 70,
-    "h3_neutral_venue": 50,
-    "h4_weather_rain": 50,
-    "h5_weather_temp": 50,
-    "i1_h2h_results": 65,
-    "i2_h2h_quality": 60
+    "A_base_strength": {
+      "score": 65,
+      "weighted": 15.6,
+      "notes": "Home xG balance +0.4 per game, strong defensive record"
+    },
+    "B_form": {
+      "score": 72,
+      "weighted": 15.8,
+      "notes": "Home W4-D1-L0 last 5, away team inconsistent"
+    },
+    "C_key_players": {
+      "score": 45,
+      "weighted": 5.0,
+      "notes": "Home missing key midfielder, away at full strength"
+    },
+    "D_tactical": {
+      "score": 60,
+      "weighted": 12.0,
+      "notes": "Home's press should trouble away's slow build-up"
+    },
+    "E_table_position": {
+      "score": 55,
+      "weighted": 7.2,
+      "notes": "Both chasing top 4, similar motivation"
+    },
+    "F_h2h": {
+      "score": 70,
+      "weighted": 7.0,
+      "notes": "Home unbeaten in last 6 meetings at this venue"
+    }
   },
-  "analysis_text": "Manchester City hold a significant home advantage with strong xG metrics...",
+  "score_predictions": [
+    {"score": "2-1", "probability": 18},
+    {"score": "1-0", "probability": 14},
+    {"score": "1-1", "probability": 12}
+  ],
+  "most_likely_score": "2-1",
+  "over_under_2_5": "Over",
+  "btts": "Yes",
   "key_factors": [
-    "Strong home xG differential (A1: 72)",
-    "Key midfielder injury for visitors (C1: 75)",
-    "Important table stakes for both teams (F1: 70)"
+    "Factor A: Strong xG differential at home",
+    "Factor B: Home on 4-match winning streak",
+    "Factor F: Excellent H2H record at venue"
   ],
   "risk_factors": [
-    "Away team slightly over-performing xG (A5: 48)",
-    "Congested fixture schedule (D2: 55)"
-  ]
+    "Factor C: Key midfielder injury could impact creativity",
+    "Factor D: Away's counter-attack threat if home over-commit"
+  ],
+  "analysis": "Liverpool enter as favorites with strong home form..."
 }
 ```
 
 ---
 
-## Confidence Levels
+## Confidence Metrics
 
-| Level | Overall Index Range | Description |
-|-------|---------------------|-------------|
-| High | > 70 or < 30 | Strong conviction in prediction |
-| Medium | 55-70 or 30-45 | Moderate lean toward one side |
-| Low | 45-55 | Effectively a coin flip |
+### Certainty Score (0-100)
+
+The AI's confidence in the prediction based on data quality and factor alignment.
+
+| Score | Meaning |
+|-------|---------|
+| 80-100 | Very high confidence - clear favorite |
+| 60-79 | Good confidence - reasonable edge |
+| 40-59 | Moderate confidence - competitive match |
+| 0-39 | Low confidence - unpredictable |
+
+### Confidence Percentage (0-100%)
+
+The probability the predicted outcome is correct.
 
 ---
 
-## AI Prompt Template
+## Historical Learning Integration
 
-When calling the AI (GPT-4o) for predictions, use this system prompt structure:
+The system uses **memory context** from past analyses to improve predictions:
 
 ```
-You are an expert football analyst. Analyze the provided match data using the factor system (A-I). Score each sub-factor from 1-100 where:
-- > 50 favors HOME team
-- < 50 favors AWAY team
-- = 50 is neutral
-
-Return ONLY valid JSON matching this schema:
-{
-  "overall_index": number (1-100),
-  "prediction_result": "1" | "X" | "2" | "1X" | "X2" | "12",
-  "confidence_level": "high" | "medium" | "low",
-  "factors": { ... all factor codes with scores ... },
-  "analysis_text": "string",
-  "key_factors": ["string", ...],
-  "risk_factors": ["string", ...]
-}
+┌─────────────────────────────────────────────────────────────────┐
+│                    MEMORY CONTEXT FLOW                           │
+│                                                                  │
+│   Past Analysis ──► Factor Accuracy Review ──► Current Prediction│
+│                                                                  │
+│   For each team, the AI considers:                              │
+│   • Which factors were accurate in past predictions              │
+│   • Learning points from previous matches                        │
+│   • Surprise patterns (when predictions were wrong)              │
+│   • Performance vs prediction trends                             │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+**Memory Context Fields:**
+- `home_team_learnings` - Analysis history for home team
+- `away_team_learnings` - Analysis history for away team
+- `accuracy_score` - Past prediction accuracy per team
+- `prediction_correct` - Track record of predictions
+
+---
+
+## AI Model Options
+
+The prediction system supports multiple AI models:
+
+| Model | Provider | Use Case |
+|-------|----------|----------|
+| `gpt-4o` | OpenAI | High-quality analysis (default) |
+| `gpt-5-mini` | OpenAI | Fast, cost-effective |
+| `gemini-2.5` | Google | Alternative provider |
+
+---
+
+## Related Documentation
+
+- [PREDICTION_SYSTEM.md](./PREDICTION_SYSTEM.md) - End-to-end prediction flow
+- [MATCH_ANALYSIS.md](./MATCH_ANALYSIS.md) - Post-match analysis system
+- [ACCURACY_TRACKING.md](./ACCURACY_TRACKING.md) - How accuracy is measured

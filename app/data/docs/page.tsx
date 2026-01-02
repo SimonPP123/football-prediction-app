@@ -22,6 +22,7 @@ import {
   Table2,
   Info,
   ArrowLeft,
+  BookOpen,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -83,6 +84,21 @@ export default function DataDocsPage() {
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Data Management
+        </Link>
+
+        {/* Documentation Banner */}
+        <Link
+          href="/docs"
+          className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg p-4 hover:bg-primary/15 transition-colors group"
+        >
+          <div className="flex items-center gap-3">
+            <BookOpen className="w-5 h-5 text-primary" />
+            <div>
+              <p className="font-medium">Looking for system documentation?</p>
+              <p className="text-sm text-muted-foreground">View prediction system, match analysis, database schema, and more.</p>
+            </div>
+          </div>
+          <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform" />
         </Link>
 
         {/* Search */}

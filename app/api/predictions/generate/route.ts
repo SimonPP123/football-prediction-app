@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
 import { isAuthenticated } from '@/lib/auth'
-
-const DEFAULT_WEBHOOK_URL = process.env.N8N_PREDICTION_WEBHOOK || 'https://nn.analyserinsights.com/webhook/football-prediction'
-const WEBHOOK_SECRET = process.env.N8N_WEBHOOK_SECRET
+import { getWebhookUrl, getWebhookSecret } from '@/lib/automation/webhook-config'
 
 // UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -38,8 +36,9 @@ export async function POST(request: Request) {
     // Default model if not provided
     const selectedModel = model || 'openai/gpt-5-mini'
 
-    // Use only the default webhook URL (SSRF protection - no custom URLs allowed)
-    const webhookUrl = DEFAULT_WEBHOOK_URL
+    // Get webhook URL from database config (with fallback to env var/default)
+    const webhookUrl = await getWebhookUrl('prediction')
+    const webhookSecret = await getWebhookSecret()
 
     // Get fixture details
     const { data: fixture, error: fixtureError } = await supabase
@@ -143,7 +142,7 @@ export async function POST(request: Request) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(WEBHOOK_SECRET && { 'X-Webhook-Secret': WEBHOOK_SECRET }),
+          ...(webhookSecret && { 'X-Webhook-Secret': webhookSecret }),
         },
         body: JSON.stringify(webhookPayload),
         signal: controller.signal,
