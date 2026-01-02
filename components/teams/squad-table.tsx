@@ -28,6 +28,7 @@ interface SquadTableProps {
     player_name: string
     injury_reason?: string | null
     reason?: string | null  // Legacy field
+    reported_date?: string | null
   }>
   className?: string
 }
@@ -58,8 +59,30 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
     )
   }
 
-  // Create injury lookup
-  const injuredPlayers = new Set(injuries.map(i => i.player_name.toLowerCase()))
+  // Filter injuries to only include those from the latest reported_date
+  // This ensures we don't show outdated injuries
+  const latestInjuries = (() => {
+    if (injuries.length === 0) return []
+
+    // Find the most recent reported_date
+    const latestDate = injuries.reduce((latest, injury) => {
+      if (!injury.reported_date) return latest
+      const date = new Date(injury.reported_date).getTime()
+      return date > latest ? date : latest
+    }, 0)
+
+    // If no dates found, include all injuries (backwards compatibility)
+    if (latestDate === 0) return injuries
+
+    // Only include injuries from the latest date
+    return injuries.filter(injury => {
+      if (!injury.reported_date) return false
+      return new Date(injury.reported_date).getTime() === latestDate
+    })
+  })()
+
+  // Create injury lookup from latest injuries only
+  const injuredPlayers = new Set(latestInjuries.map(i => i.player_name.toLowerCase()))
 
   // Group by position
   const groupedSquad = squad.reduce((acc, member) => {
@@ -135,7 +158,7 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
               <div className="divide-y divide-border">
                 {players.map(member => {
                   const isInjured = injuredPlayers.has(member.player?.name?.toLowerCase() || '')
-                  const injury = injuries.find(
+                  const injury = latestInjuries.find(
                     i => i.player_name.toLowerCase() === member.player?.name?.toLowerCase()
                   )
 

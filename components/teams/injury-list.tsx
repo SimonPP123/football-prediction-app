@@ -43,10 +43,17 @@ export function InjuryList({ injuries, className, compact = false }: InjuryListP
     )
   }
 
+  // Sort injuries by reported_date descending (most recent first)
+  const sortedInjuries = [...injuries].sort((a, b) => {
+    const dateA = a.reported_date ? new Date(a.reported_date).getTime() : 0
+    const dateB = b.reported_date ? new Date(b.reported_date).getTime() : 0
+    return dateB - dateA
+  })
+
   if (compact) {
     return (
       <div className={cn("space-y-1", className)}>
-        {injuries.slice(0, 3).map((injury) => (
+        {sortedInjuries.slice(0, 3).map((injury) => (
           <div key={injury.id} className="flex items-center justify-between text-sm">
             <span className="truncate">{injury.player_name}</span>
             <span className="text-red-500 text-xs truncate ml-2">{getInjuryReason(injury)}</span>
@@ -72,7 +79,7 @@ export function InjuryList({ injuries, className, compact = false }: InjuryListP
       </div>
 
       <div className="space-y-2">
-        {injuries.map((injury) => {
+        {sortedInjuries.map((injury) => {
           const reason = getInjuryReason(injury)
           const status = getInjuryStatus(injury)
 
