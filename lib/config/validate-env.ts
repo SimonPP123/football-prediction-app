@@ -48,10 +48,8 @@ const ENV_VARS: EnvVar[] = [
   },
   {
     name: 'CRON_SECRET',
-    required: true,
-    productionOnly: true,
-    description: 'Secret for authenticating cron job requests',
-    validate: (v) => v.length >= 32,
+    required: false,
+    description: 'Secret for authenticating cron job requests (optional)',
   },
 
   // n8n (optional - only needed for prediction workflows)

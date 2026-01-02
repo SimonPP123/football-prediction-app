@@ -46,14 +46,23 @@ export function unsign(signedValue: string): string | null {
 
 /**
  * Signs auth data for cookie storage
+ * Now includes sessionVersion and issuedAt for session management
  */
 export function signAuthCookie(data: {
   authenticated: boolean
   userId: string
   username: string
   isAdmin: boolean
+  sessionVersion?: number  // For session invalidation
+  issuedAt?: number        // Unix timestamp for absolute timeout
 }): string {
-  const jsonData = JSON.stringify(data)
+  // Add issuedAt if not provided
+  const enrichedData = {
+    ...data,
+    issuedAt: data.issuedAt || Date.now(),
+    sessionVersion: data.sessionVersion || 1
+  }
+  const jsonData = JSON.stringify(enrichedData)
   return sign(jsonData)
 }
 
