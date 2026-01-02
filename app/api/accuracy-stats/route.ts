@@ -15,10 +15,23 @@ export async function GET(request: Request) {
     // Get league from request (query param or cookie)
     const league = await getLeagueFromRequest(request)
 
-    // Get match analyses, optionally filtered by league
+    // Get match analyses with fixture details, optionally filtered by league
     let analysisQuery = supabase
       .from('match_analysis')
-      .select('*, fixture:fixtures!inner(league_id)')
+      .select(`
+        *,
+        fixture:fixtures!inner(
+          id,
+          league_id,
+          kickoff,
+          status,
+          home_team:teams!fixtures_home_team_id_fkey(id, name, short_name, logo),
+          away_team:teams!fixtures_away_team_id_fkey(id, name, short_name, logo),
+          home_score,
+          away_score
+        )
+      `)
+      .order('created_at', { ascending: false })
 
     // Filter by league if available (join through fixtures table)
     if (league?.id) {
@@ -46,6 +59,7 @@ export async function GET(request: Request) {
         scoreIndex: null,
         confidenceStats: null,
         scorePrediction: null,
+        matches: [],
       })
     }
 
@@ -343,6 +357,26 @@ export async function GET(request: Request) {
       scorePredictionStats.closeAccuracy = Math.round((scorePredictionStats.closeCount / scorePredictionStats.total) * 100)
     }
 
+    // Build matches array with key info for display
+    const matches = analyses.map(a => {
+      const prediction = predictionMap.get(a.fixture_id)
+      return {
+        id: a.fixture_id,
+        kickoff: a.fixture?.kickoff,
+        homeTeam: a.fixture?.home_team,
+        awayTeam: a.fixture?.away_team,
+        actualScore: a.actual_score,
+        predictedResult: a.predicted_result || prediction?.prediction_result,
+        predictedScore: prediction?.most_likely_score,
+        resultCorrect: a.prediction_correct,
+        scoreCorrect: a.score_correct,
+        overUnderCorrect: a.over_under_correct,
+        bttsCorrect: a.btts_correct,
+        certainty: prediction?.certainty_score || prediction?.confidence_pct,
+        model: a.model_version || prediction?.model_used || prediction?.model_version,
+      }
+    })
+
     return NextResponse.json({
       total,
       correct,
@@ -360,6 +394,7 @@ export async function GET(request: Request) {
       scoreIndex: scoreIndexStats.count > 0 ? scoreIndexStats : null,
       confidenceStats: confidenceStats.count > 0 ? confidenceStats : null,
       scorePrediction: scorePredictionStats.total > 0 ? scorePredictionStats : null,
+      matches,
     })
   } catch (error) {
     console.error('Error fetching accuracy stats:', error)

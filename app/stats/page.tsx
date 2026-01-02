@@ -23,6 +23,9 @@ import {
   Crosshair,
   AlertTriangle,
   Clock,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
 } from 'lucide-react'
 
 type TabType = 'players' | 'teams' | 'predictions'
@@ -67,6 +70,7 @@ export default function StatsPage() {
   const [teamStats, setTeamStats] = useState<any[]>([])
   const [standings, setStandings] = useState<any[]>([])
   const [predictionStats, setPredictionStats] = useState<any>(null)
+  const [showMatches, setShowMatches] = useState(false)
 
   // Get last refresh times from server data
   const getLastRefresh = (name: string): string | null => {
@@ -725,6 +729,146 @@ export default function StatsPage() {
                           )
                         })}
                     </div>
+                  </div>
+                )}
+
+                {/* Analyzed Matches - Collapsible */}
+                {predictionStats.matches && predictionStats.matches.length > 0 && (
+                  <div className="bg-card border border-border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => setShowMatches(!showMatches)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <h3 className="font-semibold">Analyzed Matches</h3>
+                        <span className="text-sm text-muted-foreground">
+                          ({predictionStats.matches.length} matches)
+                        </span>
+                      </div>
+                      {showMatches ? (
+                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </button>
+
+                    {showMatches && (
+                      <div className="border-t border-border divide-y divide-border max-h-[500px] overflow-y-auto">
+                        {predictionStats.matches.map((match: any) => {
+                          const formatDate = (dateStr: string) => {
+                            const date = new Date(dateStr)
+                            return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                          }
+
+                          // Parse actual score
+                          const [homeGoals, awayGoals] = (match.actualScore || '0-0').split('-').map(Number)
+
+                          // Determine actual result
+                          const actualResult = homeGoals > awayGoals ? '1' : homeGoals < awayGoals ? '2' : 'X'
+
+                          // Normalize predicted result for display
+                          const predDisplay = match.predictedResult?.toString().toUpperCase()
+                            .replace('HOME', '1').replace('AWAY', '2').replace('DRAW', 'X') || '?'
+
+                          return (
+                            <div key={match.id} className="p-3 hover:bg-muted/20">
+                              <div className="flex items-center gap-3">
+                                {/* Date */}
+                                <div className="text-xs text-muted-foreground w-12 shrink-0">
+                                  {match.kickoff ? formatDate(match.kickoff) : '—'}
+                                </div>
+
+                                {/* Teams & Score */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    {/* Home Team */}
+                                    <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
+                                      <span className="text-sm font-medium truncate">
+                                        {match.homeTeam?.short_name || match.homeTeam?.name || 'Home'}
+                                      </span>
+                                      {match.homeTeam?.logo && (
+                                        <img src={match.homeTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
+                                      )}
+                                    </div>
+
+                                    {/* Score */}
+                                    <div className="px-2 py-1 bg-muted rounded text-sm font-bold min-w-[50px] text-center">
+                                      {match.actualScore || '?-?'}
+                                    </div>
+
+                                    {/* Away Team */}
+                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                      {match.awayTeam?.logo && (
+                                        <img src={match.awayTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
+                                      )}
+                                      <span className="text-sm font-medium truncate">
+                                        {match.awayTeam?.short_name || match.awayTeam?.name || 'Away'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Prediction & Result */}
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Predicted */}
+                                  <div className="text-center">
+                                    <div className="text-[10px] text-muted-foreground">Pred</div>
+                                    <div className={cn(
+                                      "text-sm font-bold px-2 py-0.5 rounded",
+                                      predDisplay === '1' ? "bg-home/20 text-home" :
+                                      predDisplay === '2' ? "bg-away/20 text-away" :
+                                      predDisplay === 'X' ? "bg-draw/20 text-draw" : "bg-muted"
+                                    )}>
+                                      {predDisplay}
+                                    </div>
+                                  </div>
+
+                                  {/* Actual */}
+                                  <div className="text-center">
+                                    <div className="text-[10px] text-muted-foreground">Actual</div>
+                                    <div className={cn(
+                                      "text-sm font-bold px-2 py-0.5 rounded",
+                                      actualResult === '1' ? "bg-home/20 text-home" :
+                                      actualResult === '2' ? "bg-away/20 text-away" :
+                                      "bg-draw/20 text-draw"
+                                    )}>
+                                      {actualResult}
+                                    </div>
+                                  </div>
+
+                                  {/* Result indicator */}
+                                  <div className="w-6 h-6 flex items-center justify-center">
+                                    {match.resultCorrect ? (
+                                      <CheckCircle className="w-5 h-5 text-green-500" />
+                                    ) : (
+                                      <XCircle className="w-5 h-5 text-red-500" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Additional info row */}
+                              {(match.predictedScore || match.certainty) && (
+                                <div className="flex items-center gap-4 mt-1.5 ml-12 text-xs text-muted-foreground">
+                                  {match.predictedScore && (
+                                    <span>
+                                      Predicted: {match.predictedScore}
+                                      {match.scoreCorrect && (
+                                        <span className="text-green-500 ml-1">exact!</span>
+                                      )}
+                                    </span>
+                                  )}
+                                  {match.certainty && (
+                                    <span>Certainty: {Math.round(match.certainty)}%</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </>
