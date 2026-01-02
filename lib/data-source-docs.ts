@@ -1049,6 +1049,283 @@ export const DATA_SOURCE_DOCS: Record<string, DataSourceDoc> = {
     },
     notes: ['Only fetches for fixtures without existing predictions', 'Rate limited: 400ms between requests'],
   },
+
+  // ===== AUTOMATION =====
+  automation_trigger: {
+    id: 'automation_trigger',
+    name: 'Automation Trigger',
+    description: 'Main cron entry point for automated workflows',
+    longDescription: 'Central automation endpoint called by cron every 5 minutes. Checks 5 time windows (pre-match, prediction, live, post-match, analysis) and triggers appropriate n8n webhooks. All events are logged to automation_logs table.',
+    externalApi: null,
+    endpoints: [{
+      method: 'POST',
+      path: '/api/automation/trigger',
+      params: {},
+      description: 'Triggers automation check for all time windows. Requires admin API key.',
+      responseExample: {
+        success: true,
+        cronRunId: 'uuid',
+        timestamp: '2026-01-02T12:00:00.000Z',
+        duration: 1234,
+        summary: {
+          pre_match: { checked: 2, triggered: 2, errors: 0 },
+          prediction: { checked: 1, triggered: 1, errors: 0 },
+          live: { checked: 0, triggered: 0, errors: 0 },
+          post_match: { checked: 0, triggered: 0, errors: 0 },
+          analysis: { checked: 0, triggered: 0, errors: 0 }
+        }
+      }
+    }],
+    tables: [],
+    refreshSchedule: 'Every 5 minutes via cron',
+    dependencies: ['fixtures', 'predictions', 'match_analysis'],
+    dependents: ['automation_logs'],
+    exampleData: {},
+    notes: [
+      'Requires X-API-Key header with ADMIN_API_KEY',
+      'Cron: */5 * * * * curl -X POST -H "X-API-Key: xxx" https://football.analyserinsights.com/api/automation/trigger',
+      'Each trigger type has a 5-minute window to prevent duplicate triggers'
+    ],
+  },
+
+  automation_status: {
+    id: 'automation_status',
+    name: 'Automation Status',
+    description: 'Get and update automation configuration',
+    longDescription: 'Endpoint to retrieve current automation status, trigger statistics, and configuration. Also supports PATCH to enable/disable automation or update timing settings.',
+    externalApi: null,
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/api/automation/status',
+        params: {},
+        description: 'Returns current automation status and today\'s statistics',
+        responseExample: {
+          isEnabled: true,
+          lastCronRun: '2026-01-02T12:00:00.000Z',
+          lastCronStatus: 'success',
+          nextCronRun: '2026-01-02T12:05:00.000Z',
+          triggers: {
+            preMatch: { successToday: 5, errorToday: 0, lastTriggered: '2026-01-02T11:30:00.000Z', enabled: true },
+            prediction: { successToday: 3, errorToday: 0, lastTriggered: '2026-01-02T11:35:00.000Z', enabled: true }
+          },
+          errorsToday: 0
+        }
+      },
+      {
+        method: 'POST',
+        path: '/api/automation/status',
+        params: {
+          is_enabled: { type: 'boolean', required: false, description: 'Master on/off switch', example: true },
+          pre_match_enabled: { type: 'boolean', required: false, description: 'Enable pre-match trigger', example: true },
+          prediction_enabled: { type: 'boolean', required: false, description: 'Enable prediction trigger', example: true },
+          live_enabled: { type: 'boolean', required: false, description: 'Enable live trigger', example: true },
+          post_match_enabled: { type: 'boolean', required: false, description: 'Enable post-match trigger', example: true },
+          analysis_enabled: { type: 'boolean', required: false, description: 'Enable analysis trigger', example: true },
+        },
+        description: 'Update automation configuration (PATCH method)',
+        responseExample: { success: true, message: 'Automation config updated', config: {} }
+      }
+    ],
+    tables: [{
+      name: 'automation_config',
+      description: 'Automation settings and state',
+      columns: [
+        { name: 'id', type: 'UUID', nullable: false, description: 'Primary key' },
+        { name: 'is_enabled', type: 'BOOLEAN', nullable: false, description: 'Master on/off switch' },
+        { name: 'last_cron_run', type: 'TIMESTAMPTZ', nullable: true, description: 'Last cron execution time' },
+        { name: 'last_cron_status', type: 'TEXT', nullable: true, description: 'success, error, or running' },
+        { name: 'pre_match_enabled', type: 'BOOLEAN', nullable: false, description: 'Enable pre-match trigger' },
+        { name: 'prediction_enabled', type: 'BOOLEAN', nullable: false, description: 'Enable prediction trigger' },
+        { name: 'live_enabled', type: 'BOOLEAN', nullable: false, description: 'Enable live trigger' },
+        { name: 'post_match_enabled', type: 'BOOLEAN', nullable: false, description: 'Enable post-match trigger' },
+        { name: 'analysis_enabled', type: 'BOOLEAN', nullable: false, description: 'Enable analysis trigger' },
+        { name: 'pre_match_minutes_before', type: 'INTEGER', nullable: false, description: 'Minutes before kickoff (default: 30)' },
+        { name: 'prediction_minutes_before', type: 'INTEGER', nullable: false, description: 'Minutes before kickoff (default: 25)' },
+        { name: 'post_match_hours_after', type: 'NUMERIC', nullable: false, description: 'Hours after FT (default: 6)' },
+        { name: 'analysis_hours_after', type: 'NUMERIC', nullable: false, description: 'Hours after FT (default: 6.25)' },
+        { name: 'updated_at', type: 'TIMESTAMPTZ', nullable: false, description: 'Last config update' },
+      ],
+    }],
+    refreshSchedule: 'On-demand',
+    dependencies: [],
+    dependents: ['automation_trigger'],
+    exampleData: {
+      dbRecord: { is_enabled: true, last_cron_status: 'success', pre_match_enabled: true, post_match_hours_after: 6 }
+    },
+    notes: [
+      'Single row table - only one configuration',
+      'Use PATCH method to update config',
+      'Toggle automation from Activity page UI'
+    ],
+  },
+
+  automation_logs: {
+    id: 'automation_logs',
+    name: 'Automation Logs',
+    description: 'Event history for all automation triggers',
+    longDescription: 'Complete log of all automation events including trigger type, fixtures affected, webhook responses, and errors. Used for monitoring and debugging in the Activity page.',
+    externalApi: null,
+    endpoints: [{
+      method: 'GET',
+      path: '/api/automation/logs',
+      params: {
+        limit: { type: 'number', required: false, description: 'Max logs to return', example: 50 },
+        trigger_type: { type: 'string', required: false, description: 'Filter by type', example: 'pre-match' },
+        status: { type: 'string', required: false, description: 'Filter by status', example: 'success' },
+        date: { type: 'string', required: false, description: 'Filter by date (YYYY-MM-DD)', example: '2026-01-02' },
+      },
+      description: 'Query automation logs with optional filters',
+      responseExample: {
+        logs: [{
+          id: 'uuid',
+          trigger_type: 'pre-match',
+          cron_run_id: 'uuid',
+          fixture_count: 2,
+          webhook_status: 200,
+          webhook_duration_ms: 1234,
+          status: 'success',
+          message: 'Triggered pre-match for 2 fixtures',
+          triggered_at: '2026-01-02T12:00:00.000Z'
+        }]
+      }
+    }],
+    tables: [{
+      name: 'automation_logs',
+      description: 'Automation event history',
+      columns: [
+        { name: 'id', type: 'UUID', nullable: false, description: 'Primary key' },
+        { name: 'cron_run_id', type: 'UUID', nullable: true, description: 'Groups events from same cron run' },
+        { name: 'trigger_type', type: 'TEXT', nullable: false, description: 'pre-match, prediction, live, post-match, analysis, cron-check' },
+        { name: 'league_id', type: 'UUID', nullable: true, description: 'FK to leagues' },
+        { name: 'fixture_ids', type: 'UUID[]', nullable: true, description: 'Array of fixture IDs triggered' },
+        { name: 'fixture_count', type: 'INTEGER', nullable: false, description: 'Number of fixtures' },
+        { name: 'webhook_url', type: 'TEXT', nullable: true, description: 'n8n webhook URL called' },
+        { name: 'webhook_status', type: 'INTEGER', nullable: true, description: 'HTTP status code' },
+        { name: 'webhook_response', type: 'JSONB', nullable: true, description: 'Full response from webhook' },
+        { name: 'webhook_duration_ms', type: 'INTEGER', nullable: true, description: 'Request duration in ms' },
+        { name: 'status', type: 'TEXT', nullable: false, description: 'success, error, skipped, no-action' },
+        { name: 'message', type: 'TEXT', nullable: true, description: 'Human-readable message' },
+        { name: 'error_message', type: 'TEXT', nullable: true, description: 'Error details if failed' },
+        { name: 'triggered_at', type: 'TIMESTAMPTZ', nullable: false, description: 'When event occurred' },
+        { name: 'completed_at', type: 'TIMESTAMPTZ', nullable: true, description: 'When event completed' },
+        { name: 'details', type: 'JSONB', nullable: true, description: 'Additional context (fixtures, results)' },
+      ],
+    }],
+    refreshSchedule: 'Automatic (on each automation trigger)',
+    dependencies: ['automation_trigger'],
+    dependents: [],
+    exampleData: {
+      dbRecord: {
+        trigger_type: 'prediction',
+        fixture_count: 1,
+        webhook_status: 200,
+        status: 'success',
+        message: 'Triggered predictions for 1 fixtures'
+      }
+    },
+    notes: [
+      'Status: success, error, skipped (automation disabled), no-action (no fixtures in window)',
+      'Viewable in Activity page → Automation tab',
+      'Logs are never deleted - historical record'
+    ],
+  },
+
+  automation_webhooks: {
+    id: 'automation_webhooks',
+    name: 'n8n Webhooks',
+    description: 'Webhook endpoints called by automation',
+    longDescription: 'The automation system calls these n8n webhook URLs to trigger data refresh and AI workflows. Each webhook receives fixture/league data and performs the appropriate actions.',
+    externalApi: {
+      name: 'n8n Webhooks',
+      baseUrl: 'https://nn.analyserinsights.com/webhook',
+      docsUrl: undefined,
+      authMethod: 'header',
+      authHeader: 'X-Webhook-Secret',
+    },
+    endpoints: [
+      {
+        method: 'POST',
+        path: '/trigger/pre-match',
+        params: {
+          league_id: { type: 'string', required: true, description: 'League UUID', example: 'uuid' },
+          league_name: { type: 'string', required: true, description: 'League name', example: 'Premier League' },
+          fixtures: { type: 'string', required: true, description: 'Array of fixture objects', example: '[{id, home_team, away_team}]' },
+        },
+        description: 'Triggers pre-match + imminent phase refresh. Called 28-33 min before kickoff.',
+        responseExample: { success: true }
+      },
+      {
+        method: 'POST',
+        path: '/trigger/live',
+        params: {
+          leagues: { type: 'string', required: true, description: 'Array of leagues with live counts', example: '[{league_id, live_count}]' },
+        },
+        description: 'Triggers live phase refresh. Called every 5 min during matches.',
+        responseExample: { success: true }
+      },
+      {
+        method: 'POST',
+        path: '/trigger/post-match',
+        params: {
+          leagues: { type: 'string', required: true, description: 'Array of leagues with finished counts', example: '[{league_id, finished_count}]' },
+        },
+        description: 'Triggers post-match phase refresh. Called 6 hours after FT.',
+        responseExample: { success: true }
+      },
+    ],
+    tables: [],
+    refreshSchedule: 'Triggered by automation',
+    dependencies: [],
+    dependents: [],
+    exampleData: {},
+    notes: [
+      'Pre-match: Calls /api/data/refresh/phase?phase=pre-match then phase=imminent',
+      'Live: Calls /api/data/refresh/phase?phase=live',
+      'Post-match: Calls /api/data/refresh/phase?phase=post-match',
+      'Prediction & Analysis use internal API endpoints directly'
+    ],
+  },
+
+  automation_timing: {
+    id: 'automation_timing',
+    name: 'Timing Windows',
+    description: 'When each automation trigger fires',
+    longDescription: 'Each trigger has a precise 5-minute window that aligns with the cron interval. This ensures each fixture triggers exactly once per phase, preventing duplicate processing.',
+    externalApi: null,
+    endpoints: [],
+    tables: [{
+      name: 'timing_windows',
+      description: 'Automation timing configuration (in code)',
+      columns: [
+        { name: 'PRE_MATCH', type: 'RANGE', nullable: false, description: '28-33 min before kickoff' },
+        { name: 'PREDICTION', type: 'RANGE', nullable: false, description: '23-28 min before kickoff' },
+        { name: 'LIVE', type: 'STATUSES', nullable: false, description: 'During match (1H, 2H, HT, ET, BT, P)' },
+        { name: 'POST_MATCH', type: 'RANGE', nullable: false, description: '358-363 min (6h) after FT' },
+        { name: 'ANALYSIS', type: 'RANGE', nullable: false, description: '373-378 min (6h15m) after FT' },
+      ],
+    }],
+    refreshSchedule: 'N/A (code configuration)',
+    dependencies: [],
+    dependents: ['automation_trigger'],
+    exampleData: {
+      dbRecord: {
+        example_match_at_15_00: {
+          pre_match: '14:27-14:32',
+          prediction: '14:32-14:37',
+          live: '15:00-16:45',
+          post_match: '22:43-22:48',
+          analysis: '22:58-23:03'
+        }
+      }
+    },
+    notes: [
+      'Windows are 5 min wide to match cron interval',
+      'Each fixture triggers exactly once per phase',
+      'Live triggers every 5 min during the match',
+      'Timing defined in lib/automation/check-windows.ts'
+    ],
+  },
 }
 
 // Helper to get documentation by ID
@@ -1070,6 +1347,7 @@ export function getDataSourceDocsByCategory(): Record<string, DataSourceDoc[]> {
     player: ['players', 'player_squads', 'player_season_stats', 'top_performers', 'coaches'],
     external: ['odds', 'weather', 'referee_stats', 'transfers'],
     prediction: ['predictions', 'prediction_history', 'api_predictions'],
+    automation: ['automation_trigger', 'automation_status', 'automation_logs', 'automation_webhooks', 'automation_timing'],
   }
 
   const result: Record<string, DataSourceDoc[]> = {}

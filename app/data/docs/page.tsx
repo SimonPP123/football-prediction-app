@@ -33,6 +33,7 @@ const CATEGORY_INFO: Record<string, { name: string; description: string }> = {
   player: { name: 'Player Data', description: 'Player profiles and statistics' },
   external: { name: 'External Data', description: 'Third-party APIs and computed data' },
   prediction: { name: 'AI Predictions', description: 'Prediction data and accuracy tracking' },
+  automation: { name: 'Automation', description: 'Scheduled triggers, cron jobs, and n8n webhooks' },
 }
 
 export default function DataDocsPage() {
