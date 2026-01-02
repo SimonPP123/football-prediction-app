@@ -133,6 +133,33 @@ export async function POST(request: Request) {
     // 3. Check Live matches
     if (config.live_enabled) {
       console.log('[Automation] Checking live matches...')
+
+      // First, refresh fixtures from API-Football to get current live status
+      // This ensures we have up-to-date match statuses before checking
+      try {
+        console.log('[Automation] Refreshing fixture statuses from API...')
+        const activeLeagues = await supabase
+          .from('leagues')
+          .select('id')
+          .eq('is_active', true)
+
+        if (activeLeagues.data) {
+          for (const league of activeLeagues.data) {
+            // Use internal fetch to refresh each league's fixtures (live mode for speed)
+            const refreshUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3004'}/api/data/refresh/fixtures?mode=live&stream=false&league_id=${league.id}`
+            await fetch(refreshUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': process.env.ADMIN_API_KEY || ''
+              }
+            }).catch(err => console.log(`[Automation] Failed to refresh league ${league.id}:`, err.message))
+          }
+        }
+      } catch (refreshError) {
+        console.log('[Automation] Fixture refresh failed, continuing with existing data:', refreshError)
+      }
+
       const liveLeagues = await queryLiveLeagues()
       const totalLive = liveLeagues.reduce((sum, l) => sum + l.live_count, 0)
       summary.live.checked = totalLive
