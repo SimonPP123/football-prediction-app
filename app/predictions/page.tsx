@@ -54,7 +54,7 @@ export default function PredictionsPage() {
   const abortControllerRef = useRef<AbortController | null>(null)
   // Webhook documentation modal state
   const [showWebhookDocs, setShowWebhookDocs] = useState(false)
-  const [webhookDocsTab, setWebhookDocsTab] = useState<'prediction' | 'analysis'>('prediction')
+  const [webhookDocsTab, setWebhookDocsTab] = useState<'prediction' | 'analysis' | 'pre-match' | 'live' | 'post-match'>('prediction')
   const [webhookDocsCopied, setWebhookDocsCopied] = useState(false)
   // Prompt editor modal state
   const [showPromptEditor, setShowPromptEditor] = useState(false)
@@ -792,28 +792,63 @@ export default function PredictionsPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b">
+            <div className="flex border-b overflow-x-auto">
+              <div className="flex items-center px-2 text-xs text-muted-foreground border-r mr-1">AI</div>
               <button
                 onClick={() => setWebhookDocsTab('prediction')}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                   webhookDocsTab === 'prediction'
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                Pre-Match (Prediction)
+                Prediction
               </button>
               <button
                 onClick={() => setWebhookDocsTab('analysis')}
                 className={cn(
-                  "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
+                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                   webhookDocsTab === 'analysis'
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
-                Post-Match (Analysis)
+                Analysis
+              </button>
+              <div className="flex items-center px-2 text-xs text-muted-foreground border-l ml-1 mr-1">Automation</div>
+              <button
+                onClick={() => setWebhookDocsTab('pre-match')}
+                className={cn(
+                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  webhookDocsTab === 'pre-match'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Pre-Match
+              </button>
+              <button
+                onClick={() => setWebhookDocsTab('live')}
+                className={cn(
+                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  webhookDocsTab === 'live'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Live
+              </button>
+              <button
+                onClick={() => setWebhookDocsTab('post-match')}
+                className={cn(
+                  "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  webhookDocsTab === 'post-match'
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Post-Match
               </button>
             </div>
 
@@ -961,7 +996,7 @@ export default function PredictionsPage() {
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : webhookDocsTab === 'analysis' ? (
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-medium text-sm mb-1">Endpoint</h4>
@@ -1160,7 +1195,156 @@ export default function PredictionsPage() {
                     </div>
                   </div>
                 </div>
-              )}
+              ) : webhookDocsTab === 'pre-match' ? (
+                <div className="space-y-4">
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-sm text-blue-500">
+                      <strong>Automation Trigger:</strong> Called by cron 30 minutes before kickoff to refresh data for upcoming matches.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">Endpoint</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      POST https://nn.analyserinsights.com/webhook/trigger/pre-match
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This webhook triggers data refresh for leagues with upcoming matches. The n8n workflow should call the app&apos;s refresh API to update fixtures, odds, and other pre-match data.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "league_id": "550e8400-e29b-41d4-a716-446655440000",
+  "league_name": "Premier League",
+  "fixtures": [
+    {
+      "id": "fixture-uuid-1",
+      "home_team": "Liverpool",
+      "away_team": "Manchester City",
+      "match_date": "2025-01-15T15:00:00Z"
+    },
+    {
+      "id": "fixture-uuid-2",
+      "home_team": "Arsenal",
+      "away_team": "Chelsea",
+      "match_date": "2025-01-15T17:30:00Z"
+    }
+  ],
+  "trigger_type": "pre-match"
+}`}
+                    </pre>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Expected n8n Workflow Actions</h4>
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">1</code>
+                        <span className="text-muted-foreground">Call <code className="bg-muted px-1 rounded">POST /api/data/refresh/phase?phase=pre-match&amp;league_id=X</code></span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">2</code>
+                        <span className="text-muted-foreground">Call <code className="bg-muted px-1 rounded">POST /api/data/refresh/phase?phase=imminent&amp;league_id=X</code></span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">3</code>
+                        <span className="text-muted-foreground">Return success response</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : webhookDocsTab === 'live' ? (
+                <div className="space-y-4">
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-sm text-red-500">
+                      <strong>Automation Trigger:</strong> Called every 5 minutes during live matches to refresh real-time data.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">Endpoint</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      POST https://nn.analyserinsights.com/webhook/trigger/live
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This webhook triggers live data refresh for leagues with matches currently in progress. Updates scores, events, and statistics in real-time.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "leagues": [
+    {
+      "league_id": "550e8400-e29b-41d4-a716-446655440000",
+      "live_count": 3
+    }
+  ],
+  "trigger_type": "live"
+}`}
+                    </pre>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Expected n8n Workflow Actions</h4>
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">1</code>
+                        <span className="text-muted-foreground">For each league, call <code className="bg-muted px-1 rounded">POST /api/data/refresh/phase?phase=live&amp;league_id=X</code></span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">2</code>
+                        <span className="text-muted-foreground">Return success response with refresh count</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : webhookDocsTab === 'post-match' ? (
+                <div className="space-y-4">
+                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                    <p className="text-sm text-green-500">
+                      <strong>Automation Trigger:</strong> Called 4 hours after match ends to refresh final statistics and data.
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-sm mb-1">Endpoint</h4>
+                    <code className="text-xs bg-muted px-2 py-1 rounded block">
+                      POST https://nn.analyserinsights.com/webhook/trigger/post-match
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    This webhook triggers post-match data refresh for leagues with recently finished matches. Ensures all final statistics, events, and lineups are captured.
+                  </p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+{`{
+  "leagues": [
+    {
+      "league_id": "550e8400-e29b-41d4-a716-446655440000",
+      "finished_count": 2
+    }
+  ],
+  "trigger_type": "post-match"
+}`}
+                    </pre>
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Expected n8n Workflow Actions</h4>
+                    <div className="grid gap-2 text-sm">
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">1</code>
+                        <span className="text-muted-foreground">For each league, call <code className="bg-muted px-1 rounded">POST /api/data/refresh/phase?phase=post-match&amp;league_id=X</code></span>
+                      </div>
+                      <div className="flex gap-2">
+                        <code className="px-2 py-0.5 bg-muted rounded text-xs shrink-0">2</code>
+                        <span className="text-muted-foreground">Return success response with refresh count</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t">
+                    <h4 className="font-medium text-sm mb-2 text-muted-foreground">Note: AI Analysis</h4>
+                    <p className="text-sm text-muted-foreground">
+                      AI post-match analysis is triggered separately (15 minutes after post-match refresh) via the internal <code className="bg-muted px-1 rounded">/api/match-analysis/generate</code> endpoint, which calls the <strong>Analysis</strong> webhook documented in the AI tab.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

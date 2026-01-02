@@ -602,16 +602,16 @@ export default function StatsPage() {
                   <div className="bg-card border border-border rounded-lg p-4">
                     <h3 className="font-semibold mb-2">When to Trust Predictions</h3>
                     <p className="text-xs text-muted-foreground mb-4">
-                      Accuracy based on how confident the AI was in its prediction
+                      Accuracy based on the AI's certainty % in its prediction
                     </p>
 
-                    {/* Confidence Level Breakdown */}
+                    {/* Certainty Level Breakdown */}
                     {predictionStats.byConfidence && (
                       <div className="space-y-3">
                         {[
-                          { key: 'high', label: 'High Confidence', sublabel: 'AI very sure (70%+)', icon: '🎯' },
-                          { key: 'medium', label: 'Medium Confidence', sublabel: 'AI moderately sure (55-70%)', icon: '📊' },
-                          { key: 'low', label: 'Low Confidence', sublabel: 'AI uncertain (<55%)', icon: '❓' },
+                          { key: 'high', label: 'High Certainty', sublabel: 'AI very sure (70%+)', icon: '🎯' },
+                          { key: 'medium', label: 'Medium Certainty', sublabel: 'AI moderately sure (55-70%)', icon: '📊' },
+                          { key: 'low', label: 'Low Certainty', sublabel: 'AI uncertain (<55%)', icon: '❓' },
                         ].map(({ key, label, sublabel, icon }) => {
                           const data = predictionStats.byConfidence[key]
                           if (!data || data.total === 0) return null
@@ -667,7 +667,7 @@ export default function StatsPage() {
                             <div className="text-xs">
                               <span className="font-medium text-orange-600">Caution: </span>
                               <span className="text-muted-foreground">
-                                AI confidence doesn't correlate well with accuracy yet.
+                                AI certainty doesn't correlate well with accuracy yet.
                                 Use predictions as one input among many.
                               </span>
                             </div>
@@ -678,7 +678,7 @@ export default function StatsPage() {
                             <div className="text-xs">
                               <span className="font-medium text-green-600">Good sign: </span>
                               <span className="text-muted-foreground">
-                                Higher confidence predictions tend to be more accurate.
+                                Higher certainty predictions tend to be more accurate.
                               </span>
                             </div>
                           </>
