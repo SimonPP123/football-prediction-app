@@ -600,22 +600,34 @@ Automation system configuration (singleton).
 Key indexes for query performance:
 
 ```sql
--- Fixtures
+-- Fixtures (basic)
 CREATE INDEX idx_fixtures_date ON fixtures(match_date);
 CREATE INDEX idx_fixtures_teams ON fixtures(home_team_id, away_team_id);
 CREATE INDEX idx_fixtures_status ON fixtures(status);
 CREATE INDEX idx_fixtures_season ON fixtures(season);
 
+-- Fixtures (composite - Migration 015)
+CREATE INDEX idx_fixtures_league_date ON fixtures(league_id, match_date DESC);
+CREATE INDEX idx_fixtures_status_date ON fixtures(status, match_date DESC);
+
+-- Fixtures (partial indexes - Migration 015)
+CREATE INDEX idx_fixtures_upcoming ON fixtures(match_date) WHERE status = 'NS';
+CREATE INDEX idx_fixtures_live ON fixtures(match_date) WHERE status IN ('1H', '2H', 'HT', 'ET', 'BT', 'P');
+CREATE INDEX idx_fixtures_completed ON fixtures(match_date DESC) WHERE status IN ('FT', 'AET', 'PEN');
+
 -- Standings
 CREATE INDEX idx_standings_season ON standings(league_id, season);
+CREATE INDEX idx_standings_league_season_rank ON standings(league_id, season, rank);
 
 -- Predictions
 CREATE INDEX idx_predictions_fixture ON predictions(fixture_id);
+CREATE INDEX idx_predictions_league_date ON predictions(league_id, created_at DESC);
 
 -- Match Analysis
 CREATE INDEX idx_match_analysis_fixture ON match_analysis(fixture_id);
 CREATE INDEX idx_match_analysis_created ON match_analysis(created_at DESC);
 CREATE INDEX idx_match_analysis_accuracy ON match_analysis(prediction_correct);
+CREATE INDEX idx_match_analysis_league ON match_analysis(league_id);
 
 -- Statistics
 CREATE INDEX idx_fixture_stats_fixture ON fixture_statistics(fixture_id);
@@ -657,6 +669,9 @@ All tables have RLS enabled with these policies:
 | `010_performance_indexes.sql` | Performance indexes |
 | `011_refresh_logs.sql` | Refresh logging |
 | `012_automation_tables.sql` | Automation system |
+| `013_webhook_config.sql` | Webhook configuration |
+| `014_custom_prompt.sql` | Custom AI prompts |
+| `015_additional_indexes.sql` | Additional performance indexes & fixture_events constraint fix |
 
 ---
 

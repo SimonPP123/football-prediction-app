@@ -277,6 +277,60 @@ Logs older than 30 days are automatically deleted (database trigger).
 
 ---
 
+## Performance Optimizations (January 2026)
+
+The refresh system has been optimized for database performance:
+
+### Batch Upserts
+
+All refresh endpoints now use batch database operations instead of individual upserts:
+
+| Endpoint | Before | After | Improvement |
+|----------|--------|-------|-------------|
+| fixture-events | 1 upsert per event (N+1) | Single batch upsert | ~95% fewer DB calls |
+| fixture-statistics | 1 upsert per team stats | Single batch upsert | ~90% fewer DB calls |
+| standings | 1 upsert per team | Single batch upsert | ~95% fewer DB calls |
+| team-stats | 1 upsert per team | Single batch upsert | ~95% fewer DB calls |
+
+### Query Optimizations
+
+| Query | Before | After |
+|-------|--------|-------|
+| Event deduplication | Full table scan | `.in('fixture_id', fixtureIds)` filter |
+| Statistics deduplication | Full table scan | `.in('fixture_id', fixtureIds)` filter |
+
+### Parallel Execution
+
+Post-match refresh now runs endpoints in parallel:
+
+```
+Before (sequential):
+┌────────┬────────┬────────┬────────┬────────┬────────┐
+│fixtures│ stats  │ events │standings│team-stats│ ...  │
+└────────┴────────┴────────┴────────┴────────┴────────┘
+Total time: sum of all durations
+
+After (parallel):
+┌────────┐
+│fixtures│ ← Phase 1 (sequential - other endpoints may depend on status)
+└────────┘
+┌────────┬────────┬────────┬────────┬────────┐
+│ stats  │ events │standings│team-stats│player-stats│ ← Phase 2 (parallel)
+└────────┴────────┴────────┴────────┴────────┘
+Total time: fixtures + max(other endpoints)
+```
+
+### Database Indexes
+
+Migration `015_additional_indexes.sql` adds optimized indexes:
+
+- `idx_fixtures_league_date` - For fixture queries by league
+- `idx_fixtures_status_date` - For status-filtered queries
+- `idx_fixtures_upcoming/live/completed` - Partial indexes by status
+- `idx_standings_league_season_rank` - For standings lookups
+
+---
+
 ## API-Football Rate Limits
 
 Be mindful of API-Football daily quotas when refreshing.

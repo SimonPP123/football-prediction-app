@@ -22,10 +22,10 @@ export async function GET(request: Request) {
   const date = searchParams.get('date')
   const cronRunId = searchParams.get('cron_run_id')
 
-  // Validate limit
+  // Validate limit (parseLimit returns undefined if no default and no value)
   let limit = 50
   try {
-    limit = parseLimit(limitParam, 50, 1, 200)
+    limit = parseLimit(limitParam, 50, 1, 200) ?? 50
   } catch (e) {
     if (e instanceof ValidationError) {
       return NextResponse.json({ error: e.message }, { status: 400 })

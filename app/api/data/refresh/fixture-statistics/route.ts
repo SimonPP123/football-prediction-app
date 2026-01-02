@@ -104,9 +104,12 @@ async function handleStreamingRefresh(mode: StatsRefreshMode) {
       // For other modes, check which fixtures already have statistics
       let fixturesToProcess = fixtures
       if (mode !== 'live' && mode !== 'all') {
+        // Filter by fixture IDs to avoid full table scan
+        const fixtureIds = fixtures.map(f => f.id)
         const { data: existingStats } = await supabase
           .from('fixture_statistics')
           .select('fixture_id')
+          .in('fixture_id', fixtureIds)
 
         const existingSet = new Set(existingStats?.map(s => s.fixture_id) || [])
         fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))
@@ -272,9 +275,12 @@ async function handleBatchRefresh(mode: StatsRefreshMode) {
     // For other modes, check which fixtures already have statistics
     let fixturesToProcess = fixtures
     if (mode !== 'live' && mode !== 'all') {
+      // Filter by fixture IDs to avoid full table scan
+      const fixtureIds = fixtures.map(f => f.id)
       const { data: existingStats } = await supabase
         .from('fixture_statistics')
         .select('fixture_id')
+        .in('fixture_id', fixtureIds)
 
       const existingSet = new Set(existingStats?.map(s => s.fixture_id) || [])
       fixturesToProcess = fixtures.filter(f => !existingSet.has(f.id))

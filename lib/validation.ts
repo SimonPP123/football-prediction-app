@@ -77,10 +77,11 @@ export class ValidationError extends Error {
  */
 export function parseLimit(
   value: string | null,
-  defaultValue: number = 20,
+  defaultValue?: number,
   min: number = 1,
   max: number = 100
-): number {
+): number | undefined {
+  // If no value provided, return the default (which could be undefined)
   if (!value) return defaultValue
 
   const parsed = parseInt(value, 10)

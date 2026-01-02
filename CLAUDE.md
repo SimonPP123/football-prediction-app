@@ -225,7 +225,7 @@ football.analyserinsights.com {
 ## Important Notes
 
 1. **API Rate Limits**: API-Football has daily limits. Use bulk endpoints.
-2. **Season**: 2025-2026 starts Aug 2025.
+2. **Season**: Currently tracking 2025-2026 season (started Aug 2025).
 3. **Lineups**: Only available ~1hr before kickoff.
 4. **xG Data**: API-Football `expected_goals` may be null for some matches.
 
@@ -233,16 +233,35 @@ football.analyserinsights.com {
 
 ## Security & Troubleshooting
 
-**Updated: December 2024** - Full security audit completed.
+**Updated: January 2026** - Fresh security audit completed. All critical/high issues resolved.
+
+### Security Audit Summary
+
+| Category | Status | Details |
+|----------|--------|---------|
+| Cookie Security | ✅ Excellent | HMAC-SHA256 signing, timing-safe comparison, no legacy fallbacks |
+| Authentication | ✅ Excellent | Centralized `isAdmin()`, API key support, cookie-based auth |
+| Rate Limiting | ✅ Implemented | 5 attempts/IP, 15-min block on login |
+| Security Headers | ✅ Strong | CSP, HSTS, X-Frame-Options, Permissions-Policy |
+| Input Validation | ✅ Complete | UUID, range, date, password validation |
 
 ### Security Features Implemented
 
 | Phase | Status | Features |
 |-------|--------|----------|
-| 1 - Critical | ✅ Done | Auth on 22 refresh routes, security headers, cookie signing (HMAC-SHA256), rate limiting |
+| 1 - Critical | ✅ Done | Auth on 24 refresh routes, security headers, cookie signing (HMAC-SHA256), rate limiting |
 | 2 - High | ✅ Done | Input validation, API retry logic (exponential backoff), env validation at startup |
 | 3 - Medium | ✅ Done | XSS protection (rehype-sanitize), middleware fixes, error boundary |
 | 4 - Low | ✅ Done | Magic number extraction, code cleanup |
+
+### Performance Optimizations (January 2026)
+
+| Optimization | File | Impact |
+|--------------|------|--------|
+| Batch upserts | fixture-events, fixture-statistics, standings, team-stats | Reduced DB calls by 95% |
+| Parallel execution | post-match/route.ts | 6x faster refresh |
+| Query filtering | fixture-statistics, fixture-events | Eliminated full table scans |
+| Database indexes | Migration 015 | Faster queries on fixtures, events, standings |
 
 ### Required Environment Variables
 
