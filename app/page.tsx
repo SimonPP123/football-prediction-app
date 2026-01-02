@@ -11,9 +11,9 @@ import { cookies } from 'next/headers'
 import { Header } from '@/components/layout/header'
 import { SummaryStats } from '@/components/dashboard/summary-stats'
 import { PredictionCard } from '@/components/predictions/prediction-card'
-import { ResultAccuracyCard } from '@/components/dashboard/result-accuracy-card'
 import { QuickInsights } from '@/components/dashboard/quick-insights'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { DashboardLiveResultsWrapper } from '@/components/dashboard/dashboard-live-results-wrapper'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -44,33 +44,11 @@ export default async function DashboardPage() {
         {/* Summary Stats */}
         <SummaryStats stats={stats} />
 
-        {/* Live Matches - Only show if there are live matches */}
-        {liveFixtures.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
-                <h2 className="font-semibold text-lg text-red-500">Live Now</h2>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                {liveFixtures.length} match{liveFixtures.length > 1 ? 'es' : ''} in progress
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {liveFixtures.map((fixture: any) => (
-                <PredictionCard
-                  key={fixture.id}
-                  fixture={fixture}
-                  isLive={true}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Live & Results Wrapper - Client component with polling */}
+        <DashboardLiveResultsWrapper
+          initialLiveFixtures={liveFixtures}
+          initialRecentResults={recentResults}
+        >
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Upcoming Matches */}
@@ -181,34 +159,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Results */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-lg">Recent Results</h2>
-              <DataFreshnessBadge category="match-analysis" size="sm" showInfo />
-            </div>
-            <Link href="/matches" className="text-sm text-primary hover:underline">
-              View All
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            {recentResults.length === 0 ? (
-              <div className="col-span-full bg-card border rounded-lg p-8 text-center text-muted-foreground">
-                No recent matches
-              </div>
-            ) : (
-              recentResults.map((match: any) => (
-                <ResultAccuracyCard
-                  key={match.id}
-                  fixture={match}
-                  variant="compact"
-                />
-              ))
-            )}
-          </div>
-        </div>
+        </DashboardLiveResultsWrapper>
       </div>
     </div>
   )

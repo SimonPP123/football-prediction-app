@@ -9,15 +9,16 @@ async function syncFinishedMatches(leagueId?: string) {
   try {
     const supabase = createServerClient()
     const now = new Date()
-    const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
 
-    // Find matches that started 1-3 hours ago but still show as in-play
+    // Find matches that started 80+ minutes ago but still show as in-play
+    // (Normal matches finish in ~90 mins, this catches them early)
     let query = supabase
       .from('fixtures')
       .select('id, api_id, status')
       .in('status', ['1H', '2H', 'HT', 'ET', 'BT', 'P'])
-      .lte('match_date', new Date(now.getTime() - 1.5 * 60 * 60 * 1000).toISOString()) // Started > 1.5 hours ago
-      .gte('match_date', threeHoursAgo.toISOString())
+      .lte('match_date', new Date(now.getTime() - 80 * 60 * 1000).toISOString()) // Started > 80 minutes ago
+      .gte('match_date', fourHoursAgo.toISOString())
 
     if (leagueId) {
       query = query.eq('league_id', leagueId)
@@ -77,8 +78,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const leagueId = searchParams.get('league_id') || undefined
 
-    // Start background sync of finished matches (don't await)
-    syncFinishedMatches(leagueId)
+    // Sync finished matches first (awaited to ensure DB is updated before returning)
+    // This ensures clients get accurate status when they then fetch results
+    await syncFinishedMatches(leagueId)
 
     // Use getLiveFixturesWithFactors to include predictions for PredictionCard display
     const fixtures = await getLiveFixturesWithFactors(20, leagueId)
