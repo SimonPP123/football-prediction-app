@@ -43,6 +43,9 @@ export async function GET(request: Request) {
         byOutcome: null,
         byConfidence: null,
         byModel: null,
+        scoreIndex: null,
+        confidenceStats: null,
+        scorePrediction: null,
       })
     }
 
