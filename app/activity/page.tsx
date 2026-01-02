@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Header } from '@/components/layout/header'
 import { useUpdates } from '@/components/updates/update-provider'
+import { AutomationStatusPanel } from '@/components/activity/automation-status-panel'
+import { AutomationLogsSection } from '@/components/activity/automation-logs-section'
 import { DataCategory, RefreshEvent } from '@/types'
 import { cn } from '@/lib/utils'
 import {
@@ -25,6 +27,7 @@ import {
   Globe,
   ChevronDown,
   ChevronUp,
+  Zap,
 } from 'lucide-react'
 
 const CATEGORY_ICONS: Record<DataCategory, typeof Activity> = {
@@ -73,11 +76,14 @@ const STATUS_COLORS = {
 
 type FilterType = 'all' | DataCategory | 'refresh' | 'prediction' | 'analysis'
 
+type ViewTab = 'activity' | 'automation'
+
 export default function ActivityPage() {
   const { refreshHistory, lastRefreshTimes, clearHistory } = useUpdates()
   const [filter, setFilter] = useState<FilterType>('all')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
+  const [activeTab, setActiveTab] = useState<ViewTab>('activity')
 
   const toggleExpanded = (eventId: string) => {
     setExpandedEvents(prev => {
@@ -190,6 +196,45 @@ export default function ActivityPage() {
       <Header title="Activity Feed" subtitle="Track all data updates and system activity" />
 
       <div className="p-6 space-y-6">
+        {/* Tab Navigation */}
+        <div className="flex items-center gap-1 bg-muted p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('activity')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              activeTab === 'activity'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Activity className="w-4 h-4" />
+            Activity
+          </button>
+          <button
+            onClick={() => setActiveTab('automation')}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors',
+              activeTab === 'automation'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Zap className="w-4 h-4" />
+            Automation
+          </button>
+        </div>
+
+        {/* Automation Tab Content */}
+        {activeTab === 'automation' && (
+          <div className="space-y-6">
+            <AutomationStatusPanel />
+            <AutomationLogsSection />
+          </div>
+        )}
+
+        {/* Activity Tab Content */}
+        {activeTab === 'activity' && (
+          <>
         {/* Stats Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-card border rounded-lg p-4">
@@ -451,6 +496,8 @@ export default function ActivityPage() {
             ))
           )}
         </div>
+          </>
+        )}
       </div>
     </div>
   )

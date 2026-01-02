@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { supabase } from '@/lib/supabase/client'
+import { isAuthenticated } from '@/lib/auth'
 
 const DEFAULT_WEBHOOK_URL = process.env.N8N_ANALYSIS_WEBHOOK ||
   'https://nn.analyserinsights.com/webhook/post-match-analysis'
@@ -11,10 +11,8 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 export async function POST(request: Request) {
   try {
-    // Authentication check
-    const cookieStore = cookies()
-    const authCookie = cookieStore.get('football_auth')?.value
-    if (!authCookie) {
+    // Authentication check (supports cookie and API key)
+    if (!isAuthenticated()) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }

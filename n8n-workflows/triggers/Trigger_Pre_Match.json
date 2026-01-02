@@ -1,0 +1,179 @@
+{
+  "name": "Trigger_Pre_Match",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "trigger/pre-match",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "pre-match-trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phase",
+              "value": "pre-match"
+            },
+            {
+              "name": "league_id",
+              "value": "={{ $json.league_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "http-prematch",
+      "name": "Pre-Match Phase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-api-key",
+          "name": "Football API Key"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "wait-node",
+      "name": "Wait 1s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [700, 250],
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://football.analyserinsights.com/api/data/refresh/phase",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "phase",
+              "value": "imminent"
+            },
+            {
+              "name": "league_id",
+              "value": "={{ $('Webhook Trigger').item.json.league_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "http-imminent",
+      "name": "Imminent Phase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "football-api-key",
+          "name": "Football API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  \"success\": true,\n  \"trigger_type\": \"pre-match\",\n  \"league_id\": $('Webhook Trigger').item.json.league_id,\n  \"league_name\": $('Webhook Trigger').item.json.league_name,\n  \"fixture_count\": $('Webhook Trigger').item.json.fixtures.length,\n  \"phases_triggered\": [\"pre-match\", \"imminent\"]\n} }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1100, 250]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pre-Match Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pre-Match Phase": {
+      "main": [
+        [
+          {
+            "node": "Wait 1s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 1s": {
+      "main": [
+        [
+          {
+            "node": "Imminent Phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Imminent Phase": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "football"
+    },
+    {
+      "name": "trigger"
+    },
+    {
+      "name": "pre-match"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "instanceId": "football-prediction"
+  }
+}
