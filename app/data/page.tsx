@@ -354,7 +354,8 @@ export default function DataManagementPage() {
 
   // Fetch stats when league changes
   useEffect(() => {
-    fetchStats()
+    // Pass league ID explicitly to avoid stale closure issues
+    fetchStats(currentLeague?.id)
   }, [currentLeague?.id])
 
   useEffect(() => {
@@ -363,9 +364,9 @@ export default function DataManagementPage() {
     }
   }, [logs])
 
-  const fetchStats = async () => {
+  const fetchStats = async (leagueId?: string) => {
     try {
-      const leagueParam = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const leagueParam = leagueId ? `?league_id=${leagueId}` : ''
       const res = await fetch(`/api/data/stats${leagueParam}`, { credentials: 'include' })
       const data = await res.json()
       const { _summary, ...tableStats } = data

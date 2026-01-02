@@ -27,7 +27,8 @@ export default function TeamsPage() {
     }
     abortControllerRef.current = new AbortController()
 
-    fetchData(abortControllerRef.current.signal)
+    // Pass league ID explicitly to avoid stale closure issues
+    fetchData(currentLeague?.id, abortControllerRef.current.signal)
 
     return () => {
       if (abortControllerRef.current) {
@@ -36,10 +37,10 @@ export default function TeamsPage() {
     }
   }, [currentLeague?.id])
 
-  const fetchData = async (signal?: AbortSignal) => {
+  const fetchData = async (leagueId: string | undefined, signal?: AbortSignal) => {
     try {
       setLoading(true)
-      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const params = leagueId ? `?league_id=${leagueId}` : ''
       const [teamsRes, standingsRes] = await Promise.all([
         fetch(`/api/teams${params}`, { credentials: 'include', signal }),
         fetch(`/api/standings${params}`, { credentials: 'include', signal }),

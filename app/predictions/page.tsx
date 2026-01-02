@@ -132,7 +132,8 @@ export default function PredictionsPage() {
     }
     abortControllerRef.current = new AbortController()
 
-    fetchFixtures(abortControllerRef.current.signal)
+    // Pass league ID explicitly to avoid stale closure issues
+    fetchFixtures(currentLeague?.id, abortControllerRef.current.signal)
 
     return () => {
       if (abortControllerRef.current) {
@@ -248,10 +249,10 @@ export default function PredictionsPage() {
     setShowModelDropdown(false)
   }
 
-  const fetchFixtures = async (signal?: AbortSignal) => {
+  const fetchFixtures = async (leagueId: string | undefined, signal?: AbortSignal) => {
     try {
       setLoading(true)
-      const params = currentLeague?.id ? `league_id=${currentLeague.id}` : ''
+      const params = leagueId ? `league_id=${leagueId}` : ''
       // Fetch upcoming, live, and all historical results in parallel
       const [upcomingRes, recentRes, liveRes] = await Promise.all([
         fetch(`/api/fixtures/upcoming${params ? '?' + params : ''}`, { signal, credentials: 'include' }),
@@ -311,7 +312,7 @@ export default function PredictionsPage() {
 
       if (res.ok && data.success) {
         // Refresh fixtures to get new prediction
-        await fetchFixtures()
+        await fetchFixtures(currentLeague?.id)
         return true
       } else {
         // Handle error response

@@ -22,7 +22,8 @@ export default function StandingsPage() {
     }
     abortControllerRef.current = new AbortController()
 
-    fetchStandings(abortControllerRef.current.signal)
+    // Pass league ID explicitly to avoid stale closure issues
+    fetchStandings(currentLeague?.id, abortControllerRef.current.signal)
 
     return () => {
       if (abortControllerRef.current) {
@@ -31,10 +32,10 @@ export default function StandingsPage() {
     }
   }, [currentLeague?.id])
 
-  const fetchStandings = async (signal?: AbortSignal) => {
+  const fetchStandings = async (leagueId: string | undefined, signal?: AbortSignal) => {
     try {
       setLoading(true)
-      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const params = leagueId ? `?league_id=${leagueId}` : ''
       const res = await fetch(`/api/standings${params}`, { credentials: 'include', signal })
 
       if (signal?.aborted) return

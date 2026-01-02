@@ -78,19 +78,21 @@ export default function StatsPage() {
   }
 
   useEffect(() => {
-    fetchData()
+    // Pass league ID explicitly to avoid stale closure issues
+    fetchData(currentLeague?.id)
   }, [currentLeague?.id])
 
   useEffect(() => {
     if (activeTab === 'players') {
-      fetchPlayerStats(playerStatType)
+      // Pass league ID explicitly to avoid stale closure issues
+      fetchPlayerStats(playerStatType, currentLeague?.id)
     }
   }, [playerStatType, currentLeague?.id])
 
-  const fetchData = async () => {
+  const fetchData = async (leagueId: string | undefined) => {
     try {
       setLoading(true)
-      const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
+      const params = leagueId ? `?league_id=${leagueId}` : ''
       const [standingsRes, accuracyRes] = await Promise.all([
         fetch(`/api/standings${params}`, { credentials: 'include' }),
         fetch(`/api/accuracy-stats${params}`, { credentials: 'include' }),
@@ -103,7 +105,7 @@ export default function StatsPage() {
       setPredictionStats(accuracyData)
 
       // Fetch initial player stats
-      await fetchPlayerStats('goals')
+      await fetchPlayerStats('goals', leagueId)
     } catch (error) {
       console.error('Failed to fetch stats:', error)
     } finally {
@@ -111,9 +113,9 @@ export default function StatsPage() {
     }
   }
 
-  const fetchPlayerStats = async (statType: PlayerStatType) => {
+  const fetchPlayerStats = async (statType: PlayerStatType, leagueId: string | undefined) => {
     try {
-      const params = currentLeague?.id ? `&league_id=${currentLeague.id}` : ''
+      const params = leagueId ? `&league_id=${leagueId}` : ''
       const res = await fetch(`/api/stats/players?type=${statType}${params}`, { credentials: 'include' })
       const data = await res.json()
       setPlayerStats(data)
