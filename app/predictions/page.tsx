@@ -10,7 +10,7 @@ import { AccuracyStatsPanel } from '@/components/predictions/accuracy-stats-pane
 import { ModelComparison } from '@/components/predictions/model-comparison'
 import { CalibrationChart } from '@/components/predictions/calibration-chart'
 import { SettingsModal } from '@/components/predictions/settings-modal'
-import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, ChevronUp, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
+import { LayoutGrid, List, Loader2, Settings, X, Copy, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Filter, ExternalLink, Save, BarChart3, FileJson, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AI_MODELS } from '@/types'
 import { useLeague } from '@/contexts/league-context'
@@ -20,6 +20,9 @@ import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 // Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
 const DEFAULT_ANALYSIS_WEBHOOK = 'https://nn.analyserinsights.com/webhook/post-match-analysis'
+
+// Pagination
+const ITEMS_PER_PAGE = 12
 
 // Parse round number from "Regular Season - X" format
 const parseRoundNumber = (round: string | null): number | null => {
@@ -45,6 +48,8 @@ export default function PredictionsPage() {
   const liveFixtureIdsRef = useRef<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'upcoming' | 'results'>('upcoming')
   const [showStats, setShowStats] = useState(false)
+  const [upcomingPage, setUpcomingPage] = useState(0)
+  const [resultsPage, setResultsPage] = useState(0)
   const [showLive, setShowLive] = useState(true)
   // Settings state
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
@@ -227,6 +232,26 @@ export default function PredictionsPage() {
       return roundNum && selectedRounds.includes(roundNum)
     })
   }, [recentResults, selectedRounds])
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setUpcomingPage(0)
+    setResultsPage(0)
+  }, [selectedRounds, currentLeague?.id])
+
+  // Pagination calculations
+  const upcomingTotalPages = Math.ceil(filteredFixtures.length / ITEMS_PER_PAGE)
+  const resultsTotalPages = Math.ceil(filteredRecentResults.length / ITEMS_PER_PAGE)
+
+  const paginatedFixtures = useMemo(() => {
+    const start = upcomingPage * ITEMS_PER_PAGE
+    return filteredFixtures.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredFixtures, upcomingPage])
+
+  const paginatedResults = useMemo(() => {
+    const start = resultsPage * ITEMS_PER_PAGE
+    return filteredRecentResults.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredRecentResults, resultsPage])
 
   // Toggle round selection
   const toggleRound = (round: number) => {
@@ -434,9 +459,12 @@ export default function PredictionsPage() {
         <div className="flex flex-col gap-4 mb-6">
           {/* Top row - View mode and actions */}
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" role="tablist" aria-label="View mode">
               <button
                 onClick={() => setViewMode('cards')}
+                role="tab"
+                aria-selected={viewMode === 'cards'}
+                aria-label="Card view"
                 className={cn(
                   'p-2 rounded-lg transition-colors',
                   viewMode === 'cards'
@@ -448,6 +476,9 @@ export default function PredictionsPage() {
               </button>
               <button
                 onClick={() => setViewMode('table')}
+                role="tab"
+                aria-selected={viewMode === 'table'}
+                aria-label="Table view"
                 className={cn(
                   'p-2 rounded-lg transition-colors',
                   viewMode === 'table'
@@ -473,7 +504,9 @@ export default function PredictionsPage() {
                     setShowModelDropdown(false)
                   }}
                   className="flex items-center gap-2 px-3 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors text-sm"
-                  title="Settings"
+                  aria-label="Settings menu"
+                  aria-expanded={showSettingsDropdown}
+                  aria-haspopup="menu"
                 >
                   <Settings className="w-4 h-4" />
                   <span className="hidden sm:inline">Settings</span>
@@ -726,9 +759,12 @@ export default function PredictionsPage() {
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center border-b border-border mb-6">
+        <div className="flex items-center border-b border-border mb-6" role="tablist" aria-label="Prediction views">
           <button
             onClick={() => setActiveTab('upcoming')}
+            role="tab"
+            aria-selected={activeTab === 'upcoming'}
+            aria-controls="upcoming-panel"
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
               activeTab === 'upcoming'
@@ -740,6 +776,9 @@ export default function PredictionsPage() {
           </button>
           <button
             onClick={() => setActiveTab('results')}
+            role="tab"
+            aria-selected={activeTab === 'results'}
+            aria-controls="results-panel"
             className={cn(
               "px-4 py-2 text-sm font-medium border-b-2 transition-colors",
               activeTab === 'results'
@@ -762,29 +801,100 @@ export default function PredictionsPage() {
             <div className="text-center py-12 text-muted-foreground">
               {fixtures.length === 0 ? 'No upcoming fixtures found' : 'No fixtures match the selected filters'}
             </div>
-          ) : viewMode === 'cards' ? (
-            /* Cards View */
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredFixtures.map(fixture => (
-                <PredictionCard
-                  key={fixture.id}
-                  fixture={fixture}
-                  onGeneratePrediction={handleGeneratePrediction}
-                  isGenerating={generatingIds.includes(fixture.id)}
-                  error={errorIds[fixture.id]}
-                  onClearError={() => clearError(fixture.id)}
-                />
-              ))}
-            </div>
           ) : (
-            /* Table View */
-            <PredictionTable
-              fixtures={filteredFixtures}
-              onGeneratePrediction={handleGeneratePrediction}
-              generatingIds={generatingIds}
-              errorIds={errorIds}
-              onClearError={clearError}
-            />
+            <>
+              {viewMode === 'cards' ? (
+                /* Cards View */
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {paginatedFixtures.map(fixture => (
+                    <PredictionCard
+                      key={fixture.id}
+                      fixture={fixture}
+                      onGeneratePrediction={handleGeneratePrediction}
+                      isGenerating={generatingIds.includes(fixture.id)}
+                      error={errorIds[fixture.id]}
+                      onClearError={() => clearError(fixture.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Table View */
+                <PredictionTable
+                  fixtures={paginatedFixtures}
+                  onGeneratePrediction={handleGeneratePrediction}
+                  generatingIds={generatingIds}
+                  errorIds={errorIds}
+                  onClearError={clearError}
+                />
+              )}
+
+              {/* Pagination Controls - Upcoming */}
+              {upcomingTotalPages > 1 && (
+                <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {upcomingPage * ITEMS_PER_PAGE + 1}-{Math.min((upcomingPage + 1) * ITEMS_PER_PAGE, filteredFixtures.length)} of {filteredFixtures.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setUpcomingPage(p => Math.max(0, p - 1))}
+                      disabled={upcomingPage === 0}
+                      aria-label="Previous page"
+                      className={cn(
+                        'p-2 rounded-lg transition-colors',
+                        upcomingPage === 0
+                          ? 'text-muted-foreground/50 cursor-not-allowed'
+                          : 'hover:bg-muted text-foreground'
+                      )}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, upcomingTotalPages) }, (_, i) => {
+                        let pageNum: number
+                        if (upcomingTotalPages <= 5) {
+                          pageNum = i
+                        } else if (upcomingPage < 3) {
+                          pageNum = i
+                        } else if (upcomingPage > upcomingTotalPages - 4) {
+                          pageNum = upcomingTotalPages - 5 + i
+                        } else {
+                          pageNum = upcomingPage - 2 + i
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setUpcomingPage(pageNum)}
+                            aria-label={`Page ${pageNum + 1}`}
+                            aria-current={upcomingPage === pageNum ? 'page' : undefined}
+                            className={cn(
+                              'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                              upcomingPage === pageNum
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            {pageNum + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setUpcomingPage(p => Math.min(upcomingTotalPages - 1, p + 1))}
+                      disabled={upcomingPage >= upcomingTotalPages - 1}
+                      aria-label="Next page"
+                      className={cn(
+                        'p-2 rounded-lg transition-colors',
+                        upcomingPage >= upcomingTotalPages - 1
+                          ? 'text-muted-foreground/50 cursor-not-allowed'
+                          : 'hover:bg-muted text-foreground'
+                      )}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )
         ) : (
           /* Recent Results Tab */
@@ -792,21 +902,92 @@ export default function PredictionsPage() {
             <div className="text-center py-12 text-muted-foreground">
               {recentResults.length === 0 ? 'No recent results found' : 'No results match the selected filters'}
             </div>
-          ) : viewMode === 'cards' ? (
-            /* Cards View */
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredRecentResults.map(fixture => (
-                <RecentResultCard
-                  key={fixture.id}
-                  fixture={fixture}
-                />
-              ))}
-            </div>
           ) : (
-            /* Table View */
-            <RecentResultsTable
-              results={filteredRecentResults}
-            />
+            <>
+              {viewMode === 'cards' ? (
+                /* Cards View */
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {paginatedResults.map(fixture => (
+                    <RecentResultCard
+                      key={fixture.id}
+                      fixture={fixture}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Table View */
+                <RecentResultsTable
+                  results={paginatedResults}
+                />
+              )}
+
+              {/* Pagination Controls - Results */}
+              {resultsTotalPages > 1 && (
+                <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3 mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {resultsPage * ITEMS_PER_PAGE + 1}-{Math.min((resultsPage + 1) * ITEMS_PER_PAGE, filteredRecentResults.length)} of {filteredRecentResults.length}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setResultsPage(p => Math.max(0, p - 1))}
+                      disabled={resultsPage === 0}
+                      aria-label="Previous page"
+                      className={cn(
+                        'p-2 rounded-lg transition-colors',
+                        resultsPage === 0
+                          ? 'text-muted-foreground/50 cursor-not-allowed'
+                          : 'hover:bg-muted text-foreground'
+                      )}
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, resultsTotalPages) }, (_, i) => {
+                        let pageNum: number
+                        if (resultsTotalPages <= 5) {
+                          pageNum = i
+                        } else if (resultsPage < 3) {
+                          pageNum = i
+                        } else if (resultsPage > resultsTotalPages - 4) {
+                          pageNum = resultsTotalPages - 5 + i
+                        } else {
+                          pageNum = resultsPage - 2 + i
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setResultsPage(pageNum)}
+                            aria-label={`Page ${pageNum + 1}`}
+                            aria-current={resultsPage === pageNum ? 'page' : undefined}
+                            className={cn(
+                              'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                              resultsPage === pageNum
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            {pageNum + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      onClick={() => setResultsPage(p => Math.min(resultsTotalPages - 1, p + 1))}
+                      disabled={resultsPage >= resultsTotalPages - 1}
+                      aria-label="Next page"
+                      className={cn(
+                        'p-2 rounded-lg transition-colors',
+                        resultsPage >= resultsTotalPages - 1
+                          ? 'text-muted-foreground/50 cursor-not-allowed'
+                          : 'hover:bg-muted text-foreground'
+                      )}
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )
         )}
       </div>

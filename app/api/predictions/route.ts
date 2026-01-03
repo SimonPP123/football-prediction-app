@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { deletePrediction } from '@/lib/supabase/queries'
+import { isValidUUID } from '@/lib/validation'
 
 export async function DELETE(request: NextRequest) {
   try {
@@ -17,6 +18,14 @@ export async function DELETE(request: NextRequest) {
     if (!fixtureId) {
       return NextResponse.json(
         { success: false, error: 'fixture_id is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate UUID format before database operation
+    if (!isValidUUID(fixtureId)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid fixture_id format' },
         { status: 400 }
       )
     }

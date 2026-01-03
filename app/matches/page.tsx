@@ -10,6 +10,8 @@ import {
   Clock,
   Trophy,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowUpDown,
   Filter,
   X,
@@ -23,6 +25,8 @@ import { cn } from '@/lib/utils'
 
 type TabType = 'live' | 'upcoming' | 'results'
 type SortType = 'date-asc' | 'date-desc' | 'home-team' | 'away-team'
+
+const ITEMS_PER_PAGE = 20
 
 interface Fixture {
   id: string
@@ -51,6 +55,7 @@ export default function MatchesPage() {
   const [sortBy, setSortBy] = useState<SortType>('date-asc')
   const [showFilters, setShowFilters] = useState(false)
   const [showRoundDropdown, setShowRoundDropdown] = useState(false)
+  const [currentPage, setCurrentPage] = useState(0)
 
   const [liveMatches, setLiveMatches] = useState<Fixture[]>([])
   const [upcomingMatches, setUpcomingMatches] = useState<Fixture[]>([])
@@ -140,6 +145,11 @@ export default function MatchesPage() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
+  // Reset to first page when filters or tab changes
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [activeTab, debouncedSearchQuery, selectedRounds, sortBy])
+
   // Get current matches based on active tab
   const currentMatches = useMemo(() => {
     switch (activeTab) {
@@ -204,6 +214,13 @@ export default function MatchesPage() {
 
     return filtered
   }, [currentMatches, debouncedSearchQuery, selectedRounds, sortBy])
+
+  // Paginate filtered matches
+  const totalPages = Math.ceil(filteredMatches.length / ITEMS_PER_PAGE)
+  const paginatedMatches = useMemo(() => {
+    const start = currentPage * ITEMS_PER_PAGE
+    return filteredMatches.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredMatches, currentPage])
 
   // Get prediction badge color
   const getPredictionBadge = (prediction: Fixture['prediction']) => {
@@ -294,6 +311,9 @@ export default function MatchesPage() {
                   }
                   setSelectedRounds(new Set())
                 }}
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`${tab.label} matches (${tab.count})`}
                 className={cn(
                   'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-colors',
                   isActive
@@ -332,11 +352,13 @@ export default function MatchesPage() {
               placeholder="Search teams..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search teams by name"
               className="w-full pl-10 pr-4 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 <X className="w-4 h-4" />
@@ -347,6 +369,8 @@ export default function MatchesPage() {
           {/* Filter Toggle (Mobile) */}
           <button
             onClick={() => setShowFilters(!showFilters)}
+            aria-label="Toggle match filters"
+            aria-expanded={showFilters}
             className="sm:hidden flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg text-sm"
           >
             <Filter className="w-4 h-4" />
@@ -362,6 +386,9 @@ export default function MatchesPage() {
             <div className="relative">
               <button
                 onClick={() => setShowRoundDropdown(!showRoundDropdown)}
+                aria-label="Filter by round"
+                aria-expanded={showRoundDropdown}
+                aria-haspopup="listbox"
                 className="flex items-center gap-2 pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm hover:bg-muted transition-colors"
               >
                 {selectedRounds.size === 0
@@ -378,6 +405,7 @@ export default function MatchesPage() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortType)}
+                aria-label="Sort matches by"
                 className="appearance-none pl-3 pr-8 py-2 bg-card border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
               >
                 <option value="date-desc">Date (Latest)</option>
@@ -496,6 +524,7 @@ export default function MatchesPage() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortType)}
+                  aria-label="Sort matches by"
                   className="w-full appearance-none pl-3 pr-8 py-2 bg-muted border-0 rounded-lg text-sm"
                 >
                   <option value="date-desc">Date (Latest)</option>
@@ -544,7 +573,7 @@ export default function MatchesPage() {
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {filteredMatches.map((fixture) => {
+              {paginatedMatches.map((fixture) => {
                 const isLive = activeTab === 'live'
                 const isResult = activeTab === 'results'
                 const predictionCorrect = isResult ? isPredictionCorrect(fixture) : null
@@ -679,6 +708,73 @@ export default function MatchesPage() {
             </div>
           )}
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between bg-card border border-border rounded-lg px-4 py-3">
+            <div className="text-sm text-muted-foreground">
+              Showing {currentPage * ITEMS_PER_PAGE + 1}-{Math.min((currentPage + 1) * ITEMS_PER_PAGE, filteredMatches.length)} of {filteredMatches.length}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                disabled={currentPage === 0}
+                aria-label="Previous page"
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  currentPage === 0
+                    ? 'text-muted-foreground/50 cursor-not-allowed'
+                    : 'hover:bg-muted text-foreground'
+                )}
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 5) {
+                    pageNum = i
+                  } else if (currentPage < 3) {
+                    pageNum = i
+                  } else if (currentPage > totalPages - 4) {
+                    pageNum = totalPages - 5 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      aria-label={`Page ${pageNum + 1}`}
+                      aria-current={currentPage === pageNum ? 'page' : undefined}
+                      className={cn(
+                        'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
+                        currentPage === pageNum
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-muted'
+                      )}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  )
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={currentPage >= totalPages - 1}
+                aria-label="Next page"
+                className={cn(
+                  'p-2 rounded-lg transition-colors',
+                  currentPage >= totalPages - 1
+                    ? 'text-muted-foreground/50 cursor-not-allowed'
+                    : 'hover:bg-muted text-foreground'
+                )}
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
