@@ -103,11 +103,11 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
  * Manual predictions do NOT block automation - automation will regenerate with fresh data.
  *
  * Includes:
- * 1. Fixtures in prediction window (10-50 min before kickoff) that haven't had successful automation
+ * 1. Fixtures in prediction window (10-50 min before kickoff) without automated prediction
  * 2. Fixtures that were triggered >7 min ago but automation failed (retry)
  *
  * Excludes:
- * - Fixtures where automation already succeeded (triggered AND prediction created after trigger)
+ * - Fixtures with source='automation' prediction (automation already succeeded)
  * - Fixtures triggered <7 min ago (still processing)
  *
  * Returns sorted by kickoff time (earliest first), limited to MAX_PREDICTIONS_PER_RUN
@@ -130,7 +130,7 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
       league:leagues!inner(id, name, is_active),
-      predictions(id, created_at)
+      predictions(id, source)
     `)
     .eq('status', 'NS')
     .gte('match_date', windowStart.toISOString())
@@ -150,21 +150,17 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
     const homeName = (f.home_team as any)?.name || 'Unknown'
     const awayName = (f.away_team as any)?.name || 'Unknown'
 
-    // Check if automation already succeeded:
-    // - triggered_at is set AND
-    // - there's a prediction created AFTER the trigger time
+    // Check if automation already succeeded: has prediction with source='automation'
+    const hasAutomatedPrediction = predictions.some((p: any) => p.source === 'automation')
+
+    if (hasAutomatedPrediction) {
+      console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Automated prediction exists`)
+      return false
+    }
+
+    // No automated prediction - check if we should trigger or wait
     if (triggeredAt) {
-      const predictionAfterTrigger = predictions.some((p: any) => {
-        const createdAt = p.created_at ? new Date(p.created_at) : null
-        return createdAt && createdAt >= triggeredAt
-      })
-
-      if (predictionAfterTrigger) {
-        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Automation succeeded (prediction created after trigger)`)
-        return false
-      }
-
-      // Automation was triggered but no prediction yet
+      // Automation was triggered but hasn't completed yet
       // If triggered recently (within buffer), skip - still processing
       if (triggeredAt > bufferCutoff) {
         const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
@@ -172,15 +168,16 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
         return false
       }
 
-      // Triggered >7 min ago but no prediction after trigger - retry needed
+      // Triggered >7 min ago but no automated prediction - retry needed
       const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
       console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: Automation failed, retrying after ${minAgo} min`)
       return true
     }
 
-    // Never triggered - include (even if manual prediction exists, automation should still run)
-    if (predictions.length > 0) {
-      console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: Manual prediction exists, but automation never ran`)
+    // Never triggered - include (manual predictions don't block automation)
+    const manualCount = predictions.length
+    if (manualCount > 0) {
+      console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: Has ${manualCount} manual prediction(s), automation not yet run`)
     } else {
       console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction, never triggered`)
     }
@@ -314,11 +311,11 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
  * Manual analysis does NOT block automation - automation will regenerate with fresh data.
  *
  * Includes:
- * 1. Fixtures in analysis window (150-210 min after FT) that haven't had successful automation
+ * 1. Fixtures in analysis window (370-380 min after kickoff) without automated analysis
  * 2. Fixtures that were triggered >7 min ago but automation failed (retry)
  *
  * Excludes:
- * - Fixtures where automation already succeeded (triggered AND analysis created after trigger)
+ * - Fixtures with source='automation' analysis (automation already succeeded)
  * - Fixtures triggered <7 min ago (still processing)
  * - Fixtures without predictions (analysis requires prediction)
  *
@@ -342,7 +339,7 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       league:leagues!inner(id, name, is_active),
       predictions(id),
-      match_analysis(id, created_at)
+      match_analysis(id, source)
     `)
     .eq('status', 'FT')
     .gte('match_date', windowStart.toISOString())
@@ -369,21 +366,17 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
       return false
     }
 
-    // Check if automation already succeeded:
-    // - triggered_at is set AND
-    // - there's an analysis created AFTER the trigger time
+    // Check if automation already succeeded: has analysis with source='automation'
+    const hasAutomatedAnalysis = analyses.some((a: any) => a.source === 'automation')
+
+    if (hasAutomatedAnalysis) {
+      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Automated analysis exists`)
+      return false
+    }
+
+    // No automated analysis - check if we should trigger or wait
     if (triggeredAt) {
-      const analysisAfterTrigger = analyses.some((a: any) => {
-        const createdAt = a.created_at ? new Date(a.created_at) : null
-        return createdAt && createdAt >= triggeredAt
-      })
-
-      if (analysisAfterTrigger) {
-        console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Automation succeeded (analysis created after trigger)`)
-        return false
-      }
-
-      // Automation was triggered but no analysis yet
+      // Automation was triggered but hasn't completed yet
       // If triggered recently (within buffer), skip - still processing
       if (triggeredAt > bufferCutoff) {
         const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
@@ -391,15 +384,16 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
         return false
       }
 
-      // Triggered >7 min ago but no analysis after trigger - retry needed
+      // Triggered >7 min ago but no automated analysis - retry needed
       const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
       console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: Automation failed, retrying after ${minAgo} min`)
       return true
     }
 
-    // Never triggered - include (even if manual analysis exists, automation should still run)
-    if (analyses.length > 0) {
-      console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: Manual analysis exists, but automation never ran`)
+    // Never triggered - include (manual analyses don't block automation)
+    const manualCount = analyses.length
+    if (manualCount > 0) {
+      console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: Has ${manualCount} manual analysis, automation not yet run`)
     } else {
       console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: No analysis, never triggered`)
     }
