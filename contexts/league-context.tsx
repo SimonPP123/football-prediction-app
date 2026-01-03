@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useUpdates } from '@/components/updates/update-provider'
 
 export interface LeagueConfig {
@@ -50,6 +51,7 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { addRefreshEvent } = useUpdates()
+  const router = useRouter()
   // Track if this is the initial load to avoid logging on page refresh
   const isInitialLoad = useRef(true)
 
@@ -144,8 +146,12 @@ export function LeagueProvider({ children }: { children: ReactNode }) {
           }
         }
       })
+
+      // Refresh server components to fetch data for the new league
+      // This ensures server-rendered content (stats, standings, upcoming matches) updates
+      router.refresh()
     }
-  }, [currentLeague, addRefreshEvent])
+  }, [currentLeague, addRefreshEvent, router])
 
   // Refresh leagues from API
   const refreshLeagues = useCallback(async () => {
