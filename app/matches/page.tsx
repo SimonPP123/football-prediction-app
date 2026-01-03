@@ -63,6 +63,7 @@ export default function MatchesPage() {
   const [results, setResults] = useState<Fixture[]>([])
   const [loading, setLoading] = useState(true)
   const liveMatchIdsRef = useRef<Set<string>>(new Set())
+  const resultsRef = useRef<Fixture[]>([])
 
   // Fetch matches
   useEffect(() => {
@@ -87,7 +88,9 @@ export default function MatchesPage() {
         setLiveMatches(liveArray)
         liveMatchIdsRef.current = new Set(liveArray.map((m: Fixture) => m.id))
         setUpcomingMatches(Array.isArray(upcoming) ? upcoming : [])
-        setResults(Array.isArray(recent) ? recent : [])
+        const recentArray = Array.isArray(recent) ? recent : []
+        setResults(recentArray)
+        resultsRef.current = recentArray
       } catch (error) {
         console.error('Error fetching matches:', error)
       } finally {
@@ -117,18 +120,27 @@ export default function MatchesPage() {
         setLiveMatches(newLiveMatches)
 
         // If matches finished, trigger a fixtures refresh to update statuses in DB
-        // Then refresh results to include them
         if (hasFinishedMatches) {
           // Trigger backend refresh to update fixture statuses from API
           await fetch(`/api/data/refresh/fixtures?mode=live&league_id=${currentLeague.id}`, {
             method: 'POST',
             credentials: 'include'
           }).catch(() => {}) // Ignore errors, just try to refresh
+        }
 
-          // Then fetch updated results
-          const resultsRes = await fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`)
-          const resultsData = await resultsRes.json()
-          setResults(Array.isArray(resultsData) ? resultsData : [])
+        // Always refresh results to catch any newly finished matches
+        // (handles edge cases where hasFinishedMatches detection might miss updates)
+        const resultsRes = await fetch(`/api/fixtures/recent-results?rounds=all&league_id=${currentLeague.id}`)
+        const resultsData = await resultsRes.json()
+        const newResults = Array.isArray(resultsData) ? resultsData : []
+
+        // Only update state if results actually changed (use ref to avoid stale closure)
+        const currentResultIds = new Set(resultsRef.current.map((r: Fixture) => r.id))
+        const hasNewResults = newResults.some((r: Fixture) => !currentResultIds.has(r.id)) ||
+          newResults.length !== resultsRef.current.length
+        if (hasNewResults) {
+          setResults(newResults)
+          resultsRef.current = newResults
         }
       } catch (error) {
         console.error('Error refreshing matches:', error)

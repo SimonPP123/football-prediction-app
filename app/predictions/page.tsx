@@ -170,8 +170,12 @@ export default function PredictionsPage() {
           // If matches finished, fetch updated results
           // (The live endpoint already syncs finished match statuses to DB)
           if (hasFinishedMatches) {
-            const resultsParams = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-            const resultsRes = await fetch(`/api/fixtures/recent-results${resultsParams}`, { credentials: 'include' })
+            const url = new URL('/api/fixtures/recent-results', window.location.origin)
+            url.searchParams.set('rounds', 'all') // Match initial load behavior
+            if (currentLeague?.id) {
+              url.searchParams.set('league_id', currentLeague.id)
+            }
+            const resultsRes = await fetch(url.toString(), { credentials: 'include' })
             if (resultsRes.ok) {
               const resultsData = await resultsRes.json()
               setRecentResults(Array.isArray(resultsData) ? resultsData : [])

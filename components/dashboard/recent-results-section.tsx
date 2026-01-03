@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useImperativeHandle, forwardRef } from 'react'
+import { useState, useEffect, useImperativeHandle, forwardRef, useRef, useCallback } from 'react'
 import { ResultAccuracyCard } from '@/components/dashboard/result-accuracy-card'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
 import Link from 'next/link'
@@ -18,8 +18,9 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
   function RecentResultsSection({ initialRecentResults }, ref) {
     const { currentLeague } = useLeague()
     const [recentResults, setRecentResults] = useState(initialRecentResults)
+    const prevResultCountRef = useRef(initialRecentResults.length)
 
-    const refresh = async () => {
+    const refresh = useCallback(async () => {
       try {
         // Use URL constructor for proper parameter handling
         const url = new URL('/api/fixtures/recent-results', window.location.origin)
@@ -30,12 +31,25 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
         const res = await fetch(url.toString(), { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
-          setRecentResults(Array.isArray(data) ? data : [])
+          const newResults = Array.isArray(data) ? data : []
+
+          // Only update if results actually changed (new results or different IDs)
+          const newCount = newResults.length
+          const prevCount = prevResultCountRef.current
+
+          // Check if there are new results by comparing IDs
+          const currentIds = new Set(recentResults.map((r: any) => r.id))
+          const hasNewResults = newResults.some((r: any) => !currentIds.has(r.id))
+
+          if (newCount !== prevCount || hasNewResults) {
+            setRecentResults(newResults)
+            prevResultCountRef.current = newCount
+          }
         }
       } catch (error) {
         console.error('Failed to refresh recent results:', error)
       }
-    }
+    }, [currentLeague?.id, recentResults])
 
     // Expose refresh method to parent
     useImperativeHandle(ref, () => ({
@@ -46,6 +60,12 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
     useEffect(() => {
       refresh()
     }, [currentLeague?.id])
+
+    // Poll for new results every 60 seconds (catches finished matches that might be missed)
+    useEffect(() => {
+      const intervalId = setInterval(refresh, 60000)
+      return () => clearInterval(intervalId)
+    }, [refresh])
 
     return (
       <div className="space-y-4">
