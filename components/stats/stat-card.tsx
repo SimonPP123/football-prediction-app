@@ -1,7 +1,13 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { LucideIcon, TrendingUp, TrendingDown, Minus, Info } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface StatCardProps {
   label: string
@@ -10,6 +16,7 @@ interface StatCardProps {
   trend?: 'up' | 'down' | 'neutral'
   trendValue?: string
   description?: string
+  info?: string
   color?: 'default' | 'green' | 'red' | 'amber' | 'blue' | 'purple'
   size?: 'sm' | 'md' | 'lg'
   className?: string
@@ -46,6 +53,7 @@ export function StatCard({
   trend,
   trendValue,
   description,
+  info,
   color = 'default',
   size = 'md',
   className,
@@ -66,9 +74,21 @@ export function StatCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className={cn('text-muted-foreground font-medium', sizes.label)}>
-            {label}
-          </p>
+          <div className={cn('text-muted-foreground font-medium flex items-center gap-1', sizes.label)}>
+            <span>{label}</span>
+            {info && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3 h-3 cursor-help opacity-60 hover:opacity-100 transition-opacity" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[250px]">
+                    <p className="text-xs">{info}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
           <p className={cn('font-bold mt-1', sizes.value)}>
             {value}
           </p>

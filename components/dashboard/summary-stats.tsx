@@ -41,6 +41,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Calendar}
         color="blue"
         size="sm"
+        info="Number of scheduled matches that haven't been played yet"
       />
       <StatCard
         label="Matches Played"
@@ -48,6 +49,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={CheckCircle2}
         color="green"
         size="sm"
+        info="Total number of completed matches this season"
       />
       <StatCard
         label="Predictions Made"
@@ -55,6 +57,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Target}
         color="purple"
         size="sm"
+        info="Number of AI predictions generated for matches"
       />
       <StatCard
         label="Result Accuracy"
@@ -62,6 +65,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={TrendingUp}
         color={initialStats.resultAccuracy >= 60 ? 'green' : initialStats.resultAccuracy >= 40 ? 'amber' : 'red'}
         size="sm"
+        info="Percentage of predictions where the predicted outcome (Home Win, Draw, Away Win) was correct"
       />
       <StatCard
         label="Matches Analyzed"
@@ -69,6 +73,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={BarChart3}
         color="amber"
         size="sm"
+        info="Number of completed matches with predictions that have been analyzed for accuracy"
       />
       <StatCard
         label="Average Score"
@@ -76,6 +81,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Trophy}
         color={initialStats.averageAccuracy >= 60 ? 'green' : initialStats.averageAccuracy >= 40 ? 'amber' : 'red'}
         size="sm"
+        info="Average prediction confidence score across all analyzed matches"
       />
       <StatCard
         label="Teams"
@@ -83,6 +89,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Users}
         color="default"
         size="sm"
+        info="Number of teams in the selected league"
       />
       <StatCard
         label="Season"
@@ -90,6 +97,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Clock}
         color="default"
         size="sm"
+        info="Current season being tracked (format: start year - end year)"
       />
     </StatGrid>
   )
