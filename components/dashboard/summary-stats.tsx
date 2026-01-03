@@ -13,71 +13,73 @@ import {
   Clock,
 } from 'lucide-react'
 
-interface DashboardStatsProps {
-  stats: {
-    totalFixtures: number
-    completedFixtures: number
-    upcomingFixtures: number
-    totalPredictions: number
-    analyzedMatches: number
-    totalTeams: number
-    resultAccuracy: number
-    averageAccuracy: number
-  }
-  season?: number // e.g., 2025 for "2025-26" season
+interface DashboardStats {
+  totalFixtures: number
+  completedFixtures: number
+  upcomingFixtures: number
+  totalPredictions: number
+  analyzedMatches: number
+  totalTeams: number
+  resultAccuracy: number
+  averageAccuracy: number
 }
 
-export function SummaryStats({ stats, season }: DashboardStatsProps) {
+interface DashboardStatsProps {
+  initialStats: DashboardStats
+  initialSeason?: number
+}
+
+export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProps) {
   // Format season as "YYYY-YY" (e.g., 2025 -> "2025-26")
-  const seasonDisplay = season ? `${season}-${String(season + 1).slice(-2)}` : 'N/A'
+  const seasonDisplay = initialSeason ? `${initialSeason}-${String(initialSeason + 1).slice(-2)}` : 'N/A'
 
   return (
     <StatGrid columns={4}>
       <StatCard
         label="Upcoming Matches"
-        value={stats.upcomingFixtures}
+        value={initialStats.upcomingFixtures}
         icon={Calendar}
         color="blue"
         size="sm"
       />
       <StatCard
         label="Matches Played"
-        value={stats.completedFixtures}
+        value={initialStats.completedFixtures}
         icon={CheckCircle2}
         color="green"
         size="sm"
       />
       <StatCard
         label="Predictions Made"
-        value={stats.totalPredictions}
+        value={initialStats.totalPredictions}
         icon={Target}
         color="purple"
         size="sm"
       />
       <StatCard
         label="Result Accuracy"
-        value={stats.resultAccuracy > 0 ? `${stats.resultAccuracy.toFixed(1)}%` : 'N/A'}
+        value={initialStats.resultAccuracy > 0 ? `${initialStats.resultAccuracy.toFixed(1)}%` : 'N/A'}
         icon={TrendingUp}
-        color={stats.resultAccuracy >= 60 ? 'green' : stats.resultAccuracy >= 40 ? 'amber' : 'red'}
+        color={initialStats.resultAccuracy >= 60 ? 'green' : initialStats.resultAccuracy >= 40 ? 'amber' : 'red'}
         size="sm"
       />
       <StatCard
         label="Matches Analyzed"
-        value={stats.analyzedMatches}
+        value={initialStats.analyzedMatches}
         icon={BarChart3}
         color="amber"
         size="sm"
       />
       <StatCard
         label="Average Score"
-        value={stats.averageAccuracy > 0 ? `${stats.averageAccuracy.toFixed(1)}%` : 'N/A'}
+        value={initialStats.averageAccuracy > 0 ? `${initialStats.averageAccuracy.toFixed(1)}%` : 'N/A'}
         icon={Trophy}
-        color={stats.averageAccuracy >= 60 ? 'green' : stats.averageAccuracy >= 40 ? 'amber' : 'red'}
+        color={initialStats.averageAccuracy >= 60 ? 'green' : initialStats.averageAccuracy >= 40 ? 'amber' : 'red'}
         size="sm"
       />
       <StatCard
         label="Teams"
-        value={stats.totalTeams}
+        value={initialStats.totalTeams}
         icon={Users}
         color="default"
         size="sm"
