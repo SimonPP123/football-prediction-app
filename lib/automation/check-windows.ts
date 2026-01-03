@@ -6,13 +6,13 @@ const supabase = createClient(
 )
 
 // Timing windows configuration (in minutes)
-// Wider windows to accommodate multiple matches and enable automatic retry
+// Windows define when cron picks up fixtures for each trigger type
 export const TIMING_WINDOWS = {
   PRE_MATCH: { minBefore: 50, maxBefore: 60 },    // 50-60 min before kickoff (10 min window)
   PREDICTION: { minBefore: 10, maxBefore: 50 },   // 10-50 min before kickoff (40 min window)
   LIVE: { statuses: ['1H', '2H', 'HT', 'ET', 'BT', 'P'] },
-  POST_MATCH: { minAfter: 90, maxAfter: 150 },    // 90-150 min after FT (1h window)
-  ANALYSIS: { minAfter: 150, maxAfter: 210 }      // 150-210 min after FT (1h window)
+  POST_MATCH: { minAfter: 355, maxAfter: 365 },   // ~6 hours after kickoff (10 min window)
+  ANALYSIS: { minAfter: 370, maxAfter: 380 }      // ~6h 15min after kickoff (10 min window)
 } as const
 
 // Processing configuration for batch operations
