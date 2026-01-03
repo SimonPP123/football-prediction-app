@@ -145,7 +145,11 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
 
   // Filter fixtures that need prediction generation
   const needsPrediction = fixtures.filter(f => {
-    const predictions = f.predictions && Array.isArray(f.predictions) ? f.predictions : []
+    // Handle Supabase returning single object vs array for nested relations
+    const rawPredictions = f.predictions
+    const predictions = rawPredictions
+      ? (Array.isArray(rawPredictions) ? rawPredictions : [rawPredictions])
+      : []
     const triggeredAt = f.prediction_triggered_at ? new Date(f.prediction_triggered_at) : null
     const homeName = (f.home_team as any)?.name || 'Unknown'
     const awayName = (f.away_team as any)?.name || 'Unknown'
@@ -354,14 +358,21 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
 
   // Filter fixtures that need analysis
   const needsAnalysis = fixtures.filter(f => {
-    const hasPrediction = f.predictions && Array.isArray(f.predictions) && f.predictions.length > 0
-    const analyses = f.match_analysis && Array.isArray(f.match_analysis) ? f.match_analysis : []
+    // Handle Supabase returning single object vs array for nested relations
+    const rawPredictions = f.predictions
+    const predictions = rawPredictions
+      ? (Array.isArray(rawPredictions) ? rawPredictions : [rawPredictions])
+      : []
+    const rawAnalyses = f.match_analysis
+    const analyses = rawAnalyses
+      ? (Array.isArray(rawAnalyses) ? rawAnalyses : [rawAnalyses])
+      : []
     const triggeredAt = f.analysis_triggered_at ? new Date(f.analysis_triggered_at) : null
     const homeName = (f.home_team as any)?.name || 'Unknown'
     const awayName = (f.away_team as any)?.name || 'Unknown'
 
     // Must have a prediction to generate analysis
-    if (!hasPrediction) {
+    if (predictions.length === 0) {
       console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: No prediction`)
       return false
     }
