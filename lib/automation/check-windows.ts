@@ -270,9 +270,10 @@ export async function queryLiveLeagues(): Promise<{ league_id: string; league_na
 }
 
 /**
- * Query leagues that have finished matches 4 hours ago (post-match window)
+ * Query leagues that have finished matches in post-match window (90-150 min after FT)
+ * Only includes fixtures that haven't been triggered for post-match yet
  */
-export async function queryPostMatchLeagues(): Promise<{ league_id: string; league_name: string; finished_count: number }[]> {
+export async function queryPostMatchLeagues(): Promise<{ league_id: string; league_name: string; finished_count: number; fixture_ids: string[] }[]> {
   const now = new Date()
   const minAgo = new Date(now.getTime() - TIMING_WINDOWS.POST_MATCH.maxAfter * 60 * 1000)
   const maxAgo = new Date(now.getTime() - TIMING_WINDOWS.POST_MATCH.minAfter * 60 * 1000)
@@ -280,7 +281,7 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
   const { data: fixtures, error } = await supabase
     .from('fixtures')
     .select(`
-      id, league_id,
+      id, league_id, post_match_triggered_at,
       league:leagues!inner(id, name, is_active)
     `)
     .eq('status', 'FT')
@@ -290,20 +291,39 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
 
   if (error || !fixtures) return []
 
-  // Group and count by league
-  const leagueMap = new Map<string, { league_id: string; league_name: string; finished_count: number }>()
+  // Filter out fixtures that have already been triggered for post-match
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
 
-  for (const fixture of fixtures) {
+  const needsPostMatch = fixtures.filter(f => {
+    const triggeredAt = f.post_match_triggered_at ? new Date(f.post_match_triggered_at) : null
+    // If never triggered or triggered before today, include it
+    if (!triggeredAt) return true
+    if (triggeredAt < todayStart) return true
+    // Already triggered today - skip
+    return false
+  })
+
+  if (needsPostMatch.length === 0) return []
+
+  console.log(`[Query Post-Match] Found ${needsPostMatch.length} fixtures needing post-match (${fixtures.length - needsPostMatch.length} already triggered)`)
+
+  // Group and count by league
+  const leagueMap = new Map<string, { league_id: string; league_name: string; finished_count: number; fixture_ids: string[] }>()
+
+  for (const fixture of needsPostMatch) {
     const leagueId = fixture.league_id
     const leagueName = (fixture.league as any)?.name || 'Unknown'
 
     if (leagueMap.has(leagueId)) {
       leagueMap.get(leagueId)!.finished_count++
+      leagueMap.get(leagueId)!.fixture_ids.push(fixture.id)
     } else {
       leagueMap.set(leagueId, {
         league_id: leagueId,
         league_name: leagueName,
-        finished_count: 1
+        finished_count: 1,
+        fixture_ids: [fixture.id]
       })
     }
   }
@@ -447,16 +467,17 @@ export async function updateAutomationConfig(updates: Record<string, any>) {
 
 /**
  * Update trigger timestamp for a fixture
- * Called before triggering prediction/analysis/pre-match to prevent duplicate triggers
+ * Called before triggering prediction/analysis/pre-match/post-match to prevent duplicate triggers
  */
 export async function updateTriggerTimestamp(
   fixtureId: string,
-  type: 'prediction' | 'analysis' | 'pre-match'
+  type: 'prediction' | 'analysis' | 'pre-match' | 'post-match'
 ): Promise<void> {
   const columnMap = {
     'prediction': 'prediction_triggered_at',
     'analysis': 'analysis_triggered_at',
-    'pre-match': 'pre_match_triggered_at'
+    'pre-match': 'pre_match_triggered_at',
+    'post-match': 'post_match_triggered_at'
   }
   const column = columnMap[type]
 

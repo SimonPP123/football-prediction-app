@@ -388,12 +388,19 @@ export async function triggerLive(
  */
 export async function triggerPostMatch(
   cronRunId: string,
-  leagues: { league_id: string; league_name: string; finished_count: number }[]
+  leagues: { league_id: string; league_name: string; finished_count: number; fixture_ids?: string[] }[]
 ): Promise<TriggerResult[]> {
   const results: TriggerResult[] = []
   const webhookUrl = await getWebhookUrl('post-match')
 
   for (const league of leagues) {
+    // Mark all fixtures as triggered BEFORE calling webhook (prevents duplicates)
+    if (league.fixture_ids && league.fixture_ids.length > 0) {
+      await Promise.all(
+        league.fixture_ids.map(id => updateTriggerTimestamp(id, 'post-match'))
+      )
+    }
+
     const payload = {
       leagues: [{ league_id: league.league_id, finished_count: league.finished_count }],
       trigger_type: 'post-match'
