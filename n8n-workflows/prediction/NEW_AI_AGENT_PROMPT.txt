@@ -72,7 +72,17 @@ FACTOR ANALYSIS (Custom Prompt)
 OUTPUT FORMAT (JSON)
 ===============================================================================
 
-Return ONLY valid JSON (no markdown, no code blocks):
+Return ONLY valid JSON (no markdown, no code blocks).
+
+**CRITICAL CONSISTENCY RULES:**
+1. Score format is "HOME_GOALS-AWAY_GOALS" (e.g., "2-1" means Home 2, Away 1)
+2. score_predictions MUST align with your prediction:
+   - If prediction="1" (Home Win): Top scores must have HOME_GOALS > AWAY_GOALS (e.g., 2-1, 1-0, 3-1)
+   - If prediction="2" (Away Win): Top scores must have AWAY_GOALS > HOME_GOALS (e.g., 0-1, 1-2, 0-2)
+   - If prediction="X" (Draw): Top scores must have HOME_GOALS = AWAY_GOALS (e.g., 1-1, 0-0, 2-2)
+3. overall_index reflects home advantage: >50 favors home, <50 favors away, =50 is neutral
+4. The sum of home_win_pct + draw_pct + away_win_pct must equal 100
+5. DO NOT copy example values - generate predictions specific to THIS match
 
 {
   "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",
@@ -118,33 +128,18 @@ Return ONLY valid JSON (no markdown, no code blocks):
     "applied": true | false,
     "confidence_adjusted_by": 0,
     "reason": "Explanation of any adjustments made based on historical learnings",
-    "factors_adjusted": ["B_form", "D_tactical"]
+    "factors_adjusted": []
   },
-  "score_predictions": [
-    {"score": "2-1", "probability": 18},
-    {"score": "1-0", "probability": 14},
-    {"score": "1-1", "probability": 12},
-    {"score": "2-0", "probability": 11},
-    {"score": "0-0", "probability": 8},
-    {"score": "0-1", "probability": 7},
-    {"score": "2-2", "probability": 6},
-    {"score": "3-1", "probability": 5},
-    {"score": "1-2", "probability": 5},
-    {"score": "other", "probability": 14}
-  ],
-  "most_likely_score": "2-1",
+  "score_predictions": "<<GENERATE 10 SCORES BASED ON YOUR ANALYSIS - format: [{\"score\": \"H-A\", \"probability\": N}, ...] - scores MUST match your prediction direction>>",
+  "most_likely_score": "<<MUST MATCH YOUR PREDICTION: Home win=H>A, Away win=A>H, Draw=H=A>>",
   "over_under_2_5": "Over" | "Under",
   "btts": "Yes" | "No",
-  "value_bet": "Home Win @ 2.10 (edge: +8%)" | null,
+  "value_bet": "<<team>> @ <<odds>> (edge: +<<N>>%)" | null,
   "key_factors": [
-    "Factor A: Home's xG balance +0.6/game better",
-    "Factor C: Away missing 2 key defenders (from news)",
-    "Historical: Home's Factor D accuracy is 80% - tactical analysis reliable"
+    "<<3-5 match-specific key factors from your analysis>>"
   ],
   "risk_factors": [
-    "Factor B: Home's recent form against weak opposition",
-    "Historical: Away team has surprised in 3 of last 5 analyses",
-    "Factor C accuracy has been low for away team - injury impact uncertain"
+    "<<2-4 match-specific risk factors>>"
   ],
   "analysis": "200-word analysis explaining the prediction, key factors, tactical insights, and confidence level. Reference specific historical learnings that influenced the prediction."
 }
