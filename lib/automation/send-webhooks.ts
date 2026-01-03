@@ -244,7 +244,8 @@ export async function triggerPredictions(
           },
           body: JSON.stringify({
             fixture_id: fixture.id,
-            model
+            model,
+            source: 'automation'  // Mark as automated to prevent duplicate triggers
           })
         })
 

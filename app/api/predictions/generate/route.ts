@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       predictionRateLimiter.record(clientIP)
     }
 
-    const { fixture_id, model, custom_prompt } = await request.json()
+    const { fixture_id, model, custom_prompt, source } = await request.json()
 
     if (!fixture_id) {
       return NextResponse.json(
@@ -142,6 +142,8 @@ export async function POST(request: Request) {
       model: selectedModel,
       // Custom prompt override (null means use default in n8n)
       custom_prompt: custom_prompt || null,
+      // Source tracking: 'automation' for cron triggers, 'manual' for user-initiated
+      source: source || 'manual',
 
       // Memory context from past analyses
       memory_context: {

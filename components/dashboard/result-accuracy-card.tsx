@@ -44,11 +44,14 @@ export function ResultAccuracyCard({
   const analysis = fixture.match_analysis?.[0]
   const actualResult = getActualResult(fixture.goals_home, fixture.goals_away)
 
-  const wasCorrect = analysis?.prediction_correct ?? (
-    prediction?.prediction_result && actualResult
-      ? prediction.prediction_result === actualResult
-      : null
-  )
+  // Check if prediction was correct (supports double-chance: 1X, X2, 12)
+  const isPredictionCorrect = (predicted: string | undefined, actual: string | null): boolean | null => {
+    if (!predicted || !actual) return null
+    // Direct match or double-chance match (e.g., "1X" includes "1" or "X")
+    return predicted === actual || predicted.includes(actual)
+  }
+
+  const wasCorrect = analysis?.prediction_correct ?? isPredictionCorrect(prediction?.prediction_result, actualResult)
 
   if (variant === 'compact') {
     return (
