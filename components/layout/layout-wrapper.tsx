@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import Link from 'next/link'
+import { LeagueLink } from '@/components/layout/league-link'
 import { cn } from '@/lib/utils'
 import {
   Home,
@@ -118,11 +118,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
       <header className="fixed top-0 left-0 right-0 z-40 bg-card border-b border-border md:hidden">
         <div className="flex items-center justify-between p-3 gap-2">
           {/* Logo - compact */}
-          <Link href="/" className="flex items-center shrink-0">
+          <LeagueLink href="/" className="flex items-center shrink-0">
             <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
               <span className="text-lg">⚽</span>
             </div>
-          </Link>
+          </LeagueLink>
 
           {/* League Selector - centered, takes available space */}
           <div className="flex-1 flex justify-center min-w-0">
@@ -213,7 +213,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
               const Icon = item.icon
 
               return (
-                <Link
+                <LeagueLink
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
@@ -233,7 +233,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   )}>
                     {item.label}
                   </span>
-                </Link>
+                </LeagueLink>
               )
             })}
           </nav>
