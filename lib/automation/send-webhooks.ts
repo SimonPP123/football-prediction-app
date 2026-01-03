@@ -148,6 +148,11 @@ export async function triggerPreMatch(
   const webhookUrl = await getWebhookUrl('pre-match')
 
   for (const league of leagues) {
+    // Mark all fixtures as triggered BEFORE calling webhook (prevents duplicates if cron overlaps)
+    await Promise.all(
+      league.fixtures.map(f => updateTriggerTimestamp(f.id, 'pre-match'))
+    )
+
     const payload = {
       league_id: league.league_id,
       league_name: league.league_name,

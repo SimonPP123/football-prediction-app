@@ -49,7 +49,8 @@ export interface LeagueWithFixtures {
 }
 
 /**
- * Query fixtures that are 25-35 minutes before kickoff (pre-match window)
+ * Query fixtures that are 50-60 minutes before kickoff (pre-match window)
+ * Only returns fixtures that haven't been triggered yet today
  */
 export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
   const now = new Date()
@@ -60,6 +61,7 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
     .from('fixtures')
     .select(`
       id, api_id, league_id, match_date, status, home_team_id, away_team_id, round,
+      pre_match_triggered_at,
       home_team:teams!fixtures_home_team_id_fkey(id, name),
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
@@ -72,8 +74,26 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
 
   if (error || !fixtures) return []
 
+  // Filter out fixtures that have already been triggered for pre-match today
+  // Pre-match only needs to run once per fixture
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  const needsPreMatch = fixtures.filter(f => {
+    const triggeredAt = f.pre_match_triggered_at ? new Date(f.pre_match_triggered_at) : null
+    // If never triggered or triggered before today, include it
+    if (!triggeredAt) return true
+    if (triggeredAt < todayStart) return true
+    // Already triggered today - skip
+    return false
+  })
+
+  if (needsPreMatch.length > 0) {
+    console.log(`[Query Pre-Match] Found ${needsPreMatch.length} fixtures needing pre-match (${fixtures.length - needsPreMatch.length} already triggered)`)
+  }
+
   // Group by league
-  return groupByLeague(fixtures)
+  return groupByLeague(needsPreMatch)
 }
 
 /**
@@ -125,62 +145,69 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
 
   // Filter fixtures that need prediction generation
   const needsPrediction = fixtures.filter(f => {
-    const hasExistingPrediction = f.predictions && f.predictions.length > 0
+    const hasExistingPrediction = f.predictions && Array.isArray(f.predictions) && f.predictions.length > 0
     const triggeredAt = f.prediction_triggered_at ? new Date(f.prediction_triggered_at) : null
+    const homeName = (f.home_team as any)?.name || 'Unknown'
+    const awayName = (f.away_team as any)?.name || 'Unknown'
 
-    // Calculate when the automation window opened for this specific fixture
-    // Window opens at (match_date - maxBefore minutes)
-    const matchDate = new Date(f.match_date)
-    const windowOpenedAt = new Date(matchDate.getTime() - TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
+    // DEBUG: Log what we're seeing for each fixture
+    console.log(`[Query Predictions] Checking ${homeName} vs ${awayName}: predictions=${f.predictions?.length || 0}, triggered_at=${triggeredAt?.toISOString() || 'never'}`)
 
-    // Get the most recent prediction's created_at timestamp
-    // Sort predictions by created_at descending to ensure we check the newest one
-    const sortedPredictions = hasExistingPrediction
-      ? [...f.predictions].sort((a: any, b: any) =>
-          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-        )
-      : []
-    const predictionCreatedAt = sortedPredictions.length > 0 && sortedPredictions[0]?.created_at
-      ? new Date(sortedPredictions[0].created_at)
-      : null
+    // SIMPLE LOGIC: If prediction exists, skip (unless stale regeneration is needed)
+    if (hasExistingPrediction) {
+      // Calculate when the automation window opened for this specific fixture
+      const matchDate = new Date(f.match_date)
+      const windowOpenedAt = new Date(matchDate.getTime() - TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
 
-    // Check if prediction is "fresh" (created within the automation window)
-    const hasFreshPrediction = hasExistingPrediction && predictionCreatedAt && predictionCreatedAt >= windowOpenedAt
+      // Get the most recent prediction's created_at timestamp
+      const sortedPredictions = [...f.predictions].sort((a: any, b: any) =>
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )
+      const predictionCreatedAt = sortedPredictions[0]?.created_at
+        ? new Date(sortedPredictions[0].created_at)
+        : null
 
-    // Case 1: Has a FRESH prediction (created within window) - skip
-    if (hasFreshPrediction) return false
-
-    // Case 2: Has a STALE prediction (created before window opened) - treat as needing regeneration
-    const hasStalePrediction = hasExistingPrediction && !hasFreshPrediction
-
-    if (hasStalePrediction) {
-      // Apply the same retry logic as no-prediction case
-      if (!triggeredAt) {
-        console.log(`[Query Predictions] Stale prediction for fixture ${f.id} - created at ${predictionCreatedAt?.toISOString()}, window opened at ${windowOpenedAt.toISOString()}. Will regenerate.`)
-        return true
-      }
-      if (triggeredAt > bufferCutoff) {
-        // Still processing regeneration
+      // If prediction was created within the automation window, it's fresh - skip
+      if (predictionCreatedAt && predictionCreatedAt >= windowOpenedAt) {
+        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Fresh prediction exists (created ${predictionCreatedAt.toISOString()})`)
         return false
       }
-      // Triggered >7 min ago, check if we got a NEW prediction after trigger
-      if (predictionCreatedAt && triggeredAt && predictionCreatedAt > triggeredAt) {
-        // A new prediction was created after the trigger - it's now fresh
+
+      // Prediction is stale (created before window opened) - check if we should regenerate
+      console.log(`[Query Predictions] ${homeName} vs ${awayName}: Stale prediction (created ${predictionCreatedAt?.toISOString()}, window opened ${windowOpenedAt.toISOString()})`)
+
+      // If we already triggered regeneration recently, wait for it
+      if (triggeredAt && triggeredAt > bufferCutoff) {
+        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Regeneration in progress (triggered ${triggeredAt.toISOString()})`)
         return false
       }
-      console.log(`[Query Predictions] Retry regeneration for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but prediction still stale`)
+
+      // If we triggered and got a new prediction after the trigger, it's now good
+      if (triggeredAt && predictionCreatedAt && predictionCreatedAt > triggeredAt) {
+        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Regeneration completed (prediction created after trigger)`)
+        return false
+      }
+
+      // Need to regenerate stale prediction
+      console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: Stale prediction needs regeneration`)
       return true
     }
 
-    // Case 3: No prediction exists - normal logic
-    // Never triggered - include
-    if (!triggeredAt) return true
+    // No prediction exists
+    // If never triggered, include it
+    if (!triggeredAt) {
+      console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction, never triggered`)
+      return true
+    }
 
-    // Triggered within buffer period - skip (still processing)
-    if (triggeredAt > bufferCutoff) return false
+    // If triggered recently (within buffer), skip - still processing
+    if (triggeredAt > bufferCutoff) {
+      console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Triggered ${Math.round((now.getTime() - triggeredAt.getTime()) / 60000)} min ago, still processing`)
+      return false
+    }
 
     // Triggered >7 min ago but no prediction - retry needed
-    console.log(`[Query Predictions] Retry needed for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but no prediction found`)
+    console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction after ${Math.round((now.getTime() - triggeredAt.getTime()) / 60000)} min, retry needed`)
     return true
   })
 
@@ -420,13 +447,18 @@ export async function updateAutomationConfig(updates: Record<string, any>) {
 
 /**
  * Update trigger timestamp for a fixture
- * Called before triggering prediction/analysis to prevent duplicate triggers
+ * Called before triggering prediction/analysis/pre-match to prevent duplicate triggers
  */
 export async function updateTriggerTimestamp(
   fixtureId: string,
-  type: 'prediction' | 'analysis'
+  type: 'prediction' | 'analysis' | 'pre-match'
 ): Promise<void> {
-  const column = type === 'prediction' ? 'prediction_triggered_at' : 'analysis_triggered_at'
+  const columnMap = {
+    'prediction': 'prediction_triggered_at',
+    'analysis': 'analysis_triggered_at',
+    'pre-match': 'pre_match_triggered_at'
+  }
+  const column = columnMap[type]
 
   const { error } = await supabase
     .from('fixtures')
