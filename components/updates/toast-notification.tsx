@@ -46,12 +46,22 @@ export function ToastNotificationContainer() {
   const [lastProcessedId, setLastProcessedId] = useState<string | null>(null)
   // Track dismissed toast IDs to prevent them from reappearing (persisted to sessionStorage)
   const dismissedIdsRef = useRef<Set<string>>(new Set())
+  // Track active timers per toast ID
+  const timersRef = useRef<Map<string, NodeJS.Timeout>>(new Map())
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Load dismissed IDs from sessionStorage on mount
   useEffect(() => {
     dismissedIdsRef.current = loadDismissedIds()
     setIsInitialized(true)
+  }, [])
+
+  // Cleanup all timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(timer => clearTimeout(timer))
+      timersRef.current.clear()
+    }
   }, [])
 
   // Watch for new events in refresh history
@@ -65,6 +75,9 @@ export function ToastNotificationContainer() {
     // Skip if this toast was already dismissed by user
     if (dismissedIdsRef.current.has(latestEvent.id)) return
 
+    // Skip if timer already exists for this toast
+    if (timersRef.current.has(latestEvent.id)) return
+
     // Add new toast
     setToasts(prev => [
       { id: latestEvent.id, event: latestEvent, visible: true },
@@ -73,12 +86,12 @@ export function ToastNotificationContainer() {
 
     setLastProcessedId(latestEvent.id)
 
-    // Auto-dismiss after duration
+    // Auto-dismiss after duration (store timer in ref so it persists across re-renders)
     const timer = setTimeout(() => {
       dismissToast(latestEvent.id)
+      timersRef.current.delete(latestEvent.id)
     }, TOAST_DURATION)
-
-    return () => clearTimeout(timer)
+    timersRef.current.set(latestEvent.id, timer)
   }, [refreshHistory, lastProcessedId, isInitialized])
 
   const dismissToast = useCallback((id: string) => {
@@ -87,6 +100,13 @@ export function ToastNotificationContainer() {
 
     // Persist to sessionStorage
     saveDismissedIds(dismissedIdsRef.current)
+
+    // Clear timer if it exists (manual dismiss)
+    const timer = timersRef.current.get(id)
+    if (timer) {
+      clearTimeout(timer)
+      timersRef.current.delete(id)
+    }
 
     setToasts(prev =>
       prev.map(t => t.id === id ? { ...t, visible: false } : t)
