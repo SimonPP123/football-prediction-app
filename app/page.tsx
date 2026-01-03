@@ -18,12 +18,25 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function DashboardPage() {
-  // Get league from cookies (set by client-side LeagueProvider)
+interface PageProps {
+  searchParams: Promise<{ league_id?: string }>
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const params = await searchParams
   const cookieStore = await cookies()
   const cookieHeader = cookieStore.toString()
-  const league = await getLeagueFromCookies(cookieHeader)
-  const leagueId = league.id || undefined
+
+  // Priority: URL param > Cookie > Default
+  let leagueId: string | undefined
+  if (params.league_id) {
+    // URL parameter takes priority (e.g., on browser refresh)
+    leagueId = params.league_id
+  } else {
+    // Fall back to cookie (set by client-side LeagueProvider)
+    const league = await getLeagueFromCookies(cookieHeader)
+    leagueId = league.id || undefined
+  }
 
   const [stats, upcomingFixtures, standings, recentResults, bestFactor, liveFixtures] = await Promise.all([
     getDashboardStats(leagueId),
