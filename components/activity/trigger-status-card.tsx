@@ -26,6 +26,14 @@ const TRIGGER_LABELS = {
   'analysis': 'Analysis'
 }
 
+const TRIGGER_DESCRIPTIONS = {
+  'pre-match': 'Refreshes lineups, injuries, and odds 50-60 min before kickoff',
+  'prediction': 'Generates AI predictions 10-50 min before kickoff',
+  'live': 'Refreshes live match data during matches (1H, HT, 2H)',
+  'post-match': 'Syncs final scores and stats 90-150 min after full-time',
+  'analysis': 'Generates post-match analysis 150-210 min after full-time'
+}
+
 interface TriggerStatusCardProps {
   type: 'pre-match' | 'prediction' | 'live' | 'post-match' | 'analysis'
   data: {
@@ -51,14 +59,18 @@ function formatRelativeTime(time: string | null | undefined): string {
 export function TriggerStatusCard({ type, data }: TriggerStatusCardProps) {
   const Icon = TRIGGER_ICONS[type]
   const label = TRIGGER_LABELS[type]
+  const description = TRIGGER_DESCRIPTIONS[type]
   const total = data.successToday + data.errorToday
   const hasErrors = data.errorToday > 0
 
   return (
-    <div className={cn(
-      'bg-card border rounded-lg p-3 transition-opacity',
-      !data.enabled && 'opacity-50'
-    )}>
+    <div
+      className={cn(
+        'bg-card border rounded-lg p-3 transition-opacity group relative',
+        !data.enabled && 'opacity-50'
+      )}
+      title={description}
+    >
       <div className="flex items-center gap-2 mb-2">
         <Icon className="w-4 h-4 text-muted-foreground" />
         <span className="text-sm font-medium">{label}</span>
@@ -67,6 +79,10 @@ export function TriggerStatusCard({ type, data }: TriggerStatusCardProps) {
             Disabled
           </span>
         )}
+      </div>
+      {/* Description tooltip on hover */}
+      <div className="text-[10px] text-muted-foreground mb-2 line-clamp-2 opacity-70">
+        {description}
       </div>
 
       <div className="flex items-baseline gap-1">

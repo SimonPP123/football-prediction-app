@@ -36,6 +36,15 @@ const TRIGGER_LABELS = {
   'cron-check': 'Cron Check'
 }
 
+const TRIGGER_DESCRIPTIONS = {
+  'pre-match': 'Syncs lineups, injuries, odds before match',
+  'prediction': 'Generates AI prediction for upcoming match',
+  'live': 'Updates scores and events during match',
+  'post-match': 'Syncs final scores, stats after match',
+  'analysis': 'AI analysis comparing prediction vs result',
+  'cron-check': 'Automated system check'
+}
+
 const STATUS_ICONS = {
   success: CheckCircle,
   error: XCircle,
@@ -48,6 +57,13 @@ const STATUS_COLORS = {
   error: 'text-red-500 bg-red-500/10',
   skipped: 'text-muted-foreground bg-muted',
   'no-action': 'text-blue-500 bg-blue-500/10'
+}
+
+const STATUS_LABELS = {
+  success: 'Completed successfully',
+  error: 'Failed - see error details below',
+  skipped: 'Skipped - automation was disabled',
+  'no-action': 'No fixtures in time window'
 }
 
 export interface AutomationLog {
@@ -95,6 +111,8 @@ export function AutomationLogEntry({ log }: AutomationLogEntryProps) {
   const StatusIcon = STATUS_ICONS[log.status]
   const statusColor = STATUS_COLORS[log.status]
   const triggerLabel = TRIGGER_LABELS[log.trigger_type as keyof typeof TRIGGER_LABELS] || log.trigger_type
+  const triggerDesc = TRIGGER_DESCRIPTIONS[log.trigger_type as keyof typeof TRIGGER_DESCRIPTIONS] || ''
+  const statusLabel = STATUS_LABELS[log.status as keyof typeof STATUS_LABELS] || log.status
 
   const hasDetails = log.webhook_response || log.details?.fixtures?.length || log.error_message
 
@@ -137,8 +155,11 @@ export function AutomationLogEntry({ log }: AutomationLogEntryProps) {
             </span>
           </div>
 
-          {log.message && (
+          {/* Show message or status label */}
+          {log.message ? (
             <p className="text-sm text-muted-foreground mt-1">{log.message}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">{statusLabel}</p>
           )}
 
           {/* Webhook status */}

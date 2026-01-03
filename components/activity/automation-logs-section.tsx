@@ -88,7 +88,10 @@ export function AutomationLogsSection({ className }: AutomationLogsSectionProps)
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4" />
-          <h3 className="text-sm font-medium">Automation Jobs</h3>
+          <div>
+            <h3 className="text-sm font-medium">Automation Jobs</h3>
+            <p className="text-[10px] text-muted-foreground">Click any entry to see details • Errors show explanation</p>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

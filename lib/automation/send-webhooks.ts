@@ -68,9 +68,23 @@ async function sendWebhook(
       duration,
       response: responseData
     }
-  } catch (error) {
+  } catch (error: any) {
     const duration = Date.now() - startTime
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+    // Provide clearer error messages
+    let errorMessage: string
+    if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+      const timeoutSec = Math.round(timeoutMs / 1000)
+      errorMessage = `Webhook timed out after ${timeoutSec} seconds. The n8n workflow may still be running but took too long to respond.`
+    } else if (error?.code === 'ECONNREFUSED' || error?.message?.includes('ECONNREFUSED')) {
+      errorMessage = 'Connection refused. The n8n server may be down or unreachable.'
+    } else if (error?.code === 'ENOTFOUND' || error?.message?.includes('ENOTFOUND')) {
+      errorMessage = 'Host not found. Check the webhook URL is correct.'
+    } else if (error?.message?.includes('fetch failed')) {
+      errorMessage = 'Network error. Check the connection to the n8n server.'
+    } else {
+      errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    }
 
     return {
       success: false,

@@ -154,7 +154,10 @@ export function AutomationStatusPanel({ className }: AutomationStatusPanelProps)
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Zap className="w-4 h-4" />
-          <h3 className="text-sm font-medium">Automation Status</h3>
+          <div>
+            <h3 className="text-sm font-medium">Automation Status</h3>
+            <p className="text-[10px] text-muted-foreground">Runs every 5 minutes • Hover cards for timing details</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Toggle switch */}
