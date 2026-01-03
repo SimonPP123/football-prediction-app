@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getCalibrationData } from '@/lib/supabase/queries'
+import { getLeagueFromRequest } from '@/lib/league-context'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = await getCalibrationData()
+    const league = await getLeagueFromRequest(request)
+    const leagueId = league?.id || undefined
+
+    const data = await getCalibrationData(leagueId)
     return NextResponse.json(data)
   } catch (error) {
     console.error('Error fetching calibration data:', error)

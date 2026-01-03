@@ -715,10 +715,10 @@ export default function PredictionsPage() {
 
           {showStats && (
             <div className="mt-4 space-y-4">
-              <AccuracyStatsPanel />
+              <AccuracyStatsPanel leagueId={currentLeague?.id} />
               <div className="grid md:grid-cols-2 gap-4">
-                <ModelComparison />
-                <CalibrationChart />
+                <ModelComparison leagueId={currentLeague?.id} />
+                <CalibrationChart leagueId={currentLeague?.id} />
               </div>
             </div>
           )}

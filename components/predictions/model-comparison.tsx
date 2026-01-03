@@ -14,18 +14,24 @@ interface ModelStats {
   average_accuracy: number
 }
 
-export function ModelComparison() {
+interface ModelComparisonProps {
+  leagueId?: string
+}
+
+export function ModelComparison({ leagueId }: ModelComparisonProps) {
   const [models, setModels] = useState<ModelStats[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchModels()
-  }, [])
+  }, [leagueId])
 
   const fetchModels = async () => {
     try {
-      const response = await fetch('/api/accuracy-stats/by-model', { credentials: 'include' })
+      setLoading(true)
+      const url = leagueId ? `/api/accuracy-stats/by-model?league_id=${leagueId}` : '/api/accuracy-stats/by-model'
+      const response = await fetch(url, { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch model stats')
       const data = await response.json()
       setModels(data)

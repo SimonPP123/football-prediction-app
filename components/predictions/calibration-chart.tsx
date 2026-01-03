@@ -11,18 +11,24 @@ interface CalibrationBucket {
   count: number
 }
 
-export function CalibrationChart() {
+interface CalibrationChartProps {
+  leagueId?: string
+}
+
+export function CalibrationChart({ leagueId }: CalibrationChartProps) {
   const [data, setData] = useState<CalibrationBucket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [leagueId])
 
   const fetchData = async () => {
     try {
-      const response = await fetch('/api/accuracy-stats/calibration', { credentials: 'include' })
+      setLoading(true)
+      const url = leagueId ? `/api/accuracy-stats/calibration?league_id=${leagueId}` : '/api/accuracy-stats/calibration'
+      const response = await fetch(url, { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch calibration data')
       const result = await response.json()
       setData(result)

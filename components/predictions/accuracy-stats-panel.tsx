@@ -34,7 +34,11 @@ interface AccuracyStats {
   }
 }
 
-export function AccuracyStatsPanel() {
+interface AccuracyStatsPanelProps {
+  leagueId?: string
+}
+
+export function AccuracyStatsPanel({ leagueId }: AccuracyStatsPanelProps) {
   const [stats, setStats] = useState<AccuracyStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,11 +46,13 @@ export function AccuracyStatsPanel() {
 
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, [leagueId])
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/accuracy-stats', { credentials: 'include' })
+      setLoading(true)
+      const url = leagueId ? `/api/accuracy-stats?league_id=${leagueId}` : '/api/accuracy-stats'
+      const response = await fetch(url, { credentials: 'include' })
       if (!response.ok) throw new Error('Failed to fetch stats')
       const data = await response.json()
       setStats(data)
