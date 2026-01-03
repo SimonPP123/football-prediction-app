@@ -738,11 +738,18 @@ export async function getAnalysisAccuracyStats(leagueId?: string) {
   }
 }
 
-// Get accuracy statistics grouped by model
-export async function getAccuracyByModel() {
-  const { data, error } = await supabase
+// Get accuracy statistics grouped by model (optionally filtered by league)
+export async function getAccuracyByModel(leagueId?: string) {
+  // Note: match_analysis doesn't have league_id, so we filter via fixture join
+  let query = supabase
     .from('match_analysis')
-    .select('model_version, prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score')
+    .select('model_version, prediction_correct, score_correct, over_under_correct, btts_correct, accuracy_score, fixture:fixtures!inner(league_id)')
+
+  if (leagueId) {
+    query = query.eq('fixture.league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   if (!data || data.length === 0) return []
@@ -790,11 +797,18 @@ export async function getAccuracyByModel() {
     .sort((a, b) => b.average_accuracy - a.average_accuracy)
 }
 
-// Get calibration data - compare predicted confidence with actual accuracy
-export async function getCalibrationData() {
-  const { data, error } = await supabase
+// Get calibration data - compare predicted confidence with actual accuracy (optionally filtered by league)
+export async function getCalibrationData(leagueId?: string) {
+  // Note: match_analysis doesn't have league_id, so we filter via fixture join
+  let query = supabase
     .from('match_analysis')
-    .select('confidence_pct, prediction_correct')
+    .select('confidence_pct, prediction_correct, fixture:fixtures!inner(league_id)')
+
+  if (leagueId) {
+    query = query.eq('fixture.league_id', leagueId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   if (!data || data.length === 0) return []
@@ -834,7 +848,6 @@ export async function getDashboardStats(leagueId?: string) {
   let completedQuery = supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['FT', 'AET', 'PEN'])
   let upcomingQuery = supabase.from('fixtures').select('*', { count: 'exact', head: true }).in('status', ['NS', 'TBD', 'SUSP', 'PST'])
   let predictionsQuery = supabase.from('predictions').select('*', { count: 'exact', head: true })
-  let analysisQuery = supabase.from('match_analysis').select('*', { count: 'exact', head: true })
   let teamsQuery = supabase.from('teams').select('id')
 
   if (leagueId) {
@@ -842,16 +855,15 @@ export async function getDashboardStats(leagueId?: string) {
     completedQuery = completedQuery.eq('league_id', leagueId)
     upcomingQuery = upcomingQuery.eq('league_id', leagueId)
     predictionsQuery = predictionsQuery.eq('league_id', leagueId)
-    // Note: match_analysis doesn't have league_id column - filtered via getAnalysisAccuracyStats with fixture join
     teamsQuery = teamsQuery.eq('league_id', leagueId)
   }
 
+  // analysisStats includes league-filtered total count via fixture join
   const [
     { count: totalFixtures },
     { count: completedFixtures },
     { count: upcomingFixtures },
     { count: totalPredictions },
-    { count: analyzedMatches },
     { data: teams },
     analysisStats,
   ] = await Promise.all([
@@ -859,7 +871,6 @@ export async function getDashboardStats(leagueId?: string) {
     completedQuery,
     upcomingQuery,
     predictionsQuery,
-    analysisQuery,
     teamsQuery,
     getAnalysisAccuracyStats(leagueId),
   ])
@@ -869,7 +880,7 @@ export async function getDashboardStats(leagueId?: string) {
     completedFixtures: completedFixtures || 0,
     upcomingFixtures: upcomingFixtures || 0,
     totalPredictions: totalPredictions || 0,
-    analyzedMatches: analyzedMatches || 0,
+    analyzedMatches: analysisStats?.total || 0,
     totalTeams: teams?.length || 20,
     resultAccuracy: analysisStats?.result_accuracy || 0,
     averageAccuracy: analysisStats?.average_accuracy || 0,

@@ -751,15 +751,25 @@ export default function PredictionsPage() {
             </button>
 
             {showLive && (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {liveFixtures.map((fixture: any) => (
-                  <PredictionCard
-                    key={fixture.id}
-                    fixture={fixture}
-                    isLive={true}
-                  />
-                ))}
-              </div>
+              viewMode === 'cards' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {liveFixtures.map((fixture: any) => (
+                    <PredictionCard
+                      key={fixture.id}
+                      fixture={fixture}
+                      isLive={true}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <PredictionTable
+                  fixtures={liveFixtures}
+                  onGeneratePrediction={handleGeneratePrediction}
+                  generatingIds={generatingIds}
+                  errorIds={errorIds}
+                  onClearError={clearError}
+                />
+              )
             )}
           </div>
         )}

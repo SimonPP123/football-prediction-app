@@ -24,9 +24,13 @@ interface DashboardStatsProps {
     resultAccuracy: number
     averageAccuracy: number
   }
+  season?: number // e.g., 2025 for "2025-26" season
 }
 
-export function SummaryStats({ stats }: DashboardStatsProps) {
+export function SummaryStats({ stats, season }: DashboardStatsProps) {
+  // Format season as "YYYY-YY" (e.g., 2025 -> "2025-26")
+  const seasonDisplay = season ? `${season}-${String(season + 1).slice(-2)}` : 'N/A'
+
   return (
     <StatGrid columns={4}>
       <StatCard
@@ -80,7 +84,7 @@ export function SummaryStats({ stats }: DashboardStatsProps) {
       />
       <StatCard
         label="Season"
-        value="2025-26"
+        value={seasonDisplay}
         icon={Clock}
         color="default"
         size="sm"
