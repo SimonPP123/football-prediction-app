@@ -33,13 +33,15 @@ export async function GET(request: Request) {
     const { data: fixtures, error } = await query
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[API Data Fixtures Upcoming] Error:', error)
+      return NextResponse.json({ error: 'Failed to fetch upcoming fixtures' }, { status: 500 })
     }
 
     return NextResponse.json({ fixtures: fixtures || [] })
   } catch (error) {
+    console.error('[API Data Fixtures Upcoming] Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch upcoming fixtures' },
       { status: 500 }
     )
   }

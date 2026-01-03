@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Header } from '@/components/layout/header'
 import Link from 'next/link'
 import { useLeague } from '@/contexts/league-context'
@@ -46,6 +46,7 @@ export default function MatchesPage() {
   const { currentLeague } = useLeague()
   const [activeTab, setActiveTab] = useState<TabType>('upcoming')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [selectedRounds, setSelectedRounds] = useState<Set<string>>(new Set())
   const [sortBy, setSortBy] = useState<SortType>('date-asc')
   const [showFilters, setShowFilters] = useState(false)
@@ -131,6 +132,14 @@ export default function MatchesPage() {
     return () => clearInterval(interval)
   }, [currentLeague?.id])
 
+  // Debounce search query to reduce re-renders during typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   // Get current matches based on active tab
   const currentMatches = useMemo(() => {
     switch (activeTab) {
@@ -162,9 +171,9 @@ export default function MatchesPage() {
   const filteredMatches = useMemo(() => {
     let filtered = [...currentMatches]
 
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
+    // Search filter (uses debounced value for performance)
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase()
       filtered = filtered.filter(
         (m) =>
           m.home_team?.name?.toLowerCase().includes(query) ||
@@ -194,7 +203,7 @@ export default function MatchesPage() {
     })
 
     return filtered
-  }, [currentMatches, searchQuery, selectedRounds, sortBy])
+  }, [currentMatches, debouncedSearchQuery, selectedRounds, sortBy])
 
   // Get prediction badge color
   const getPredictionBadge = (prediction: Fixture['prediction']) => {

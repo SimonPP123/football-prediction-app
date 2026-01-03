@@ -309,7 +309,7 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error('Status check error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch data status' },
       { status: 500 }
     )
   }

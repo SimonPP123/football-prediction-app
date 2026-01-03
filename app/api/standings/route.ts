@@ -39,14 +39,14 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error('[API Standings] Error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch standings' }, { status: 500 })
     }
 
     return NextResponse.json(standings || [])
   } catch (error) {
     console.error('[API Standings] Error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch standings' },
       { status: 500 }
     )
   }

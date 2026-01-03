@@ -58,15 +58,31 @@ export async function GET(
       weather = weatherData
     }
 
-    // Fetch head-to-head if both teams exist
+    // Fetch head-to-head if both teams exist and have valid UUIDs
     let headToHead = null
-    if (fixture.home_team_id && fixture.away_team_id) {
-      const { data: h2hData } = await supabase
+    const homeTeamId = fixture.home_team_id
+    const awayTeamId = fixture.away_team_id
+    if (homeTeamId && awayTeamId && isValidUUID(homeTeamId) && isValidUUID(awayTeamId)) {
+      // Try team1=home, team2=away first
+      let { data: h2hData } = await supabase
         .from('head_to_head')
         .select('*')
-        .or(`and(team1_id.eq.${fixture.home_team_id},team2_id.eq.${fixture.away_team_id}),and(team1_id.eq.${fixture.away_team_id},team2_id.eq.${fixture.home_team_id})`)
+        .eq('team1_id', homeTeamId)
+        .eq('team2_id', awayTeamId)
         .limit(1)
-        .single()
+        .maybeSingle()
+
+      // If not found, try reversed order
+      if (!h2hData) {
+        const { data: h2hReversed } = await supabase
+          .from('head_to_head')
+          .select('*')
+          .eq('team1_id', awayTeamId)
+          .eq('team2_id', homeTeamId)
+          .limit(1)
+          .maybeSingle()
+        h2hData = h2hReversed
+      }
 
       headToHead = h2hData
     }
