@@ -223,16 +223,17 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
     return 'text-red-500'
   }
 
-  // Helper to get live status display
-  const getLiveStatus = (status: string) => {
+  // Helper to get live status display with minute
+  const getLiveStatus = (status: string, elapsed?: number | null) => {
+    const minute = elapsed ? `${elapsed}'` : ''
     switch (status) {
-      case '1H': return '1st Half'
-      case '2H': return '2nd Half'
-      case 'HT': return 'Half Time'
-      case 'ET': return 'Extra Time'
+      case '1H': return minute || '1st Half'
+      case '2H': return minute || '2nd Half'
+      case 'HT': return 'HT'
+      case 'ET': return minute ? `ET ${minute}` : 'Extra Time'
       case 'BT': return 'Break'
-      case 'P': return 'Penalties'
-      default: return 'Live'
+      case 'P': return 'PEN'
+      default: return minute || 'Live'
     }
   }
 
@@ -266,7 +267,7 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
-              {getLiveStatus(fixture.status)}
+              {getLiveStatus(fixture.status, fixture.elapsed)}
             </span>
           ) : (
             <span className="text-xs text-muted-foreground">

@@ -289,6 +289,7 @@ async function handleStreamingRefresh(
           venue_id: venueMap.get(fixture.venue?.id) || null,
           referee: fixture.referee,
           status: fixture.status.short,
+          elapsed: fixture.status.elapsed ?? null,  // Current match minute for live matches
           goals_home: goals.home,
           goals_away: goals.away,
           score_halftime: score.halftime,
@@ -429,6 +430,7 @@ async function handleBatchRefresh(
         venue_id: venueMap.get(fixture.venue?.id) || null,
         referee: fixture.referee,
         status: fixture.status.short,
+        elapsed: fixture.status.elapsed ?? null,  // Current match minute for live matches
         goals_home: goals.home,
         goals_away: goals.away,
         score_halftime: score.halftime,

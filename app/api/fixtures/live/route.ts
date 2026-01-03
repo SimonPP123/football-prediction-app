@@ -55,6 +55,7 @@ async function syncFinishedMatches(leagueId?: string) {
       .map((fixture: any) => {
         const apiId = fixture.fixture.id
         const newStatus = fixture.fixture.status.short
+        const elapsed = fixture.fixture.status.elapsed ?? null
         const goalsHome = fixture.goals?.home
         const goalsAway = fixture.goals?.away
 
@@ -62,6 +63,7 @@ async function syncFinishedMatches(leagueId?: string) {
           .from('fixtures')
           .update({
             status: newStatus,
+            elapsed: elapsed,
             goals_home: goalsHome,
             goals_away: goalsAway,
             updated_at: new Date().toISOString()
