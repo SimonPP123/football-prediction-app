@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const DEFAULT_TIMEOUT_MS = 180000  // 3 minutes (increased from 60s to prevent timeouts)
+const DEFAULT_TIMEOUT_MS = 300000  // 5 minutes (matches prediction/analysis timeout)
 
 export interface WebhookResult {
   success: boolean
