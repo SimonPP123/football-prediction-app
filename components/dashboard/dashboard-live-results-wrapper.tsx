@@ -7,12 +7,14 @@ import { RecentResultsSection, RecentResultsSectionRef } from './recent-results-
 interface DashboardLiveResultsWrapperProps {
   initialLiveFixtures: any[]
   initialRecentResults: any[]
+  leagueId?: string
   children?: React.ReactNode
 }
 
 export function DashboardLiveResultsWrapper({
   initialLiveFixtures,
   initialRecentResults,
+  leagueId,
   children,
 }: DashboardLiveResultsWrapperProps) {
   const resultsRef = useRef<RecentResultsSectionRef>(null)
@@ -28,6 +30,7 @@ export function DashboardLiveResultsWrapper({
       <LiveMatchesSection
         initialLiveFixtures={initialLiveFixtures}
         onMatchesFinished={handleMatchesFinished}
+        serverLeagueId={leagueId}
       />
 
       {/* Content between live and results (Upcoming + Sidebar) */}
@@ -37,6 +40,7 @@ export function DashboardLiveResultsWrapper({
       <RecentResultsSection
         ref={resultsRef}
         initialRecentResults={initialRecentResults}
+        serverLeagueId={leagueId}
       />
     </>
   )

@@ -8,6 +8,7 @@ import { useLeague } from '@/contexts/league-context'
 
 interface RecentResultsSectionProps {
   initialRecentResults: any[]
+  serverLeagueId?: string
 }
 
 export interface RecentResultsSectionRef {
@@ -15,8 +16,10 @@ export interface RecentResultsSectionRef {
 }
 
 export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentResultsSectionProps>(
-  function RecentResultsSection({ initialRecentResults }, ref) {
+  function RecentResultsSection({ initialRecentResults, serverLeagueId }, ref) {
     const { currentLeague } = useLeague()
+    // Use server-provided league ID until context syncs with URL
+    const effectiveLeagueId = currentLeague?.id || serverLeagueId
     const [recentResults, setRecentResults] = useState(initialRecentResults)
     const prevResultCountRef = useRef(initialRecentResults.length)
 
@@ -25,8 +28,8 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
         // Use URL constructor for proper parameter handling
         const url = new URL('/api/fixtures/recent-results', window.location.origin)
         url.searchParams.set('rounds', '2') // Last 2 matchweeks
-        if (currentLeague?.id) {
-          url.searchParams.set('league_id', currentLeague.id)
+        if (effectiveLeagueId) {
+          url.searchParams.set('league_id', effectiveLeagueId)
         }
         const res = await fetch(url.toString(), { credentials: 'include' })
         if (res.ok) {
@@ -49,7 +52,7 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
       } catch (error) {
         console.error('Failed to refresh recent results:', error)
       }
-    }, [currentLeague?.id, recentResults])
+    }, [effectiveLeagueId, recentResults])
 
     // Expose refresh method to parent
     useImperativeHandle(ref, () => ({
@@ -59,7 +62,7 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
     // Update when league changes
     useEffect(() => {
       refresh()
-    }, [currentLeague?.id])
+    }, [effectiveLeagueId])
 
     // Poll for new results every 60 seconds (catches finished matches that might be missed)
     useEffect(() => {

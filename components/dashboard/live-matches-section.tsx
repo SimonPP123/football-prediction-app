@@ -7,6 +7,7 @@ import { useLeague } from '@/contexts/league-context'
 interface LiveMatchesSectionProps {
   initialLiveFixtures: any[]
   onMatchesFinished?: () => void
+  serverLeagueId?: string
 }
 
 // Helper to check if fixture data actually changed (not just reference)
@@ -28,8 +29,11 @@ function fixturesChanged(oldFixtures: any[], newFixtures: any[]): boolean {
 function LiveMatchesSectionComponent({
   initialLiveFixtures,
   onMatchesFinished,
+  serverLeagueId,
 }: LiveMatchesSectionProps) {
   const { currentLeague } = useLeague()
+  // Use server-provided league ID until context syncs with URL
+  const effectiveLeagueId = currentLeague?.id || serverLeagueId
   const [liveFixtures, setLiveFixtures] = useState(initialLiveFixtures)
   const liveFixtureIdsRef = useRef<Set<string>>(new Set(initialLiveFixtures.map((m: any) => m.id)))
   // Use ref for callback to avoid effect re-runs when parent doesn't memoize
@@ -37,7 +41,7 @@ function LiveMatchesSectionComponent({
   onMatchesFinishedRef.current = onMatchesFinished
 
   // Track the league ID to detect changes
-  const prevLeagueIdRef = useRef(currentLeague?.id)
+  const prevLeagueIdRef = useRef(effectiveLeagueId)
 
   // Auto-refresh live fixtures every 60 seconds
   useEffect(() => {
@@ -45,8 +49,8 @@ function LiveMatchesSectionComponent({
       try {
         // Use URL constructor for proper parameter handling
         const url = new URL('/api/fixtures/live', window.location.origin)
-        if (currentLeague?.id) {
-          url.searchParams.set('league_id', currentLeague.id)
+        if (effectiveLeagueId) {
+          url.searchParams.set('league_id', effectiveLeagueId)
         }
         const res = await fetch(url.toString(), { credentials: 'include' })
         if (res.ok) {
@@ -61,8 +65,8 @@ function LiveMatchesSectionComponent({
           liveFixtureIdsRef.current = currentLiveIds
 
           // Always update when league changed, otherwise only if data changed
-          const leagueChanged = prevLeagueIdRef.current !== currentLeague?.id
-          prevLeagueIdRef.current = currentLeague?.id
+          const leagueChanged = prevLeagueIdRef.current !== effectiveLeagueId
+          prevLeagueIdRef.current = effectiveLeagueId
 
           setLiveFixtures(prev => {
             if (leagueChanged || fixturesChanged(prev, newLiveFixtures)) {
@@ -87,7 +91,7 @@ function LiveMatchesSectionComponent({
     const intervalId = setInterval(refreshLive, 60000) // Refresh every 60 seconds
 
     return () => clearInterval(intervalId)
-  }, [currentLeague?.id]) // Removed onMatchesFinished from deps - using ref instead
+  }, [effectiveLeagueId]) // Use effective league ID (context or server-provided)
 
   if (liveFixtures.length === 0) {
     return null
