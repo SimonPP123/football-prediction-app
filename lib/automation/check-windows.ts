@@ -307,15 +307,15 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
 /**
  * Query fixtures that need post-match analysis (with retry logic)
  *
- * GOAL: Ensure exactly ONE successful AUTOMATED analysis per fixture.
- * Manual analysis does NOT block automation - automation will regenerate with fresh data.
+ * GOAL: Ensure exactly ONE analysis per fixture (manual OR automated).
+ * Unlike predictions, analysis only runs once since match data doesn't change.
  *
  * Includes:
- * 1. Fixtures in analysis window (370-380 min after kickoff) without automated analysis
+ * 1. Fixtures in analysis window (~6h 15min after kickoff) with NO analysis
  * 2. Fixtures that were triggered >7 min ago but automation failed (retry)
  *
  * Excludes:
- * - Fixtures with source='automation' analysis (automation already succeeded)
+ * - Fixtures with ANY analysis (manual or automated) - analysis only runs once
  * - Fixtures triggered <7 min ago (still processing)
  * - Fixtures without predictions (analysis requires prediction)
  *
@@ -366,15 +366,14 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
       return false
     }
 
-    // Check if automation already succeeded: has analysis with source='automation'
-    const hasAutomatedAnalysis = analyses.some((a: any) => a.source === 'automation')
-
-    if (hasAutomatedAnalysis) {
-      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Automated analysis exists`)
+    // Check if ANY analysis exists (manual OR automated) - analysis only runs once
+    if (analyses.length > 0) {
+      const source = analyses[0]?.source || 'unknown'
+      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Analysis already exists (source: ${source})`)
       return false
     }
 
-    // No automated analysis - check if we should trigger or wait
+    // No analysis - check if we should trigger or wait
     if (triggeredAt) {
       // Automation was triggered but hasn't completed yet
       // If triggered recently (within buffer), skip - still processing
@@ -384,19 +383,14 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
         return false
       }
 
-      // Triggered >7 min ago but no automated analysis - retry needed
+      // Triggered >7 min ago but no analysis created - retry needed
       const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
       console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: Automation failed, retrying after ${minAgo} min`)
       return true
     }
 
-    // Never triggered - include (manual analyses don't block automation)
-    const manualCount = analyses.length
-    if (manualCount > 0) {
-      console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: Has ${manualCount} manual analysis, automation not yet run`)
-    } else {
-      console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: No analysis, never triggered`)
-    }
+    // Never triggered, no analysis - include
+    console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: No analysis, never triggered`)
     return true
   })
 
