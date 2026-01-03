@@ -139,9 +139,22 @@ Return ONLY valid JSON (no markdown, no code blocks).
    - If prediction="1" (Home Win): Top scores must have HOME_GOALS > AWAY_GOALS (e.g., 2-1, 1-0, 3-1)
    - If prediction="2" (Away Win): Top scores must have AWAY_GOALS > HOME_GOALS (e.g., 0-1, 1-2, 0-2)
    - If prediction="X" (Draw): Top scores must have HOME_GOALS = AWAY_GOALS (e.g., 1-1, 0-0, 2-2)
+   - If prediction="1X": Include home wins AND draws in top scores
+   - If prediction="X2": Include draws AND away wins in top scores
 3. overall_index reflects home advantage: >50 favors home, <50 favors away, =50 is neutral
 4. The sum of home_win_pct + draw_pct + away_win_pct must equal 100
 5. DO NOT copy example values - generate predictions specific to THIS match
+
+**MANDATORY: overall_index MUST match prediction (STRICTLY ENFORCED):**
+| overall_index | Required prediction | Meaning |
+|---------------|---------------------|---------|
+| < 40          | "2"                 | Strong away advantage |
+| 40-44         | "X2"                | Slight away lean, draw possible |
+| 45-54         | "X"                 | Evenly matched, draw likely |
+| 55-59         | "1X"                | Slight home lean, draw possible |
+| ≥ 60          | "1"                 | Strong home advantage |
+
+**Example:** If your factor analysis results in overall_index=57, you MUST set prediction="1X", NOT "1".
 
 {
   "prediction": "1" | "X" | "2" | "1X" | "X2" | "12",

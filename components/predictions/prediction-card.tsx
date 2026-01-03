@@ -213,6 +213,9 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
       case '1': return 'bg-home text-white'
       case 'X': return 'bg-draw text-white'
       case '2': return 'bg-away text-white'
+      case '1X': return 'bg-gradient-to-r from-home to-draw text-white'  // Home or Draw
+      case 'X2': return 'bg-gradient-to-r from-draw to-away text-white'  // Draw or Away
+      case '12': return 'bg-gradient-to-r from-home to-away text-white'  // Home or Away (no draw)
       default: return 'bg-muted text-muted-foreground'
     }
   }
