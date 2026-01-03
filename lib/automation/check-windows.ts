@@ -97,18 +97,17 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
 }
 
 /**
- * Query fixtures that need predictions (with retry logic and stale prediction regeneration)
+ * Query fixtures that need predictions (with retry logic)
+ *
+ * SIMPLE RULE: If a prediction exists, skip. No stale regeneration.
  *
  * Includes:
- * 1. Fixtures in prediction window (10-50 min before kickoff) that haven't been triggered
- * 2. Fixtures that were triggered >7 min ago but have no prediction in DB (retry failed)
- * 3. Fixtures with STALE predictions (created BEFORE the automation window opened)
- *    - This handles manual predictions generated 60+ min before match
- *    - Automation will regenerate with fresh data closer to kickoff
+ * 1. Fixtures in prediction window (10-50 min before kickoff) with NO prediction
+ * 2. Fixtures that were triggered >7 min ago but STILL have no prediction (retry failed)
  *
  * Excludes:
+ * - Fixtures that already have a prediction (regardless of when created)
  * - Fixtures triggered <7 min ago (still processing)
- * - Fixtures with FRESH predictions (created within the automation window)
  *
  * Returns sorted by kickoff time (earliest first), limited to MAX_PREDICTIONS_PER_RUN
  */
@@ -130,7 +129,7 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
       league:leagues!inner(id, name, is_active),
-      predictions(id, created_at)
+      predictions(id)
     `)
     .eq('status', 'NS')
     .gte('match_date', windowStart.toISOString())
@@ -150,50 +149,14 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
     const homeName = (f.home_team as any)?.name || 'Unknown'
     const awayName = (f.away_team as any)?.name || 'Unknown'
 
-    // DEBUG: Log what we're seeing for each fixture
-    console.log(`[Query Predictions] Checking ${homeName} vs ${awayName}: predictions=${f.predictions?.length || 0}, triggered_at=${triggeredAt?.toISOString() || 'never'}`)
-
-    // SIMPLE LOGIC: If prediction exists, skip (unless stale regeneration is needed)
+    // SIMPLE RULE: If prediction exists, always skip
     if (hasExistingPrediction) {
-      // Calculate when the automation window opened for this specific fixture
-      const matchDate = new Date(f.match_date)
-      const windowOpenedAt = new Date(matchDate.getTime() - TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
-
-      // Get the most recent prediction's created_at timestamp
-      const sortedPredictions = [...f.predictions].sort((a: any, b: any) =>
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      )
-      const predictionCreatedAt = sortedPredictions[0]?.created_at
-        ? new Date(sortedPredictions[0].created_at)
-        : null
-
-      // If prediction was created within the automation window, it's fresh - skip
-      if (predictionCreatedAt && predictionCreatedAt >= windowOpenedAt) {
-        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Fresh prediction exists (created ${predictionCreatedAt.toISOString()})`)
-        return false
-      }
-
-      // Prediction is stale (created before window opened) - check if we should regenerate
-      console.log(`[Query Predictions] ${homeName} vs ${awayName}: Stale prediction (created ${predictionCreatedAt?.toISOString()}, window opened ${windowOpenedAt.toISOString()})`)
-
-      // If we already triggered regeneration recently, wait for it
-      if (triggeredAt && triggeredAt > bufferCutoff) {
-        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Regeneration in progress (triggered ${triggeredAt.toISOString()})`)
-        return false
-      }
-
-      // If we triggered and got a new prediction after the trigger, it's now good
-      if (triggeredAt && predictionCreatedAt && predictionCreatedAt > triggeredAt) {
-        console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Regeneration completed (prediction created after trigger)`)
-        return false
-      }
-
-      // Need to regenerate stale prediction
-      console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: Stale prediction needs regeneration`)
-      return true
+      console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Prediction exists (count: ${f.predictions.length})`)
+      return false
     }
 
-    // No prediction exists
+    // No prediction exists - check trigger status
+
     // If never triggered, include it
     if (!triggeredAt) {
       console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction, never triggered`)
@@ -202,12 +165,14 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
 
     // If triggered recently (within buffer), skip - still processing
     if (triggeredAt > bufferCutoff) {
-      console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Triggered ${Math.round((now.getTime() - triggeredAt.getTime()) / 60000)} min ago, still processing`)
+      const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
+      console.log(`[Query Predictions] SKIP ${homeName} vs ${awayName}: Triggered ${minAgo} min ago, still processing (buffer: ${PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES} min)`)
       return false
     }
 
     // Triggered >7 min ago but no prediction - retry needed
-    console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction after ${Math.round((now.getTime() - triggeredAt.getTime()) / 60000)} min, retry needed`)
+    const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
+    console.log(`[Query Predictions] INCLUDE ${homeName} vs ${awayName}: No prediction after ${minAgo} min, retry needed`)
     return true
   })
 
@@ -334,14 +299,16 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
 /**
  * Query fixtures that need post-match analysis (with retry logic)
  *
+ * SIMPLE RULE: If analysis exists, skip. Otherwise check trigger status.
+ *
  * Includes:
  * 1. Fixtures in analysis window (150-210 min after FT) with predictions but no analysis
- * 2. Fixtures that were triggered >7 min ago but have no analysis in DB (retry failed)
+ * 2. Fixtures that were triggered >7 min ago but STILL have no analysis (retry failed)
  *
  * Excludes:
+ * - Fixtures that already have analysis
  * - Fixtures triggered <7 min ago (still processing)
  * - Fixtures without predictions (analysis requires prediction)
- * - Fixtures that already have analysis
  *
  * Returns sorted by match end time (earliest first), limited to MAX_ANALYSES_PER_RUN
  */
@@ -378,24 +345,42 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
 
   // Filter fixtures that need analysis
   const needsAnalysis = fixtures.filter(f => {
-    const hasPrediction = f.predictions && f.predictions.length > 0
-    const hasAnalysis = f.match_analysis && f.match_analysis.length > 0
+    const hasPrediction = f.predictions && Array.isArray(f.predictions) && f.predictions.length > 0
+    const hasAnalysis = f.match_analysis && Array.isArray(f.match_analysis) && f.match_analysis.length > 0
     const triggeredAt = f.analysis_triggered_at ? new Date(f.analysis_triggered_at) : null
+    const homeName = (f.home_team as any)?.name || 'Unknown'
+    const awayName = (f.away_team as any)?.name || 'Unknown'
 
     // Must have a prediction to generate analysis
-    if (!hasPrediction) return false
+    if (!hasPrediction) {
+      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: No prediction`)
+      return false
+    }
 
-    // Already has analysis - skip
-    if (hasAnalysis) return false
+    // SIMPLE RULE: If analysis exists, always skip
+    if (hasAnalysis) {
+      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Analysis exists (count: ${f.match_analysis.length})`)
+      return false
+    }
 
-    // Never triggered - include
-    if (!triggeredAt) return true
+    // No analysis exists - check trigger status
 
-    // Triggered within buffer - still processing
-    if (triggeredAt > bufferCutoff) return false
+    // If never triggered, include it
+    if (!triggeredAt) {
+      console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: No analysis, never triggered`)
+      return true
+    }
+
+    // If triggered recently (within buffer), skip - still processing
+    if (triggeredAt > bufferCutoff) {
+      const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
+      console.log(`[Query Analysis] SKIP ${homeName} vs ${awayName}: Triggered ${minAgo} min ago, still processing (buffer: ${PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES} min)`)
+      return false
+    }
 
     // Triggered >7 min ago but no analysis - retry needed
-    console.log(`[Query Analysis] Retry needed for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but no analysis found`)
+    const minAgo = Math.round((now.getTime() - triggeredAt.getTime()) / 60000)
+    console.log(`[Query Analysis] INCLUDE ${homeName} vs ${awayName}: No analysis after ${minAgo} min, retry needed`)
     return true
   })
 
