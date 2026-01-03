@@ -81,7 +81,7 @@ export function SummaryStats({ initialStats, initialSeason }: DashboardStatsProp
         icon={Trophy}
         color={initialStats.averageAccuracy >= 60 ? 'green' : initialStats.averageAccuracy >= 40 ? 'amber' : 'red'}
         size="sm"
-        info="Average prediction confidence score across all analyzed matches"
+        info="Overall accuracy score combining result, score, over/under, and BTTS predictions"
       />
       <StatCard
         label="Teams"
