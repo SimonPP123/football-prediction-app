@@ -61,9 +61,19 @@ export function UpcomingMatchCard({
   showFactors = true,
   className,
 }: UpcomingMatchCardProps) {
-  const prediction = fixture.prediction?.[0]
-  const weather = fixture.weather?.[0]
-  const odds = fixture.odds?.[0]
+  // Handle Supabase returning single object vs array for nested relations
+  const rawPrediction = fixture.prediction
+  const prediction = rawPrediction
+    ? (Array.isArray(rawPrediction) ? rawPrediction[0] : rawPrediction)
+    : undefined
+  const rawWeather = fixture.weather
+  const weather = rawWeather
+    ? (Array.isArray(rawWeather) ? rawWeather[0] : rawWeather)
+    : undefined
+  const rawOdds = fixture.odds
+  const odds = rawOdds
+    ? (Array.isArray(rawOdds) ? rawOdds[0] : rawOdds)
+    : undefined
 
   // Extract factor breakdown
   const factors = prediction?.factors?.breakdown?.map(f => ({

@@ -40,8 +40,15 @@ export function ResultAccuracyCard({
   variant = 'compact',
   className,
 }: ResultAccuracyCardProps) {
-  const prediction = fixture.prediction?.[0]
-  const analysis = fixture.match_analysis?.[0]
+  // Handle Supabase returning single object vs array for nested relations
+  const rawPrediction = fixture.prediction
+  const prediction = rawPrediction
+    ? (Array.isArray(rawPrediction) ? rawPrediction[0] : rawPrediction)
+    : undefined
+  const rawAnalysis = fixture.match_analysis
+  const analysis = rawAnalysis
+    ? (Array.isArray(rawAnalysis) ? rawAnalysis[0] : rawAnalysis)
+    : undefined
   const actualResult = getActualResult(fixture.goals_home, fixture.goals_away)
 
   // Check if prediction was correct (supports double-chance: 1X, X2, 12)

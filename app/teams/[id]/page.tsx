@@ -77,7 +77,9 @@ export default function TeamDetailPage() {
       if (signal?.aborted) return
 
       setTeam(teamData)
-      setStats(teamData.season_stats?.[0] || null)
+      // Handle Supabase returning single object vs array for nested relations
+      const rawStats = teamData.season_stats
+      setStats(rawStats ? (Array.isArray(rawStats) ? rawStats[0] : rawStats) : null)
 
       // Find this team's standing
       const teamStanding = standingsData.find((s: any) => s.team_id === teamId)
