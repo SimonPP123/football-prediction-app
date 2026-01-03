@@ -36,12 +36,19 @@ function LiveMatchesSectionComponent({
   const onMatchesFinishedRef = useRef(onMatchesFinished)
   onMatchesFinishedRef.current = onMatchesFinished
 
+  // Track the league ID to detect changes
+  const prevLeagueIdRef = useRef(currentLeague?.id)
+
   // Auto-refresh live fixtures every 60 seconds
   useEffect(() => {
     const refreshLive = async () => {
       try {
-        const params = currentLeague?.id ? `?league_id=${currentLeague.id}` : ''
-        const res = await fetch(`/api/fixtures/live${params}`, { credentials: 'include' })
+        // Use URL constructor for proper parameter handling
+        const url = new URL('/api/fixtures/live', window.location.origin)
+        if (currentLeague?.id) {
+          url.searchParams.set('league_id', currentLeague.id)
+        }
+        const res = await fetch(url.toString(), { credentials: 'include' })
         if (res.ok) {
           const newLiveData = await res.json()
           const newLiveFixtures = Array.isArray(newLiveData) ? newLiveData : []
@@ -53,9 +60,12 @@ function LiveMatchesSectionComponent({
           // Update ref with current live fixture IDs
           liveFixtureIdsRef.current = currentLiveIds
 
-          // Only update state if data actually changed to avoid unnecessary re-renders
+          // Always update when league changed, otherwise only if data changed
+          const leagueChanged = prevLeagueIdRef.current !== currentLeague?.id
+          prevLeagueIdRef.current = currentLeague?.id
+
           setLiveFixtures(prev => {
-            if (fixturesChanged(prev, newLiveFixtures)) {
+            if (leagueChanged || fixturesChanged(prev, newLiveFixtures)) {
               return newLiveFixtures
             }
             return prev

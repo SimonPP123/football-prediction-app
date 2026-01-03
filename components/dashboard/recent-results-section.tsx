@@ -21,8 +21,13 @@ export const RecentResultsSection = forwardRef<RecentResultsSectionRef, RecentRe
 
     const refresh = async () => {
       try {
-        const params = currentLeague?.id ? `league_id=${currentLeague.id}` : ''
-        const res = await fetch(`/api/fixtures/recent-results?limit=5${params ? '&' + params : ''}`, { credentials: 'include' })
+        // Use URL constructor for proper parameter handling
+        const url = new URL('/api/fixtures/recent-results', window.location.origin)
+        url.searchParams.set('rounds', '2') // Last 2 matchweeks
+        if (currentLeague?.id) {
+          url.searchParams.set('league_id', currentLeague.id)
+        }
+        const res = await fetch(url.toString(), { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
           setRecentResults(Array.isArray(data) ? data : [])
