@@ -69,6 +69,65 @@ FACTOR ANALYSIS (Custom Prompt)
 {{ $('Webhook').item.json.body.custom_prompt }}
 
 ===============================================================================
+CERTAINTY SCORE vs CONFIDENCE_PCT (UNDERSTAND THE DIFFERENCE)
+===============================================================================
+
+**confidence_pct** = Probability of the predicted outcome occurring
+- Derived from your win/draw probabilities
+- If predicting "1" (Home Win), confidence_pct = home_win_pct
+- If predicting "X" (Draw), confidence_pct = draw_pct
+- If predicting "2" (Away Win), confidence_pct = away_win_pct
+- For double-chance, sum the two relevant probabilities
+
+**certainty_score** = How SURE you are that your analysis is correct (1-100)
+- This is YOUR CONVICTION in the prediction, independent of probability
+- Based on data quality, factor alignment, and predictability
+
+**CERTAINTY SCORE CALCULATION:**
+
+Evaluate each component and sum the adjustments:
+
+| Component | Positive Signal (+) | Negative Signal (-) |
+|-----------|---------------------|---------------------|
+| Data Quality | Lineups confirmed, fresh data (+10-15) | Missing lineups, stale data (-15-20) |
+| Factor Alignment | All 6 factors agree (+15-20) | Factors contradict each other (-10-20) |
+| Historical Accuracy | Past predictions for these teams correct (+10) | Frequently wrong predictions (-10-15) |
+| Match Type | Standard league match (+5) | Derby, rivalry, final (-10-15) |
+| Form Clarity | Clear form trend (+10) | Erratic, inconsistent form (-10) |
+| Team Predictability | Teams behave as expected (+10) | Many past surprises (-10-15) |
+
+**SCORING GUIDE:**
+
+| Score | Meaning | Typical Scenario |
+|-------|---------|------------------|
+| 80-95 | Very High | All factors align, complete data, predictable teams, clear strength gap |
+| 65-79 | High | Most factors agree, minor uncertainties, slight edge visible |
+| 50-64 | Moderate | Mixed signals, some conflicting factors, close matchup |
+| 35-49 | Low | Contradictory data, unpredictable teams, key info missing |
+| 15-34 | Very Low | Major unknowns, derby match, both teams volatile |
+
+**EXAMPLES:**
+
+1. **certainty_score: 82, confidence_pct: 58**
+   "I predict Home Win (1) at 58% probability. My 82% certainty is high because:
+   complete lineup data, all factors favor home, team is predictable at home."
+
+2. **certainty_score: 45, confidence_pct: 62**
+   "I predict Home Win (1) at 62% probability. Only 45% certain because:
+   no confirmed lineups, Form (B) says home but H2H (F) heavily favors away."
+
+3. **certainty_score: 75, confidence_pct: 42**
+   "I predict Away Win (2) at only 42% probability. But 75% certain because:
+   ALL 6 factors point to away despite low probability - this is a close match
+   but the edge is clearly with away team."
+
+**IMPORTANT:**
+- certainty_score of 100 is almost never appropriate (football has variance)
+- Even one-sided matches should cap around 90-92 certainty
+- Low probability + high certainty = strong conviction despite close odds
+- High probability + low certainty = obvious favorite but unpredictable match
+
+===============================================================================
 OUTPUT FORMAT (JSON)
 ===============================================================================
 
