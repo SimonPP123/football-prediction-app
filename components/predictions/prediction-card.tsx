@@ -303,14 +303,19 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
                 <div className="text-2xl font-bold">
                   {fixture.goals_home ?? 0} - {fixture.goals_away ?? 0}
                 </div>
-                {/* Show prediction below score if available */}
+                {/* Show prediction and certainty below score if available */}
                 {hasPrediction && (
-                  <span className={cn(
-                    'text-xs mt-1 px-2 py-0.5 rounded',
-                    getPredictionBadgeColor(prediction.prediction_result)
-                  )}>
-                    Predicted: {prediction.prediction_result}
-                  </span>
+                  <div className="flex flex-col items-center">
+                    <span className={cn(
+                      'text-xs mt-1 px-2 py-0.5 rounded',
+                      getPredictionBadgeColor(prediction.prediction_result)
+                    )}>
+                      Predicted: {prediction.prediction_result}
+                    </span>
+                    <span className={cn('text-xs mt-0.5 font-medium', getConfidenceColor(prediction.certainty_score || prediction.confidence_pct || prediction.overall_index || 0))}>
+                      {prediction.certainty_score || prediction.confidence_pct || prediction.overall_index}% certain
+                    </span>
+                  </div>
                 )}
               </>
             ) : hasPrediction ? (
