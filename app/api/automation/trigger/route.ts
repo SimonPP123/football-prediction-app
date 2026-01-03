@@ -224,7 +224,7 @@ export async function POST(request: Request) {
         }
       })(),
 
-      // 4. Post-Match trigger (90-150 min after FT)
+      // 4. Post-Match trigger (~6 hours after kickoff)
       (async () => {
         if (!config.post_match_enabled) return { skipped: true }
 
@@ -247,7 +247,7 @@ export async function POST(request: Request) {
         }
       })(),
 
-      // 5. Analysis trigger (150-210 min after FT, with batch processing)
+      // 5. Analysis trigger (~6h 15min after kickoff, with batch processing)
       (async () => {
         if (!config.analysis_enabled) return { skipped: true }
 

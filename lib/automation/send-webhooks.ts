@@ -482,7 +482,8 @@ export async function triggerAnalysis(
           },
           body: JSON.stringify({
             fixture_id: fixture.id,
-            model
+            model,
+            force_regenerate: true  // Always regenerate for automation (overwrites manual)
           })
         })
 
