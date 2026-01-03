@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 import { DEFAULT_WEBHOOKS, clearWebhookConfigCache, isWebhookSecretSet } from '@/lib/automation/webhook-config'
 
 export const dynamic = 'force-dynamic'
@@ -61,7 +61,7 @@ function isInternalUrl(urlString: string): { internal: boolean; reason?: string 
  * GET - Retrieve webhook configuration (admin only)
  */
 export async function GET() {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -104,7 +104,7 @@ export async function GET() {
  * PATCH - Update webhook configuration (admin only)
  */
 export async function PATCH(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

@@ -321,7 +321,7 @@ export default function TeamDetailPage() {
                               {isHome ? 'H' : 'A'}
                             </span>
                             {opponent?.logo && (
-                              <img src={opponent.logo} alt="" className="w-6 h-6 object-contain" />
+                              <img src={opponent.logo} alt={opponent.name} className="w-6 h-6 object-contain" />
                             )}
                             <span className="text-sm font-medium">{opponent?.name}</span>
                           </div>
@@ -437,7 +437,7 @@ export default function TeamDetailPage() {
                             {isHome ? 'HOME' : 'AWAY'}
                           </span>
                           {opponent?.logo && (
-                            <img src={opponent.logo} alt="" className="w-6 h-6 object-contain" />
+                            <img src={opponent.logo} alt={opponent.name} className="w-6 h-6 object-contain" />
                           )}
                           <span className="text-sm font-medium">{opponent?.name}</span>
                         </div>
@@ -500,7 +500,7 @@ export default function TeamDetailPage() {
                             {isHome ? 'H' : 'A'}
                           </span>
                           {opponent?.logo && (
-                            <img src={opponent.logo} alt="" className="w-6 h-6 object-contain" />
+                            <img src={opponent.logo} alt={opponent.name} className="w-6 h-6 object-contain" />
                           )}
                           <span className="text-sm">{opponent?.name}</span>
                         </div>

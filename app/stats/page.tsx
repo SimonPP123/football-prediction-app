@@ -269,7 +269,7 @@ export default function StatsPage() {
                       {player.player_photo ? (
                         <img
                           src={player.player_photo}
-                          alt=""
+                          alt={player.player_name}
                           className="w-10 h-10 rounded-full object-cover border border-border"
                         />
                       ) : (
@@ -281,7 +281,7 @@ export default function StatsPage() {
                         <p className="font-medium truncate">{player.player_name}</p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           {player.team_logo && (
-                            <img src={player.team_logo} alt="" className="w-4 h-4" />
+                            <img src={player.team_logo} alt={player.team_name} className="w-4 h-4" />
                           )}
                           <span className="truncate">{player.team_name}</span>
                           {player.appearances && (
@@ -317,7 +317,7 @@ export default function StatsPage() {
                   <div key={team.id} className="p-3 flex items-center gap-3">
                     <span className="w-6 text-sm font-bold text-muted-foreground">{idx + 1}</span>
                     {team.team?.logo && (
-                      <img src={team.team.logo} alt="" className="w-8 h-8 object-contain" />
+                      <img src={team.team.logo} alt={team.team.name} className="w-8 h-8 object-contain" />
                     )}
                     <span className="flex-1 font-medium truncate">{team.team?.name}</span>
                     <span className="text-xl font-bold text-green-500">{team.goals_for}</span>
@@ -337,7 +337,7 @@ export default function StatsPage() {
                   <div key={team.id} className="p-3 flex items-center gap-3">
                     <span className="w-6 text-sm font-bold text-muted-foreground">{idx + 1}</span>
                     {team.team?.logo && (
-                      <img src={team.team.logo} alt="" className="w-8 h-8 object-contain" />
+                      <img src={team.team.logo} alt={team.team.name} className="w-8 h-8 object-contain" />
                     )}
                     <span className="flex-1 font-medium truncate">{team.team?.name}</span>
                     <span className="text-xl font-bold text-blue-500">{team.goals_against}</span>
@@ -359,7 +359,7 @@ export default function StatsPage() {
                     <div key={team.id} className="p-3 flex items-center gap-3">
                       <span className="w-6 text-sm font-bold text-muted-foreground">{idx + 1}</span>
                       {team.team?.logo && (
-                        <img src={team.team.logo} alt="" className="w-8 h-8 object-contain" />
+                        <img src={team.team.logo} alt={team.team.name} className="w-8 h-8 object-contain" />
                       )}
                       <span className="flex-1 font-medium truncate">{team.team?.name}</span>
                       <div className="text-right">
@@ -387,7 +387,7 @@ export default function StatsPage() {
                     <div key={team.id} className="p-3 flex items-center gap-3">
                       <span className="w-6 text-sm font-bold text-muted-foreground">{idx + 1}</span>
                       {team.team?.logo && (
-                        <img src={team.team.logo} alt="" className="w-8 h-8 object-contain" />
+                        <img src={team.team.logo} alt={team.team.name} className="w-8 h-8 object-contain" />
                       )}
                       <span className="flex-1 font-medium truncate">{team.team?.name}</span>
                       <div className="text-right">
@@ -413,7 +413,7 @@ export default function StatsPage() {
                   {bestGoalDiff.slice(0, 10).map((team: any, idx: number) => (
                     <div key={team.id} className="text-center p-3 bg-muted/30 rounded-lg">
                       {team.team?.logo && (
-                        <img src={team.team.logo} alt="" className="w-10 h-10 object-contain mx-auto mb-2" />
+                        <img src={team.team.logo} alt={team.team.name} className="w-10 h-10 object-contain mx-auto mb-2" />
                       )}
                       <p className="text-sm font-medium truncate">{team.team?.name}</p>
                       <p className={cn(
@@ -790,7 +790,7 @@ export default function StatsPage() {
                                         {match.homeTeam?.code || match.homeTeam?.name || 'Home'}
                                       </span>
                                       {match.homeTeam?.logo && (
-                                        <img src={match.homeTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
+                                        <img src={match.homeTeam.logo} alt={match.homeTeam.name} className="w-5 h-5 object-contain shrink-0" />
                                       )}
                                     </div>
 
@@ -802,7 +802,7 @@ export default function StatsPage() {
                                     {/* Away Team */}
                                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                       {match.awayTeam?.logo && (
-                                        <img src={match.awayTeam.logo} alt="" className="w-5 h-5 object-contain shrink-0" />
+                                        <img src={match.awayTeam.logo} alt={match.awayTeam.name} className="w-5 h-5 object-contain shrink-0" />
                                       )}
                                       <span className="text-sm font-medium truncate">
                                         {match.awayTeam?.code || match.awayTeam?.name || 'Away'}

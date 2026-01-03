@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming, StreamLogEntry } from '@/lib/utils/streaming'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -91,7 +91,7 @@ const teamsMatch = (name1: string, name2: string): boolean => {
 }
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

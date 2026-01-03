@@ -222,7 +222,7 @@ export function SquadTable({ squad, injuries = [], className }: SquadTableProps)
                       {member.player?.photo ? (
                         <img
                           src={member.player.photo}
-                          alt=""
+                          alt={member.player.name}
                           className="w-10 h-10 rounded-full object-cover border border-border"
                         />
                       ) : (

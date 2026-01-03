@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { fetchTeams, ENDPOINTS } from '@/lib/api-football'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,7 +76,7 @@ interface LeagueConfig {
 }
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

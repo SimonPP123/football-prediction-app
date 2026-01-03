@@ -145,7 +145,7 @@ export function RecentResultsTable({ results }: RecentResultsTableProps) {
                         {fixture.home_team?.logo && (
                           <img
                             src={fixture.home_team.logo}
-                            alt=""
+                            alt={fixture.home_team.name}
                             className="w-6 h-6 object-contain"
                           />
                         )}
@@ -167,7 +167,7 @@ export function RecentResultsTable({ results }: RecentResultsTableProps) {
                         {fixture.away_team?.logo && (
                           <img
                             src={fixture.away_team.logo}
-                            alt=""
+                            alt={fixture.away_team.name}
                             className="w-6 h-6 object-contain"
                           />
                         )}

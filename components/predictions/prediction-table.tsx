@@ -183,7 +183,7 @@ function PredictionTableComponent({ fixtures, onGeneratePrediction, generatingId
                         {fixture.home_team?.logo && (
                           <img
                             src={fixture.home_team.logo}
-                            alt=""
+                            alt={fixture.home_team.name}
                             className="w-6 h-6 object-contain"
                           />
                         )}
@@ -212,7 +212,7 @@ function PredictionTableComponent({ fixtures, onGeneratePrediction, generatingId
                         {fixture.away_team?.logo && (
                           <img
                             src={fixture.away_team.logo}
-                            alt=""
+                            alt={fixture.away_team.name}
                             className="w-6 h-6 object-contain"
                           />
                         )}

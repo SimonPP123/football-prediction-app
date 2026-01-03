@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 import {
   queryPreMatchFixtures,
   queryPredictionFixtures,
@@ -45,7 +45,7 @@ interface TriggerSummary {
 
 export async function POST(request: Request) {
   // Verify admin access (API key or cookie)
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -352,7 +352,7 @@ export async function POST(request: Request) {
 
 // GET endpoint to check automation status and next run
 export async function GET() {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

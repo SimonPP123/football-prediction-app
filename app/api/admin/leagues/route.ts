@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase/client'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 // GET all leagues (including inactive) - Admin only
 export async function GET() {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -30,7 +30,7 @@ export async function GET() {
 
 // POST create new league - Admin only
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
 
 // PATCH update league(s) - Admin only
 export async function PATCH(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

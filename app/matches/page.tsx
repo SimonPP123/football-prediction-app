@@ -22,6 +22,7 @@ import {
   Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 type TabType = 'live' | 'upcoming' | 'results'
 type SortType = 'date-asc' | 'date-desc' | 'home-team' | 'away-team'
@@ -287,6 +288,7 @@ export default function MatchesPage() {
   ]
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen">
       <Header title="Matches" subtitle={currentLeague?.name} />
 
@@ -634,7 +636,7 @@ export default function MatchesPage() {
                           {fixture.home_team?.logo && (
                             <img
                               src={fixture.home_team.logo}
-                              alt=""
+                              alt={fixture.home_team.name}
                               className="w-8 h-8 object-contain shrink-0"
                             />
                           )}
@@ -657,7 +659,7 @@ export default function MatchesPage() {
                           {fixture.away_team?.logo && (
                             <img
                               src={fixture.away_team.logo}
-                              alt=""
+                              alt={fixture.away_team.name}
                               className="w-8 h-8 object-contain shrink-0"
                             />
                           )}
@@ -777,5 +779,6 @@ export default function MatchesPage() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

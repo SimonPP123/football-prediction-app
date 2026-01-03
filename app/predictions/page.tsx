@@ -16,6 +16,7 @@ import { AI_MODELS } from '@/types'
 import { useLeague } from '@/contexts/league-context'
 import { DEFAULT_PREDICTION_PROMPT, PROMPT_VARIABLES } from '@/lib/constants/default-prompt'
 import { DataFreshnessBadge } from '@/components/updates/data-freshness-badge'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 // Default webhook URLs
 const DEFAULT_WEBHOOK = 'https://nn.analyserinsights.com/webhook/football-prediction'
@@ -435,6 +436,7 @@ export default function PredictionsPage() {
   const currentModel = AI_MODELS.find(m => m.id === selectedModel) || AI_MODELS[0]
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen">
       <Header
         title="Predictions"
@@ -994,10 +996,10 @@ export default function PredictionsPage() {
 
       {/* Webhook Documentation Modal */}
       {showWebhookDocs && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="webhook-docs-title">
           <div className="bg-card border rounded-xl shadow-lg w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="text-lg font-semibold">Webhook Documentation</h3>
+              <h3 id="webhook-docs-title" className="text-lg font-semibold">Webhook Documentation</h3>
               <button
                 onClick={() => setShowWebhookDocs(false)}
                 className="p-1 hover:bg-muted rounded"
@@ -1567,11 +1569,11 @@ export default function PredictionsPage() {
 
       {/* Prompt Editor Modal */}
       {showPromptEditor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="prompt-editor-title">
           <div className="bg-card border rounded-xl shadow-lg w-full max-w-5xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 border-b">
               <div>
-                <h3 className="text-lg font-semibold">Edit Factor Analysis Prompt</h3>
+                <h3 id="prompt-editor-title" className="text-lg font-semibold">Edit Factor Analysis Prompt</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Customize factors A-F and analysis instructions. Header (match details) and output JSON format are fixed.
                 </p>
@@ -1675,5 +1677,6 @@ export default function PredictionsPage() {
       )}
 
     </div>
+    </ErrorBoundary>
   )
 }

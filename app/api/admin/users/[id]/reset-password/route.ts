@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 import { generateResetToken } from '@/lib/auth/reset-token'
 import { isValidUUID } from '@/lib/validation'
 import { verifyAuthCookie } from '@/lib/auth/cookie-sign'
@@ -18,7 +18,7 @@ export async function POST(
 ) {
   try {
     // Verify admin access
-    if (!isAdmin()) {
+    if (!(await isAdminWithSessionValidation())) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

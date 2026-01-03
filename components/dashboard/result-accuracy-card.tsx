@@ -68,13 +68,13 @@ export function ResultAccuracyCard({
 
         <div className="flex items-center justify-center gap-2 mb-2">
           {fixture.home_team?.logo && (
-            <img src={fixture.home_team.logo} alt="" className="w-6 h-6" />
+            <img src={fixture.home_team.logo} alt={fixture.home_team.name} className="w-6 h-6" />
           )}
           <span className="font-bold text-lg">
             {fixture.goals_home ?? '-'} - {fixture.goals_away ?? '-'}
           </span>
           {fixture.away_team?.logo && (
-            <img src={fixture.away_team.logo} alt="" className="w-6 h-6" />
+            <img src={fixture.away_team.logo} alt={fixture.away_team.name} className="w-6 h-6" />
           )}
         </div>
 

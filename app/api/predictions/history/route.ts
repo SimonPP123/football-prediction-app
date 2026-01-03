@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPredictionHistory, deletePredictionHistoryRecord, deleteAllPredictionHistory } from '@/lib/supabase/queries'
 import { isValidUUID } from '@/lib/validation'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 export async function DELETE(request: NextRequest) {
   try {
     // Admin-only: Prediction history is system-generated, deletion requires admin access
-    if (!isAdmin()) {
+    if (!(await isAdminWithSessionValidation())) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

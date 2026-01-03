@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/client'
 import { hashPassword, validatePassword, validateUsername } from '@/lib/auth/password'
-import { isAdmin, getAuthUserId } from '@/lib/auth'
+import { isAdminWithSessionValidation, getAuthUserId } from '@/lib/auth'
 
 // GET - List all users
 export async function GET() {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -26,7 +26,7 @@ export async function GET() {
 
 // POST - Create new user
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

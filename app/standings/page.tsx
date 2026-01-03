@@ -8,6 +8,7 @@ import { useLeague } from '@/contexts/league-context'
 import { Loader2, TrendingUp, TrendingDown, Minus, Trophy, Home, Plane } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export default function StandingsPage() {
   const [standings, setStandings] = useState<any[]>([])
@@ -126,6 +127,7 @@ export default function StandingsPage() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="min-h-screen">
       <Header title="Standings" />
 
@@ -171,17 +173,17 @@ export default function StandingsPage() {
             <table className="w-full">
               <thead className="bg-muted/50">
                 <tr className="text-xs text-muted-foreground">
-                  <th className="text-left p-3 w-12">#</th>
-                  <th className="text-left p-3">Team</th>
-                  <th className="text-center p-3">P</th>
-                  <th className="text-center p-3">W</th>
-                  <th className="text-center p-3">D</th>
-                  <th className="text-center p-3">L</th>
-                  <th className="text-center p-3">GF</th>
-                  <th className="text-center p-3">GA</th>
-                  <th className="text-center p-3">GD</th>
-                  <th className="text-center p-3">Pts</th>
-                  <th className="text-center p-3">Form</th>
+                  <th scope="col" className="text-left p-3 w-12">#</th>
+                  <th scope="col" className="text-left p-3">Team</th>
+                  <th scope="col" className="text-center p-3" title="Played">P</th>
+                  <th scope="col" className="text-center p-3" title="Won">W</th>
+                  <th scope="col" className="text-center p-3" title="Drawn">D</th>
+                  <th scope="col" className="text-center p-3" title="Lost">L</th>
+                  <th scope="col" className="text-center p-3" title="Goals For">GF</th>
+                  <th scope="col" className="text-center p-3" title="Goals Against">GA</th>
+                  <th scope="col" className="text-center p-3" title="Goal Difference">GD</th>
+                  <th scope="col" className="text-center p-3" title="Points">Pts</th>
+                  <th scope="col" className="text-center p-3">Form</th>
                 </tr>
               </thead>
               <tbody>
@@ -253,13 +255,13 @@ export default function StandingsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-xs text-muted-foreground">
-                    <th className="text-left p-2">#</th>
-                    <th className="text-left p-2">Team</th>
-                    <th className="text-center p-2">P</th>
-                    <th className="text-center p-2">W</th>
-                    <th className="text-center p-2">D</th>
-                    <th className="text-center p-2">L</th>
-                    <th className="text-center p-2">Pts</th>
+                    <th scope="col" className="text-left p-2">#</th>
+                    <th scope="col" className="text-left p-2">Team</th>
+                    <th scope="col" className="text-center p-2" title="Played">P</th>
+                    <th scope="col" className="text-center p-2" title="Won">W</th>
+                    <th scope="col" className="text-center p-2" title="Drawn">D</th>
+                    <th scope="col" className="text-center p-2" title="Lost">L</th>
+                    <th scope="col" className="text-center p-2" title="Points">Pts</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -275,7 +277,7 @@ export default function StandingsPage() {
                             className="flex items-center gap-2 hover:text-primary transition-colors"
                           >
                             {standing.team?.logo && (
-                              <img src={standing.team.logo} alt="" className="w-4 h-4" />
+                              <img src={standing.team.logo} alt={standing.team.name} className="w-4 h-4" />
                             )}
                             <span className="text-sm">{standing.team?.name}</span>
                           </Link>
@@ -302,13 +304,13 @@ export default function StandingsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-muted/50">
                   <tr className="text-xs text-muted-foreground">
-                    <th className="text-left p-2">#</th>
-                    <th className="text-left p-2">Team</th>
-                    <th className="text-center p-2">P</th>
-                    <th className="text-center p-2">W</th>
-                    <th className="text-center p-2">D</th>
-                    <th className="text-center p-2">L</th>
-                    <th className="text-center p-2">Pts</th>
+                    <th scope="col" className="text-left p-2">#</th>
+                    <th scope="col" className="text-left p-2">Team</th>
+                    <th scope="col" className="text-center p-2" title="Played">P</th>
+                    <th scope="col" className="text-center p-2" title="Won">W</th>
+                    <th scope="col" className="text-center p-2" title="Drawn">D</th>
+                    <th scope="col" className="text-center p-2" title="Lost">L</th>
+                    <th scope="col" className="text-center p-2" title="Points">Pts</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -324,7 +326,7 @@ export default function StandingsPage() {
                             className="flex items-center gap-2 hover:text-primary transition-colors"
                           >
                             {standing.team?.logo && (
-                              <img src={standing.team.logo} alt="" className="w-4 h-4" />
+                              <img src={standing.team.logo} alt={standing.team.name} className="w-4 h-4" />
                             )}
                             <span className="text-sm">{standing.team?.name}</span>
                           </Link>
@@ -344,5 +346,6 @@ export default function StandingsPage() {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   )
 }

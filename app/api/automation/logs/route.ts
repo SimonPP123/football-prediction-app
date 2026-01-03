@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 import { parseLimit, ValidationError } from '@/lib/validation'
 
 export const dynamic = 'force-dynamic'
@@ -11,7 +11,7 @@ const supabase = createClient(
 )
 
 export async function GET(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fetchAPIPredictions, ENDPOINTS } from '@/lib/api-football'
 import { createSSEStream, wantsStreaming } from '@/lib/utils/streaming'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +26,7 @@ interface LogEntry {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

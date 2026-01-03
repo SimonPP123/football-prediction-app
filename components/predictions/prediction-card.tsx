@@ -425,6 +425,7 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowScores(!showScores) }}
               className="w-full flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors text-left"
+              aria-expanded={showScores}
             >
               <Target className="w-4 h-4 text-primary" />
               <span className="text-xs font-medium">Most Likely:</span>
@@ -486,6 +487,7 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowHomeNews(!showHomeNews) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-home/10 hover:bg-home/20 transition-colors text-left"
+                  aria-expanded={showHomeNews}
                 >
                   <Home className="w-4 h-4 text-home" />
                   <span className="text-xs font-medium">{fixture.home_team?.name || 'Home'} News</span>
@@ -508,6 +510,7 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
                 <button
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowAwayNews(!showAwayNews) }}
                   className="w-full flex items-center gap-2 p-2 rounded-lg bg-away/10 hover:bg-away/20 transition-colors text-left"
+                  aria-expanded={showAwayNews}
                 >
                   <Plane className="w-4 h-4 text-away" />
                   <span className="text-xs font-medium">{fixture.away_team?.name || 'Away'} News</span>
@@ -533,6 +536,7 @@ function PredictionCardComponent({ fixture, onGeneratePrediction, isGenerating, 
             <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowOdds(!showOdds) }}
               className="w-full flex items-center gap-2 p-2 rounded-lg bg-green-500/10 hover:bg-green-500/20 transition-colors text-left"
+              aria-expanded={showOdds}
             >
               <DollarSign className="w-4 h-4 text-green-500" />
               <span className="text-xs font-medium">Best Odds:</span>

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { getFixtureWindows } from '@/lib/api/fixture-windows'
 import { detectCurrentPhase, getPhaseDisplayInfo, MatchPhase } from '@/lib/api/match-phase'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,7 +106,7 @@ async function executeRefresh(
  * - include_optional: If true, also executes optional refreshes
  */
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -206,7 +206,7 @@ export async function POST(request: Request) {
  * GET endpoint for checking current phase without refreshing
  */
 export async function GET(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

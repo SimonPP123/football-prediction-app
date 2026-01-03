@@ -180,12 +180,12 @@ export function SettingsModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
       <div className="bg-card border rounded-xl shadow-lg w-full max-w-md mx-4 max-h-[85vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b shrink-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold">Webhook Configuration</h3>
+            <h3 id="settings-modal-title" className="text-lg font-semibold">Webhook Configuration</h3>
             <button
               onClick={() => setShowHelp(!showHelp)}
               className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground"
@@ -253,6 +253,7 @@ export function SettingsModal({
                 <button
                   onClick={() => setAiExpanded(!aiExpanded)}
                   className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                  aria-expanded={aiExpanded}
                 >
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-primary" />
@@ -289,6 +290,7 @@ export function SettingsModal({
                 <button
                   onClick={() => setAutomationExpanded(!automationExpanded)}
                   className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                  aria-expanded={automationExpanded}
                 >
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-primary" />

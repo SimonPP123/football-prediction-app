@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
 import { generateResetToken } from '@/lib/auth/reset-token'
-import { isAdmin, getAuthData } from '@/lib/auth'
+import { isAdminWithSessionValidation, getAuthData } from '@/lib/auth'
 import { resetPasswordRateLimiter, getClientIP } from '@/lib/rate-limit'
 
 /**
@@ -17,7 +17,7 @@ import { resetPasswordRateLimiter, getClientIP } from '@/lib/rate-limit'
 export async function POST(request: Request) {
   try {
     // Only admins can generate reset tokens
-    if (!isAdmin()) {
+    if (!(await isAdminWithSessionValidation())) {
       return NextResponse.json(
         { error: 'Admin access required to generate reset tokens' },
         { status: 403 }

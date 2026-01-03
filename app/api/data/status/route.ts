@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { getFixtureWindows, DATE_WINDOWS, MATCH_STATUS } from '@/lib/api/fixture-windows'
 import { detectCurrentPhase, getPhaseDisplayInfo } from '@/lib/api/match-phase'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,7 +36,7 @@ interface FixtureStats {
  * Get comprehensive data status for a league
  */
 export async function GET(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

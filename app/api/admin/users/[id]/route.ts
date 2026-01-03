@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/client'
 import { hashPassword, validatePassword } from '@/lib/auth/password'
-import { isAdmin, getAuthUserId } from '@/lib/auth'
+import { isAdminWithSessionValidation, getAuthUserId } from '@/lib/auth'
 
 interface RouteParams {
   params: { id: string }
@@ -9,7 +9,7 @@ interface RouteParams {
 
 // GET - Get single user
 export async function GET(request: Request, { params }: RouteParams) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -30,7 +30,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 // PATCH - Update user (password, admin status, active status)
 export async function PATCH(request: Request, { params }: RouteParams) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -121,7 +121,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
 // DELETE - Soft delete user (set is_active to false)
 export async function DELETE(request: Request, { params }: RouteParams) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

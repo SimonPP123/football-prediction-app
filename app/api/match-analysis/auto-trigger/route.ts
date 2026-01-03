@@ -72,9 +72,14 @@ export async function POST(request: Request) {
     if (error) throw error
 
     // Filter out fixtures that already have analysis
-    const { data: existingAnalyses } = await supabase
-      .from('match_analysis')
-      .select('fixture_id')
+    // Only query for fixture_ids we're interested in (avoids full table scan)
+    const fixtureIds = fixtures?.map(f => f.id) || []
+    const { data: existingAnalyses } = fixtureIds.length > 0
+      ? await supabase
+          .from('match_analysis')
+          .select('fixture_id')
+          .in('fixture_id', fixtureIds)
+      : { data: [] }
 
     const existingIds = new Set(existingAnalyses?.map(a => a.fixture_id) || [])
     const needsAnalysis = fixtures?.filter(f => !existingIds.has(f.id)) || []

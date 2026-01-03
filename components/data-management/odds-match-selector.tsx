@@ -181,7 +181,7 @@ export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing, le
                         {fixture.home_team?.logo && (
                           <img
                             src={fixture.home_team.logo}
-                            alt=""
+                            alt={fixture.home_team.name}
                             className="w-4 h-4 object-contain"
                           />
                         )}
@@ -191,7 +191,7 @@ export function OddsMatchSelector({ isOpen, onClose, onRefresh, isRefreshing, le
                         {fixture.away_team?.logo && (
                           <img
                             src={fixture.away_team.logo}
-                            alt=""
+                            alt={fixture.away_team.name}
                             className="w-4 h-4 object-contain"
                           />
                         )}

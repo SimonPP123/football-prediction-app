@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 import { getAutomationConfig, updateAutomationConfig } from '@/lib/automation/check-windows'
 
 export const dynamic = 'force-dynamic'
@@ -35,7 +35,7 @@ function getEmptyStats(enabled: boolean): TriggerStats {
 }
 
 export async function GET() {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -141,7 +141,7 @@ export async function GET() {
  * PATCH - Update automation config (enable/disable, trigger settings)
  */
 export async function PATCH(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

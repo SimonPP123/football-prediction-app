@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { getLeagueFromRequest } from '@/lib/league-context'
 import { detectCurrentPhase, getPhaseDisplayInfo } from '@/lib/api/match-phase'
 import { createClient } from '@supabase/supabase-js'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -179,7 +179,7 @@ async function detectPhaseFromFixtures(leagueId: string): Promise<Orchestratable
 }
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
@@ -284,7 +284,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 

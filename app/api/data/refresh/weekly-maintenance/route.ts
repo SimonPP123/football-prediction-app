@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createSSEStream } from '@/lib/utils/streaming'
-import { isAdmin } from '@/lib/auth'
+import { isAdminWithSessionValidation } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +15,7 @@ const WEEKLY_MAINTENANCE_ENDPOINTS = [
 ]
 
 export async function POST(request: Request) {
-  if (!isAdmin()) {
+  if (!(await isAdminWithSessionValidation())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
