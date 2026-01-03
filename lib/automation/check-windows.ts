@@ -77,15 +77,18 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
 }
 
 /**
- * Query fixtures that need predictions (with retry logic)
+ * Query fixtures that need predictions (with retry logic and stale prediction regeneration)
  *
  * Includes:
  * 1. Fixtures in prediction window (10-50 min before kickoff) that haven't been triggered
  * 2. Fixtures that were triggered >7 min ago but have no prediction in DB (retry failed)
+ * 3. Fixtures with STALE predictions (created BEFORE the automation window opened)
+ *    - This handles manual predictions generated 60+ min before match
+ *    - Automation will regenerate with fresh data closer to kickoff
  *
  * Excludes:
  * - Fixtures triggered <7 min ago (still processing)
- * - Fixtures that already have predictions
+ * - Fixtures with FRESH predictions (created within the automation window)
  *
  * Returns sorted by kickoff time (earliest first), limited to MAX_PREDICTIONS_PER_RUN
  */
@@ -94,7 +97,7 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
   const processingBuffer = PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES * 60 * 1000
   const bufferCutoff = new Date(now.getTime() - processingBuffer)
 
-  // Window boundaries
+  // Window boundaries (when fixtures enter the prediction window)
   const windowStart = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.minBefore * 60 * 1000)
   const windowEnd = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
 
@@ -107,7 +110,7 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
       league:leagues!inner(id, name, is_active),
-      predictions(id)
+      predictions(id, created_at)
     `)
     .eq('status', 'NS')
     .gte('match_date', windowStart.toISOString())
@@ -125,16 +128,58 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
     const hasExistingPrediction = f.predictions && f.predictions.length > 0
     const triggeredAt = f.prediction_triggered_at ? new Date(f.prediction_triggered_at) : null
 
-    // Case 1: Already has prediction - skip
-    if (hasExistingPrediction) return false
+    // Calculate when the automation window opened for this specific fixture
+    // Window opens at (match_date - maxBefore minutes)
+    const matchDate = new Date(f.match_date)
+    const windowOpenedAt = new Date(matchDate.getTime() - TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
 
-    // Case 2: Never triggered - include
+    // Get the most recent prediction's created_at timestamp
+    // Sort predictions by created_at descending to ensure we check the newest one
+    const sortedPredictions = hasExistingPrediction
+      ? [...f.predictions].sort((a: any, b: any) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        )
+      : []
+    const predictionCreatedAt = sortedPredictions.length > 0 && sortedPredictions[0]?.created_at
+      ? new Date(sortedPredictions[0].created_at)
+      : null
+
+    // Check if prediction is "fresh" (created within the automation window)
+    const hasFreshPrediction = hasExistingPrediction && predictionCreatedAt && predictionCreatedAt >= windowOpenedAt
+
+    // Case 1: Has a FRESH prediction (created within window) - skip
+    if (hasFreshPrediction) return false
+
+    // Case 2: Has a STALE prediction (created before window opened) - treat as needing regeneration
+    const hasStalePrediction = hasExistingPrediction && !hasFreshPrediction
+
+    if (hasStalePrediction) {
+      // Apply the same retry logic as no-prediction case
+      if (!triggeredAt) {
+        console.log(`[Query Predictions] Stale prediction for fixture ${f.id} - created at ${predictionCreatedAt?.toISOString()}, window opened at ${windowOpenedAt.toISOString()}. Will regenerate.`)
+        return true
+      }
+      if (triggeredAt > bufferCutoff) {
+        // Still processing regeneration
+        return false
+      }
+      // Triggered >7 min ago, check if we got a NEW prediction after trigger
+      if (predictionCreatedAt && triggeredAt && predictionCreatedAt > triggeredAt) {
+        // A new prediction was created after the trigger - it's now fresh
+        return false
+      }
+      console.log(`[Query Predictions] Retry regeneration for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but prediction still stale`)
+      return true
+    }
+
+    // Case 3: No prediction exists - normal logic
+    // Never triggered - include
     if (!triggeredAt) return true
 
-    // Case 3: Triggered within buffer period - skip (still processing)
+    // Triggered within buffer period - skip (still processing)
     if (triggeredAt > bufferCutoff) return false
 
-    // Case 4: Triggered >7 min ago but no prediction - retry needed
+    // Triggered >7 min ago but no prediction - retry needed
     console.log(`[Query Predictions] Retry needed for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but no prediction found`)
     return true
   })
