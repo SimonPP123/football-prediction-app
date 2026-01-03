@@ -18,14 +18,14 @@ function validateCronSecret(request: Request): boolean {
     return false
   }
 
-  // Timing-safe comparison
-  if (cronSecret.length !== expectedSecret.length) {
-    return false
-  }
+  // Timing-safe comparison - constant time regardless of where strings differ
+  const maxLen = Math.max(cronSecret.length, expectedSecret.length)
+  let mismatch = cronSecret.length === expectedSecret.length ? 0 : 1
 
-  let mismatch = 0
-  for (let i = 0; i < cronSecret.length; i++) {
-    mismatch |= cronSecret.charCodeAt(i) ^ expectedSecret.charCodeAt(i)
+  for (let i = 0; i < maxLen; i++) {
+    const charA = i < cronSecret.length ? cronSecret.charCodeAt(i) : 0
+    const charB = i < expectedSecret.length ? expectedSecret.charCodeAt(i) : 0
+    mismatch |= charA ^ charB
   }
   return mismatch === 0
 }

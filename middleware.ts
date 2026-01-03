@@ -11,22 +11,21 @@ interface AuthData {
 /**
  * Timing-safe string comparison to prevent timing attacks
  * Works in Edge Runtime where crypto.timingSafeEqual is not available
+ * Compares strings in constant time regardless of where they differ
  */
 function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    // Do constant-time work proportional to input length to prevent timing leaks
-    // Compare against 0 to ensure XOR produces meaningful work
-    let mismatch = 1 // Start with mismatch since lengths differ
-    for (let i = 0; i < a.length; i++) {
-      mismatch |= a.charCodeAt(i) ^ 0
-    }
-    return false
+  const maxLen = Math.max(a.length, b.length)
+  // Start with mismatch=1 if lengths differ
+  let mismatch = a.length === b.length ? 0 : 1
+
+  // Always iterate over the full length to prevent timing leaks
+  for (let i = 0; i < maxLen; i++) {
+    // Use 0 as fallback for out-of-bounds access
+    const charA = i < a.length ? a.charCodeAt(i) : 0
+    const charB = i < b.length ? b.charCodeAt(i) : 0
+    mismatch |= charA ^ charB
   }
 
-  let mismatch = 0
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
   return mismatch === 0
 }
 
@@ -119,6 +118,11 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
   // XSS Protection (legacy but still useful for older browsers)
   response.headers.set('X-XSS-Protection', '1; mode=block')
 
+  // Cache control - prevent caching of authenticated content
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  response.headers.set('Pragma', 'no-cache')
+  response.headers.set('Expires', '0')
+
   // Content Security Policy
   // Allow: self, inline styles (for Tailwind), images from API-Football, fonts
   // Note: unsafe-eval only in development (Next.js dev server requires it)
@@ -127,15 +131,18 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
     : "script-src 'self' 'unsafe-inline'"
 
+  // Use specific Supabase project domain instead of wildcard
+  const supabaseHost = 'ypddcrvjeeqavqpcypoa.supabase.co'
+
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
       scriptSrc,
       "style-src 'self' 'unsafe-inline'", // Tailwind uses inline styles
-      "img-src 'self' data: https://media.api-sports.io https://*.supabase.co blob:",
+      `img-src 'self' data: https://media.api-sports.io https://${supabaseHost} blob:`,
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+      `connect-src 'self' https://${supabaseHost} wss://${supabaseHost}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -168,17 +175,8 @@ export async function middleware(request: NextRequest) {
   // Allow cron endpoints with secret header (bypass auth cookie requirement)
   if (pathname === '/api/match-analysis/auto-trigger') {
     const cronSecret = request.headers.get('x-cron-secret')
-    if (cronSecret && process.env.CRON_SECRET) {
-      // Timing-safe comparison
-      if (cronSecret.length === process.env.CRON_SECRET.length) {
-        let mismatch = 0
-        for (let i = 0; i < cronSecret.length; i++) {
-          mismatch |= cronSecret.charCodeAt(i) ^ process.env.CRON_SECRET.charCodeAt(i)
-        }
-        if (mismatch === 0) {
-          return addSecurityHeaders(NextResponse.next())
-        }
-      }
+    if (cronSecret && process.env.CRON_SECRET && timingSafeEqual(cronSecret, process.env.CRON_SECRET)) {
+      return addSecurityHeaders(NextResponse.next())
     }
     // Invalid or missing secret - return 401
     return addSecurityHeaders(

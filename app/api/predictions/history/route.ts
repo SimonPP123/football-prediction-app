@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { getPredictionHistory, deletePredictionHistoryRecord, deleteAllPredictionHistory } from '@/lib/supabase/queries'
 import { isValidUUID } from '@/lib/validation'
+import { isAdmin } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,11 +42,9 @@ export async function GET(request: Request) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // Authentication check
-    const cookieStore = cookies()
-    const authCookie = cookieStore.get('football_auth')?.value
-    if (!authCookie) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    // Admin-only: Prediction history is system-generated, deletion requires admin access
+    if (!isAdmin()) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

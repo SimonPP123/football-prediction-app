@@ -122,7 +122,7 @@ export async function POST(request: Request) {
     response.cookies.set('football_auth', signedCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',  // Changed from 'strict' to fix mobile logout on refresh
       maxAge: SESSION_DURATION_SECONDS,
       path: '/',
     })

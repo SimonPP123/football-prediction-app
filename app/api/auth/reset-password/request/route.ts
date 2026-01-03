@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase/client'
 import { generateResetToken } from '@/lib/auth/reset-token'
-import { isAdmin } from '@/lib/auth'
+import { isAdmin, getAuthData } from '@/lib/auth'
+import { resetPasswordRateLimiter, getClientIP } from '@/lib/rate-limit'
 
 /**
  * POST /api/auth/reset-password/request
@@ -21,6 +23,17 @@ export async function POST(request: Request) {
         { status: 403 }
       )
     }
+
+    // Rate limiting - 3 requests per hour per IP
+    const clientIP = getClientIP(request)
+    const rateLimitResult = resetPasswordRateLimiter.check(clientIP)
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitResult.reason },
+        { status: 429, headers: resetPasswordRateLimiter.getHeaders(clientIP) }
+      )
+    }
+    resetPasswordRateLimiter.record(clientIP)
 
     let username: string
     try {
@@ -48,36 +61,20 @@ export async function POST(request: Request) {
       .eq('username', username)
       .single()
 
-    if (userError || !user) {
-      // Don't reveal if user exists or not
+    // Return same response for all non-success cases to prevent user enumeration
+    if (userError || !user || !user.is_active) {
       return NextResponse.json(
         { error: 'If the user exists, a reset token has been generated' },
         { status: 200 }
       )
     }
 
-    if (!user.is_active) {
-      return NextResponse.json(
-        { error: 'Cannot reset password for deactivated account' },
-        { status: 400 }
-      )
-    }
-
     // Generate token
     const { token, tokenHash, expiresAt } = await generateResetToken()
 
-    // Get admin user ID for audit
-    const adminCookie = request.headers.get('cookie')
-    let adminUserId: string | null = null
-    if (adminCookie) {
-      // Parse admin from cookie (simplified - in production use proper parsing)
-      const { verifyAuthCookie } = await import('@/lib/auth/cookie-sign')
-      const match = adminCookie.match(/football_auth=([^;]+)/)
-      if (match) {
-        const authData = verifyAuthCookie(match[1])
-        adminUserId = authData?.userId || null
-      }
-    }
+    // Get admin user ID for audit using proper Next.js cookie API
+    const authData = getAuthData()
+    const adminUserId = authData?.userId || null
 
     // Store token hash in database
     const { error: insertError } = await supabase

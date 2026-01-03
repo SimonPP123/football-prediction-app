@@ -48,8 +48,17 @@ const ENV_VARS: EnvVar[] = [
   },
   {
     name: 'CRON_SECRET',
-    required: false,
-    description: 'Secret for authenticating cron job requests (optional)',
+    required: true,
+    productionOnly: true,
+    description: 'Secret for authenticating cron job requests',
+    validate: (v) => v.length >= 32,
+  },
+  {
+    name: 'ADMIN_API_KEY',
+    required: true,
+    productionOnly: true,
+    description: 'API key for admin/automation access',
+    validate: (v) => v.length >= 32 && v !== 'test-admin-key-2025',
   },
 
   // n8n (optional - only needed for prediction workflows)
@@ -57,6 +66,11 @@ const ENV_VARS: EnvVar[] = [
     name: 'N8N_WEBHOOK_URL',
     required: false,
     description: 'n8n webhook URL for predictions',
+  },
+  {
+    name: 'N8N_WEBHOOK_SECRET',
+    required: false,
+    description: 'Secret for authenticating webhook requests to n8n',
   },
   {
     name: 'N8N_API_KEY',

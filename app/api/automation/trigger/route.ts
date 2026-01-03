@@ -22,7 +22,7 @@ import {
 } from '@/lib/automation/send-webhooks'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120 // 2 minutes max for this endpoint
+export const maxDuration = 300 // 5 minutes max for this endpoint (increased to accommodate webhook calls)
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

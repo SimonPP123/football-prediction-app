@@ -11,6 +11,53 @@ const supabase = createClient(
 )
 
 /**
+ * SSRF Protection: Validate webhook URL is not pointing to internal services
+ */
+function isInternalUrl(urlString: string): { internal: boolean; reason?: string } {
+  try {
+    const url = new URL(urlString)
+    const hostname = url.hostname.toLowerCase()
+
+    // Block localhost variants
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '0.0.0.0') {
+      return { internal: true, reason: 'Localhost addresses are not allowed' }
+    }
+
+    // Block private IP ranges
+    const ipMatch = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+    if (ipMatch) {
+      const [, a, b, c] = ipMatch.map(Number)
+      // 10.0.0.0/8
+      if (a === 10) {
+        return { internal: true, reason: 'Private IP range (10.x.x.x) not allowed' }
+      }
+      // 172.16.0.0/12
+      if (a === 172 && b >= 16 && b <= 31) {
+        return { internal: true, reason: 'Private IP range (172.16-31.x.x) not allowed' }
+      }
+      // 192.168.0.0/16
+      if (a === 192 && b === 168) {
+        return { internal: true, reason: 'Private IP range (192.168.x.x) not allowed' }
+      }
+      // 169.254.0.0/16 (link-local / cloud metadata)
+      if (a === 169 && b === 254) {
+        return { internal: true, reason: 'Link-local/metadata IP (169.254.x.x) not allowed' }
+      }
+    }
+
+    // Block common internal hostnames
+    const blockedHostnames = ['metadata', 'metadata.google.internal', 'instance-data']
+    if (blockedHostnames.some(blocked => hostname.includes(blocked))) {
+      return { internal: true, reason: 'Cloud metadata endpoints not allowed' }
+    }
+
+    return { internal: false }
+  } catch {
+    return { internal: true, reason: 'Invalid URL' }
+  }
+}
+
+/**
  * GET - Retrieve webhook configuration (admin only)
  */
 export async function GET() {
@@ -91,6 +138,15 @@ export async function PATCH(request: Request) {
                 error: `Invalid URL protocol for ${field}. Must be http or https.`
               }, { status: 400 })
             }
+
+            // SSRF protection - block internal URLs
+            const ssrfCheck = isInternalUrl(value)
+            if (ssrfCheck.internal) {
+              return NextResponse.json({
+                error: `Invalid webhook URL: ${ssrfCheck.reason}`
+              }, { status: 400 })
+            }
+
             updates[field] = value
           } catch {
             return NextResponse.json({

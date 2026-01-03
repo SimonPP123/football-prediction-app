@@ -25,9 +25,15 @@ export async function POST() {
       }
     }
 
-    // Clear the auth cookie
+    // Clear the auth cookie with matching attributes
     const response = NextResponse.json({ success: true })
-    response.cookies.delete('football_auth')
+    response.cookies.set('football_auth', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,  // Expire immediately
+      path: '/',
+    })
 
     return response
   } catch (error) {

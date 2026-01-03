@@ -68,7 +68,8 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
 }
 
 /**
- * Query fixtures that are 20-30 minutes before kickoff AND don't have predictions yet
+ * Query fixtures that are 20-30 minutes before kickoff
+ * Now regenerates predictions for all fixtures in the window (existing predictions will be updated)
  */
 export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
   const now = new Date()
@@ -82,8 +83,7 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
       home_team:teams!fixtures_home_team_id_fkey(id, name),
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
-      league:leagues!inner(id, name, is_active),
-      predictions(id)
+      league:leagues!inner(id, name, is_active)
     `)
     .eq('status', 'NS')
     .gte('match_date', minAhead.toISOString())
@@ -92,22 +92,20 @@ export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
 
   if (error || !fixtures) return []
 
-  // Filter out fixtures that already have predictions and transform to correct shape
-  return fixtures
-    .filter(f => !f.predictions || f.predictions.length === 0)
-    .map(f => ({
-      id: f.id,
-      api_id: f.api_id,
-      league_id: f.league_id,
-      match_date: f.match_date,
-      status: f.status,
-      home_team_id: f.home_team_id,
-      away_team_id: f.away_team_id,
-      round: f.round,
-      home_team: Array.isArray(f.home_team) ? f.home_team[0] : f.home_team,
-      away_team: Array.isArray(f.away_team) ? f.away_team[0] : f.away_team,
-      venue: Array.isArray(f.venue) ? f.venue[0] : f.venue
-    }))
+  // Return all fixtures in the window - predictions will be regenerated/updated
+  return fixtures.map(f => ({
+    id: f.id,
+    api_id: f.api_id,
+    league_id: f.league_id,
+    match_date: f.match_date,
+    status: f.status,
+    home_team_id: f.home_team_id,
+    away_team_id: f.away_team_id,
+    round: f.round,
+    home_team: Array.isArray(f.home_team) ? f.home_team[0] : f.home_team,
+    away_team: Array.isArray(f.away_team) ? f.away_team[0] : f.away_team,
+    venue: Array.isArray(f.venue) ? f.venue[0] : f.venue
+  }))
 }
 
 /**
