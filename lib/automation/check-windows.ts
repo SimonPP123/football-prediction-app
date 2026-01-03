@@ -6,13 +6,22 @@ const supabase = createClient(
 )
 
 // Timing windows configuration (in minutes)
-// Windows are 5 min wide to match cron interval - each fixture triggers exactly once
+// Wider windows to accommodate multiple matches and enable automatic retry
 export const TIMING_WINDOWS = {
-  PRE_MATCH: { minBefore: 28, maxBefore: 33 },    // 30 min before kickoff (5 min window)
-  PREDICTION: { minBefore: 23, maxBefore: 28 },   // 25 min before kickoff (5 min window)
+  PRE_MATCH: { minBefore: 50, maxBefore: 60 },    // 50-60 min before kickoff (10 min window)
+  PREDICTION: { minBefore: 10, maxBefore: 50 },   // 10-50 min before kickoff (40 min window)
   LIVE: { statuses: ['1H', '2H', 'HT', 'ET', 'BT', 'P'] },
-  POST_MATCH: { minAfter: 358, maxAfter: 363 },   // 6h after FT (5 min window)
-  ANALYSIS: { minAfter: 373, maxAfter: 378 }      // 6h 15min after FT (5 min window)
+  POST_MATCH: { minAfter: 90, maxAfter: 150 },    // 90-150 min after FT (1h window)
+  ANALYSIS: { minAfter: 150, maxAfter: 210 }      // 150-210 min after FT (1h window)
+} as const
+
+// Processing configuration for batch operations
+export const PROCESSING_CONFIG = {
+  MAX_PREDICTIONS_PER_RUN: 9,     // Maximum predictions per cron run (3 batches of 3)
+  MAX_ANALYSES_PER_RUN: 9,        // Maximum analyses per cron run (3 batches of 3)
+  BATCH_SIZE: 3,                   // Number of fixtures to process in parallel
+  PROCESSING_BUFFER_MINUTES: 7,    // Wait this many minutes before considering a trigger as failed
+  BATCH_DELAY_MS: 1000             // Delay between batches in milliseconds
 } as const
 
 export type TriggerType = 'pre-match' | 'prediction' | 'live' | 'post-match' | 'analysis'
@@ -68,32 +77,76 @@ export async function queryPreMatchFixtures(): Promise<LeagueWithFixtures[]> {
 }
 
 /**
- * Query fixtures that are 20-30 minutes before kickoff
- * Now regenerates predictions for all fixtures in the window (existing predictions will be updated)
+ * Query fixtures that need predictions (with retry logic)
+ *
+ * Includes:
+ * 1. Fixtures in prediction window (10-50 min before kickoff) that haven't been triggered
+ * 2. Fixtures that were triggered >7 min ago but have no prediction in DB (retry failed)
+ *
+ * Excludes:
+ * - Fixtures triggered <7 min ago (still processing)
+ * - Fixtures that already have predictions
+ *
+ * Returns sorted by kickoff time (earliest first), limited to MAX_PREDICTIONS_PER_RUN
  */
 export async function queryPredictionFixtures(): Promise<FixtureForTrigger[]> {
   const now = new Date()
-  const minAhead = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.minBefore * 60 * 1000)
-  const maxAhead = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
+  const processingBuffer = PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES * 60 * 1000
+  const bufferCutoff = new Date(now.getTime() - processingBuffer)
+
+  // Window boundaries
+  const windowStart = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.minBefore * 60 * 1000)
+  const windowEnd = new Date(now.getTime() + TIMING_WINDOWS.PREDICTION.maxBefore * 60 * 1000)
 
   const { data: fixtures, error } = await supabase
     .from('fixtures')
     .select(`
       id, api_id, league_id, match_date, status, home_team_id, away_team_id, round,
+      prediction_triggered_at,
       home_team:teams!fixtures_home_team_id_fkey(id, name),
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       venue:venues(name),
-      league:leagues!inner(id, name, is_active)
+      league:leagues!inner(id, name, is_active),
+      predictions(id)
     `)
     .eq('status', 'NS')
-    .gte('match_date', minAhead.toISOString())
-    .lte('match_date', maxAhead.toISOString())
+    .gte('match_date', windowStart.toISOString())
+    .lte('match_date', windowEnd.toISOString())
     .eq('league.is_active', true)
+    .order('match_date', { ascending: true })
 
-  if (error || !fixtures) return []
+  if (error || !fixtures) {
+    console.error('[Query Predictions] Error:', error)
+    return []
+  }
 
-  // Return all fixtures in the window - predictions will be regenerated/updated
-  return fixtures.map(f => ({
+  // Filter fixtures that need prediction generation
+  const needsPrediction = fixtures.filter(f => {
+    const hasExistingPrediction = f.predictions && f.predictions.length > 0
+    const triggeredAt = f.prediction_triggered_at ? new Date(f.prediction_triggered_at) : null
+
+    // Case 1: Already has prediction - skip
+    if (hasExistingPrediction) return false
+
+    // Case 2: Never triggered - include
+    if (!triggeredAt) return true
+
+    // Case 3: Triggered within buffer period - skip (still processing)
+    if (triggeredAt > bufferCutoff) return false
+
+    // Case 4: Triggered >7 min ago but no prediction - retry needed
+    console.log(`[Query Predictions] Retry needed for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but no prediction found`)
+    return true
+  })
+
+  // Limit to MAX_PREDICTIONS_PER_RUN
+  const limited = needsPrediction.slice(0, PROCESSING_CONFIG.MAX_PREDICTIONS_PER_RUN)
+
+  if (limited.length > 0) {
+    console.log(`[Query Predictions] Found ${needsPrediction.length} fixtures needing predictions, processing ${limited.length}`)
+  }
+
+  return limited.map(f => ({
     id: f.id,
     api_id: f.api_id,
     league_id: f.league_id,
@@ -187,18 +240,33 @@ export async function queryPostMatchLeagues(): Promise<{ league_id: string; leag
 }
 
 /**
- * Query fixtures that finished 4h15m ago AND have predictions but no analysis yet
+ * Query fixtures that need post-match analysis (with retry logic)
+ *
+ * Includes:
+ * 1. Fixtures in analysis window (150-210 min after FT) with predictions but no analysis
+ * 2. Fixtures that were triggered >7 min ago but have no analysis in DB (retry failed)
+ *
+ * Excludes:
+ * - Fixtures triggered <7 min ago (still processing)
+ * - Fixtures without predictions (analysis requires prediction)
+ * - Fixtures that already have analysis
+ *
+ * Returns sorted by match end time (earliest first), limited to MAX_ANALYSES_PER_RUN
  */
 export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
   const now = new Date()
-  const minAgo = new Date(now.getTime() - TIMING_WINDOWS.ANALYSIS.maxAfter * 60 * 1000)
-  const maxAgo = new Date(now.getTime() - TIMING_WINDOWS.ANALYSIS.minAfter * 60 * 1000)
+  const processingBuffer = PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES * 60 * 1000
+  const bufferCutoff = new Date(now.getTime() - processingBuffer)
+
+  // Window boundaries (minutes after match start - match typically ~100 min long)
+  const windowStart = new Date(now.getTime() - TIMING_WINDOWS.ANALYSIS.maxAfter * 60 * 1000)
+  const windowEnd = new Date(now.getTime() - TIMING_WINDOWS.ANALYSIS.minAfter * 60 * 1000)
 
   const { data: fixtures, error } = await supabase
     .from('fixtures')
     .select(`
       id, api_id, league_id, match_date, status, home_team_id, away_team_id, round,
-      goals_home, goals_away,
+      goals_home, goals_away, analysis_triggered_at,
       home_team:teams!fixtures_home_team_id_fkey(id, name),
       away_team:teams!fixtures_away_team_id_fkey(id, name),
       league:leagues!inner(id, name, is_active),
@@ -206,33 +274,60 @@ export async function queryAnalysisFixtures(): Promise<FixtureForTrigger[]> {
       match_analysis(id)
     `)
     .eq('status', 'FT')
-    .gte('match_date', minAgo.toISOString())
-    .lte('match_date', maxAgo.toISOString())
+    .gte('match_date', windowStart.toISOString())
+    .lte('match_date', windowEnd.toISOString())
     .eq('league.is_active', true)
+    .order('match_date', { ascending: true })
 
-  if (error || !fixtures) return []
+  if (error || !fixtures) {
+    console.error('[Query Analysis] Error:', error)
+    return []
+  }
 
-  // Filter: has prediction but no analysis, and transform to correct shape
-  return fixtures
-    .filter(f => {
-      const hasPrediction = f.predictions && f.predictions.length > 0
-      const hasAnalysis = f.match_analysis && f.match_analysis.length > 0
-      return hasPrediction && !hasAnalysis
-    })
-    .map(f => ({
-      id: f.id,
-      api_id: f.api_id,
-      league_id: f.league_id,
-      match_date: f.match_date,
-      status: f.status,
-      home_team_id: f.home_team_id,
-      away_team_id: f.away_team_id,
-      round: f.round,
-      goals_home: f.goals_home,
-      goals_away: f.goals_away,
-      home_team: Array.isArray(f.home_team) ? f.home_team[0] : f.home_team,
-      away_team: Array.isArray(f.away_team) ? f.away_team[0] : f.away_team
-    }))
+  // Filter fixtures that need analysis
+  const needsAnalysis = fixtures.filter(f => {
+    const hasPrediction = f.predictions && f.predictions.length > 0
+    const hasAnalysis = f.match_analysis && f.match_analysis.length > 0
+    const triggeredAt = f.analysis_triggered_at ? new Date(f.analysis_triggered_at) : null
+
+    // Must have a prediction to generate analysis
+    if (!hasPrediction) return false
+
+    // Already has analysis - skip
+    if (hasAnalysis) return false
+
+    // Never triggered - include
+    if (!triggeredAt) return true
+
+    // Triggered within buffer - still processing
+    if (triggeredAt > bufferCutoff) return false
+
+    // Triggered >7 min ago but no analysis - retry needed
+    console.log(`[Query Analysis] Retry needed for fixture ${f.id} - triggered at ${triggeredAt.toISOString()} but no analysis found`)
+    return true
+  })
+
+  // Limit to MAX_ANALYSES_PER_RUN
+  const limited = needsAnalysis.slice(0, PROCESSING_CONFIG.MAX_ANALYSES_PER_RUN)
+
+  if (limited.length > 0) {
+    console.log(`[Query Analysis] Found ${needsAnalysis.length} fixtures needing analysis, processing ${limited.length}`)
+  }
+
+  return limited.map(f => ({
+    id: f.id,
+    api_id: f.api_id,
+    league_id: f.league_id,
+    match_date: f.match_date,
+    status: f.status,
+    home_team_id: f.home_team_id,
+    away_team_id: f.away_team_id,
+    round: f.round,
+    goals_home: f.goals_home,
+    goals_away: f.goals_away,
+    home_team: Array.isArray(f.home_team) ? f.home_team[0] : f.home_team,
+    away_team: Array.isArray(f.away_team) ? f.away_team[0] : f.away_team
+  }))
 }
 
 /**
@@ -276,6 +371,26 @@ export async function updateAutomationConfig(updates: Record<string, any>) {
   }
 
   return data
+}
+
+/**
+ * Update trigger timestamp for a fixture
+ * Called before triggering prediction/analysis to prevent duplicate triggers
+ */
+export async function updateTriggerTimestamp(
+  fixtureId: string,
+  type: 'prediction' | 'analysis'
+): Promise<void> {
+  const column = type === 'prediction' ? 'prediction_triggered_at' : 'analysis_triggered_at'
+
+  const { error } = await supabase
+    .from('fixtures')
+    .update({ [column]: new Date().toISOString() })
+    .eq('id', fixtureId)
+
+  if (error) {
+    console.error(`[Update Trigger] Failed to update ${column} for fixture ${fixtureId}:`, error)
+  }
 }
 
 /**

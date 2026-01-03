@@ -8,7 +8,9 @@ import {
   queryPostMatchLeagues,
   queryAnalysisFixtures,
   getAutomationConfig,
-  updateAutomationConfig
+  updateAutomationConfig,
+  PROCESSING_CONFIG,
+  TIMING_WINDOWS
 } from '@/lib/automation/check-windows'
 import {
   triggerPreMatch,
@@ -22,7 +24,11 @@ import {
 } from '@/lib/automation/send-webhooks'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300 // 5 minutes max for this endpoint (increased to accommodate webhook calls)
+// 15 minutes max - accommodates batch processing of up to 9 predictions (3 batches × 5 min timeout each)
+export const maxDuration = 900
+
+// Timeout for live fixture refresh (30 seconds per league)
+const LIVE_REFRESH_TIMEOUT_MS = 30000
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -93,123 +99,189 @@ export async function POST(request: Request) {
   }
 
   try {
-    // 1. Check Pre-Match window (25-35 min before kickoff)
-    if (config.pre_match_enabled) {
-      console.log('[Automation] Checking pre-match window...')
-      const preMatchLeagues = await queryPreMatchFixtures()
-      const totalFixtures = preMatchLeagues.reduce((sum, l) => sum + l.fixtures.length, 0)
-      summary.pre_match.checked = totalFixtures
+    // =========================================================================
+    // Run all 5 trigger checks in PARALLEL using Promise.allSettled
+    // Each trigger type runs independently and doesn't block others
+    // This prevents slow predictions from blocking live/post-match/analysis
+    // =========================================================================
 
-      if (preMatchLeagues.length > 0) {
-        const preMatchResults = await triggerPreMatch(cronRunId, preMatchLeagues)
-        results.push(...preMatchResults)
-        summary.pre_match.triggered = totalFixtures
-        summary.pre_match.errors = preMatchResults.filter(r => r.status === 'error').length
-        console.log(`[Automation] Pre-match: triggered ${totalFixtures} fixtures across ${preMatchLeagues.length} leagues`)
-      } else {
-        await logNoAction(cronRunId, 'pre-match')
-        console.log('[Automation] Pre-match: no fixtures in window')
-      }
-    }
+    console.log('[Automation] Running all triggers in parallel...')
 
-    // 2. Check Prediction window (20-30 min before kickoff)
-    if (config.prediction_enabled) {
-      console.log('[Automation] Checking prediction window...')
-      const predictionFixtures = await queryPredictionFixtures()
-      summary.prediction.checked = predictionFixtures.length
+    const [
+      preMatchResult,
+      predictionResult,
+      liveResult,
+      postMatchResult,
+      analysisResult
+    ] = await Promise.allSettled([
+      // 1. Pre-Match trigger (50-60 min before kickoff)
+      (async () => {
+        if (!config.pre_match_enabled) return { skipped: true }
 
-      if (predictionFixtures.length > 0) {
-        const predictionResult = await triggerPredictions(cronRunId, predictionFixtures)
-        results.push(predictionResult)
-        summary.prediction.triggered = predictionFixtures.length
-        summary.prediction.errors = predictionResult.status === 'error' ? 1 : 0
-        console.log(`[Automation] Prediction: triggered for ${predictionFixtures.length} fixtures`)
-      } else {
-        await logNoAction(cronRunId, 'prediction')
-        console.log('[Automation] Prediction: no fixtures need predictions')
-      }
-    }
+        console.log('[Automation] Checking pre-match window...')
+        const preMatchLeagues = await queryPreMatchFixtures()
+        const totalFixtures = preMatchLeagues.reduce((sum, l) => sum + l.fixtures.length, 0)
+        summary.pre_match.checked = totalFixtures
 
-    // 3. Check Live matches
-    if (config.live_enabled) {
-      console.log('[Automation] Checking live matches...')
-
-      // First, refresh fixtures from API-Football to get current live status
-      // This ensures we have up-to-date match statuses before checking
-      try {
-        console.log('[Automation] Refreshing fixture statuses from API...')
-        const activeLeagues = await supabase
-          .from('leagues')
-          .select('id')
-          .eq('is_active', true)
-
-        if (activeLeagues.data) {
-          for (const league of activeLeagues.data) {
-            // Use internal fetch to refresh each league's fixtures (live mode for speed)
-            const refreshUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3004'}/api/data/refresh/fixtures?mode=live&stream=false&league_id=${league.id}`
-            await fetch(refreshUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.ADMIN_API_KEY || ''
-              }
-            }).catch(err => console.log(`[Automation] Failed to refresh league ${league.id}:`, err.message))
-          }
+        if (preMatchLeagues.length > 0) {
+          const preMatchResults = await triggerPreMatch(cronRunId, preMatchLeagues)
+          results.push(...preMatchResults)
+          summary.pre_match.triggered = totalFixtures
+          summary.pre_match.errors = preMatchResults.filter(r => r.status === 'error').length
+          console.log(`[Automation] Pre-match: triggered ${totalFixtures} fixtures across ${preMatchLeagues.length} leagues`)
+          return { triggered: totalFixtures }
+        } else {
+          await logNoAction(cronRunId, 'pre-match')
+          console.log('[Automation] Pre-match: no fixtures in window')
+          return { triggered: 0 }
         }
-      } catch (refreshError) {
-        console.log('[Automation] Fixture refresh failed, continuing with existing data:', refreshError)
-      }
+      })(),
 
-      const liveLeagues = await queryLiveLeagues()
-      const totalLive = liveLeagues.reduce((sum, l) => sum + l.live_count, 0)
-      summary.live.checked = totalLive
+      // 2. Prediction trigger (10-50 min before kickoff, with batch processing)
+      (async () => {
+        if (!config.prediction_enabled) return { skipped: true }
 
-      if (liveLeagues.length > 0) {
-        const liveResults = await triggerLive(cronRunId, liveLeagues)
-        results.push(...liveResults)
-        summary.live.triggered = totalLive
-        summary.live.errors = liveResults.filter(r => r.status === 'error').length
-        console.log(`[Automation] Live: triggered for ${totalLive} matches across ${liveLeagues.length} leagues`)
-      } else {
-        await logNoAction(cronRunId, 'live')
-        console.log('[Automation] Live: no live matches')
-      }
-    }
+        console.log('[Automation] Checking prediction window...')
+        const predictionFixtures = await queryPredictionFixtures()
+        summary.prediction.checked = predictionFixtures.length
 
-    // 4. Check Post-Match window (4h after FT)
-    if (config.post_match_enabled) {
-      console.log('[Automation] Checking post-match window...')
-      const postMatchLeagues = await queryPostMatchLeagues()
-      const totalFinished = postMatchLeagues.reduce((sum, l) => sum + l.finished_count, 0)
-      summary.post_match.checked = totalFinished
+        if (predictionFixtures.length > 0) {
+          const predictionResult = await triggerPredictions(cronRunId, predictionFixtures)
+          results.push(predictionResult)
+          summary.prediction.triggered = predictionFixtures.length
+          summary.prediction.errors = predictionResult.status === 'error' ? 1 : 0
+          console.log(`[Automation] Prediction: triggered for ${predictionFixtures.length} fixtures`)
+          return { triggered: predictionFixtures.length }
+        } else {
+          await logNoAction(cronRunId, 'prediction')
+          console.log('[Automation] Prediction: no fixtures need predictions')
+          return { triggered: 0 }
+        }
+      })(),
 
-      if (postMatchLeagues.length > 0) {
-        const postMatchResults = await triggerPostMatch(cronRunId, postMatchLeagues)
-        results.push(...postMatchResults)
-        summary.post_match.triggered = totalFinished
-        summary.post_match.errors = postMatchResults.filter(r => r.status === 'error').length
-        console.log(`[Automation] Post-match: triggered for ${totalFinished} matches across ${postMatchLeagues.length} leagues`)
-      } else {
-        await logNoAction(cronRunId, 'post-match')
-        console.log('[Automation] Post-match: no finished matches in window')
-      }
-    }
+      // 3. Live matches trigger (with timeout-protected fixture refresh)
+      (async () => {
+        if (!config.live_enabled) return { skipped: true }
 
-    // 5. Check Analysis window (4h15m after FT)
-    if (config.analysis_enabled) {
-      console.log('[Automation] Checking analysis window...')
-      const analysisFixtures = await queryAnalysisFixtures()
-      summary.analysis.checked = analysisFixtures.length
+        console.log('[Automation] Checking live matches...')
 
-      if (analysisFixtures.length > 0) {
-        const analysisResult = await triggerAnalysis(cronRunId, analysisFixtures)
-        results.push(analysisResult)
-        summary.analysis.triggered = analysisFixtures.length
-        summary.analysis.errors = analysisResult.status === 'error' ? 1 : 0
-        console.log(`[Automation] Analysis: triggered for ${analysisFixtures.length} fixtures`)
-      } else {
-        await logNoAction(cronRunId, 'analysis')
-        console.log('[Automation] Analysis: no fixtures need analysis')
+        // Refresh fixtures with timeout protection (doesn't block if slow/fails)
+        try {
+          console.log('[Automation] Refreshing fixture statuses from API...')
+          const activeLeagues = await supabase
+            .from('leagues')
+            .select('id')
+            .eq('is_active', true)
+
+          if (activeLeagues.data) {
+            // Refresh all leagues in PARALLEL with timeout
+            await Promise.allSettled(
+              activeLeagues.data.map(async (league) => {
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), LIVE_REFRESH_TIMEOUT_MS)
+
+                try {
+                  const refreshUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3004'}/api/data/refresh/fixtures?mode=live&stream=false&league_id=${league.id}`
+                  await fetch(refreshUrl, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'x-api-key': process.env.ADMIN_API_KEY || ''
+                    },
+                    signal: controller.signal
+                  })
+                  clearTimeout(timeoutId)
+                } catch (err: any) {
+                  clearTimeout(timeoutId)
+                  if (err.name === 'AbortError') {
+                    console.log(`[Automation] Fixture refresh timeout for league ${league.id} (${LIVE_REFRESH_TIMEOUT_MS}ms)`)
+                  } else {
+                    console.log(`[Automation] Failed to refresh league ${league.id}:`, err.message)
+                  }
+                }
+              })
+            )
+          }
+        } catch (refreshError) {
+          console.log('[Automation] Fixture refresh failed, continuing with existing data:', refreshError)
+        }
+
+        const liveLeagues = await queryLiveLeagues()
+        const totalLive = liveLeagues.reduce((sum, l) => sum + l.live_count, 0)
+        summary.live.checked = totalLive
+
+        if (liveLeagues.length > 0) {
+          const liveResults = await triggerLive(cronRunId, liveLeagues)
+          results.push(...liveResults)
+          summary.live.triggered = totalLive
+          summary.live.errors = liveResults.filter(r => r.status === 'error').length
+          console.log(`[Automation] Live: triggered for ${totalLive} matches across ${liveLeagues.length} leagues`)
+          return { triggered: totalLive }
+        } else {
+          await logNoAction(cronRunId, 'live')
+          console.log('[Automation] Live: no live matches')
+          return { triggered: 0 }
+        }
+      })(),
+
+      // 4. Post-Match trigger (90-150 min after FT)
+      (async () => {
+        if (!config.post_match_enabled) return { skipped: true }
+
+        console.log('[Automation] Checking post-match window...')
+        const postMatchLeagues = await queryPostMatchLeagues()
+        const totalFinished = postMatchLeagues.reduce((sum, l) => sum + l.finished_count, 0)
+        summary.post_match.checked = totalFinished
+
+        if (postMatchLeagues.length > 0) {
+          const postMatchResults = await triggerPostMatch(cronRunId, postMatchLeagues)
+          results.push(...postMatchResults)
+          summary.post_match.triggered = totalFinished
+          summary.post_match.errors = postMatchResults.filter(r => r.status === 'error').length
+          console.log(`[Automation] Post-match: triggered for ${totalFinished} matches across ${postMatchLeagues.length} leagues`)
+          return { triggered: totalFinished }
+        } else {
+          await logNoAction(cronRunId, 'post-match')
+          console.log('[Automation] Post-match: no finished matches in window')
+          return { triggered: 0 }
+        }
+      })(),
+
+      // 5. Analysis trigger (150-210 min after FT, with batch processing)
+      (async () => {
+        if (!config.analysis_enabled) return { skipped: true }
+
+        console.log('[Automation] Checking analysis window...')
+        const analysisFixtures = await queryAnalysisFixtures()
+        summary.analysis.checked = analysisFixtures.length
+
+        if (analysisFixtures.length > 0) {
+          const analysisResult = await triggerAnalysis(cronRunId, analysisFixtures)
+          results.push(analysisResult)
+          summary.analysis.triggered = analysisFixtures.length
+          summary.analysis.errors = analysisResult.status === 'error' ? 1 : 0
+          console.log(`[Automation] Analysis: triggered for ${analysisFixtures.length} fixtures`)
+          return { triggered: analysisFixtures.length }
+        } else {
+          await logNoAction(cronRunId, 'analysis')
+          console.log('[Automation] Analysis: no fixtures need analysis')
+          return { triggered: 0 }
+        }
+      })()
+    ])
+
+    // Log any trigger failures (Promise rejections)
+    const allTriggerResults = [
+      { name: 'pre-match', result: preMatchResult },
+      { name: 'prediction', result: predictionResult },
+      { name: 'live', result: liveResult },
+      { name: 'post-match', result: postMatchResult },
+      { name: 'analysis', result: analysisResult }
+    ]
+
+    for (const { name, result } of allTriggerResults) {
+      if (result.status === 'rejected') {
+        console.error(`[Automation] ${name} trigger failed:`, result.reason)
       }
     }
 
@@ -227,6 +299,18 @@ export async function POST(request: Request) {
       cronRunId,
       timestamp: now.toISOString(),
       duration,
+      processing: {
+        maxPredictionsPerRun: PROCESSING_CONFIG.MAX_PREDICTIONS_PER_RUN,
+        maxAnalysesPerRun: PROCESSING_CONFIG.MAX_ANALYSES_PER_RUN,
+        batchSize: PROCESSING_CONFIG.BATCH_SIZE,
+        processingBufferMinutes: PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES
+      },
+      timingWindows: {
+        preMatch: TIMING_WINDOWS.PRE_MATCH,
+        prediction: TIMING_WINDOWS.PREDICTION,
+        postMatch: TIMING_WINDOWS.POST_MATCH,
+        analysis: TIMING_WINDOWS.ANALYSIS
+      },
       summary,
       results: results.map(r => ({
         triggerType: r.triggerType,
@@ -290,6 +374,18 @@ export async function GET() {
     lastCronRun: config.last_cron_run,
     lastCronStatus: config.last_cron_status,
     nextCronRun,
+    processing: {
+      maxPredictionsPerRun: PROCESSING_CONFIG.MAX_PREDICTIONS_PER_RUN,
+      maxAnalysesPerRun: PROCESSING_CONFIG.MAX_ANALYSES_PER_RUN,
+      batchSize: PROCESSING_CONFIG.BATCH_SIZE,
+      processingBufferMinutes: PROCESSING_CONFIG.PROCESSING_BUFFER_MINUTES
+    },
+    timingWindows: {
+      preMatch: { ...TIMING_WINDOWS.PRE_MATCH, unit: 'min before' },
+      prediction: { ...TIMING_WINDOWS.PREDICTION, unit: 'min before' },
+      postMatch: { ...TIMING_WINDOWS.POST_MATCH, unit: 'min after FT' },
+      analysis: { ...TIMING_WINDOWS.ANALYSIS, unit: 'min after FT' }
+    },
     config: {
       pre_match_enabled: config.pre_match_enabled,
       prediction_enabled: config.prediction_enabled,

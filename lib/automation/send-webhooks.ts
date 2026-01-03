@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { FixtureForTrigger, LeagueWithFixtures, TriggerType } from './check-windows'
+import { PROCESSING_CONFIG, updateTriggerTimestamp } from './check-windows'
 import { getWebhookUrl, getWebhookSecret, DEFAULT_WEBHOOKS } from './webhook-config'
 
 const supabase = createClient(
@@ -178,56 +179,104 @@ export async function triggerPreMatch(
 }
 
 /**
- * Trigger predictions for fixtures without predictions
- * Uses the existing /api/predictions/generate endpoint
+ * Trigger predictions for fixtures using parallel batch processing
+ *
+ * - Processes fixtures in batches of BATCH_SIZE (default 3)
+ * - Uses Promise.allSettled to handle individual failures gracefully
+ * - Updates prediction_triggered_at BEFORE making API call (prevents duplicate triggers)
+ * - Logs detailed results for each fixture
  */
 export async function triggerPredictions(
   cronRunId: string,
   fixtures: FixtureForTrigger[]
 ): Promise<TriggerResult> {
   const startTime = Date.now()
-  const results: { fixture_id: string; success: boolean; error?: string }[] = []
+  const results: { fixture_id: string; success: boolean; error?: string; duration?: number }[] = []
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://football.analyserinsights.com'
   const apiKey = process.env.ADMIN_API_KEY || ''
   const model = 'openai/gpt-5-mini'
+  const { BATCH_SIZE, BATCH_DELAY_MS } = PROCESSING_CONFIG
 
-  // Process each fixture through the existing prediction endpoint
-  for (const fixture of fixtures) {
-    try {
-      const response = await fetch(`${baseUrl}/api/predictions/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
-        },
-        body: JSON.stringify({
-          fixture_id: fixture.id,
-          model
+  console.log(`[Predictions] Starting batch processing for ${fixtures.length} fixtures (batch size: ${BATCH_SIZE})`)
+
+  // Process in batches
+  for (let i = 0; i < fixtures.length; i += BATCH_SIZE) {
+    const batch = fixtures.slice(i, i + BATCH_SIZE)
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1
+    const totalBatches = Math.ceil(fixtures.length / BATCH_SIZE)
+
+    console.log(`[Predictions] Processing batch ${batchNum}/${totalBatches} (${batch.length} fixtures)`)
+
+    // Update trigger timestamps BEFORE making API calls (prevents duplicate triggers if cron overlaps)
+    await Promise.all(
+      batch.map(f => updateTriggerTimestamp(f.id, 'prediction'))
+    )
+
+    // Process batch in parallel using Promise.allSettled
+    const batchPromises = batch.map(async (fixture) => {
+      const fixtureStart = Date.now()
+
+      try {
+        const response = await fetch(`${baseUrl}/api/predictions/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey
+          },
+          body: JSON.stringify({
+            fixture_id: fixture.id,
+            model
+          })
         })
-      })
 
-      const result = await response.json()
-      results.push({
-        fixture_id: fixture.id,
-        success: result.success || response.ok
-      })
+        const result = await response.json()
+        const duration = Date.now() - fixtureStart
 
-      // Rate limit between requests
-      if (fixtures.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        return {
+          fixture_id: fixture.id,
+          success: result.success || response.ok,
+          duration,
+          error: result.error
+        }
+      } catch (err: any) {
+        return {
+          fixture_id: fixture.id,
+          success: false,
+          duration: Date.now() - fixtureStart,
+          error: err.message
+        }
       }
-    } catch (err: any) {
-      results.push({
-        fixture_id: fixture.id,
-        success: false,
-        error: err.message
-      })
+    })
+
+    // Wait for all promises in this batch to settle
+    const batchResults = await Promise.allSettled(batchPromises)
+
+    // Extract results
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value)
+        console.log(`[Predictions] Fixture ${result.value.fixture_id}: ${result.value.success ? 'SUCCESS' : 'FAILED'} (${result.value.duration}ms)`)
+      } else {
+        // Promise rejected (shouldn't happen with our try/catch, but handle it)
+        results.push({
+          fixture_id: 'unknown',
+          success: false,
+          error: result.reason?.message || 'Promise rejected'
+        })
+      }
+    }
+
+    // Brief delay between batches to prevent overwhelming the system
+    if (i + BATCH_SIZE < fixtures.length) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS))
     }
   }
 
   const duration = Date.now() - startTime
   const successCount = results.filter(r => r.success).length
   const hasErrors = successCount < fixtures.length
+
+  console.log(`[Predictions] Completed: ${successCount}/${fixtures.length} succeeded in ${duration}ms`)
 
   await logAutomationEvent({
     cronRunId,
@@ -244,6 +293,8 @@ export async function triggerPredictions(
       : `Triggered predictions for ${fixtures.length} fixtures`,
     errorMessage: hasErrors ? `${fixtures.length - successCount} predictions failed` : undefined,
     details: {
+      batch_size: BATCH_SIZE,
+      total_batches: Math.ceil(fixtures.length / BATCH_SIZE),
       fixtures: fixtures.map(f => ({
         id: f.id,
         home_team: f.home_team?.name,
@@ -261,7 +312,7 @@ export async function triggerPredictions(
       success: !hasErrors,
       status: hasErrors ? 500 : 200,
       duration,
-      response: { results }
+      response: { results, successCount, failedCount: fixtures.length - successCount }
     },
     error: hasErrors ? `${fixtures.length - successCount} predictions failed` : undefined
   }
@@ -360,56 +411,99 @@ export async function triggerPostMatch(
 }
 
 /**
- * Trigger post-match analysis for fixtures with predictions
- * Uses the existing /api/match-analysis/generate endpoint
+ * Trigger post-match analysis for fixtures using parallel batch processing
+ *
+ * - Processes fixtures in batches of BATCH_SIZE (default 3)
+ * - Uses Promise.allSettled to handle individual failures gracefully
+ * - Updates analysis_triggered_at BEFORE making API call (prevents duplicate triggers)
  */
 export async function triggerAnalysis(
   cronRunId: string,
   fixtures: FixtureForTrigger[]
 ): Promise<TriggerResult> {
   const startTime = Date.now()
-  const results: { fixture_id: string; success: boolean; error?: string }[] = []
+  const results: { fixture_id: string; success: boolean; error?: string; duration?: number }[] = []
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://football.analyserinsights.com'
   const apiKey = process.env.ADMIN_API_KEY || ''
   const model = 'openai/gpt-5-mini'
+  const { BATCH_SIZE, BATCH_DELAY_MS } = PROCESSING_CONFIG
 
-  // Process each fixture through the existing analysis endpoint
-  for (const fixture of fixtures) {
-    try {
-      const response = await fetch(`${baseUrl}/api/match-analysis/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
-        },
-        body: JSON.stringify({
-          fixture_id: fixture.id,
-          model
+  console.log(`[Analysis] Starting batch processing for ${fixtures.length} fixtures (batch size: ${BATCH_SIZE})`)
+
+  // Process in batches
+  for (let i = 0; i < fixtures.length; i += BATCH_SIZE) {
+    const batch = fixtures.slice(i, i + BATCH_SIZE)
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1
+    const totalBatches = Math.ceil(fixtures.length / BATCH_SIZE)
+
+    console.log(`[Analysis] Processing batch ${batchNum}/${totalBatches} (${batch.length} fixtures)`)
+
+    // Update trigger timestamps BEFORE making API calls
+    await Promise.all(
+      batch.map(f => updateTriggerTimestamp(f.id, 'analysis'))
+    )
+
+    // Process batch in parallel
+    const batchPromises = batch.map(async (fixture) => {
+      const fixtureStart = Date.now()
+
+      try {
+        const response = await fetch(`${baseUrl}/api/match-analysis/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey
+          },
+          body: JSON.stringify({
+            fixture_id: fixture.id,
+            model
+          })
         })
-      })
 
-      const result = await response.json()
-      results.push({
-        fixture_id: fixture.id,
-        success: result.success || response.ok
-      })
+        const result = await response.json()
+        const duration = Date.now() - fixtureStart
 
-      // Rate limit between requests (analysis takes longer)
-      if (fixtures.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 3000))
+        return {
+          fixture_id: fixture.id,
+          success: result.success || response.ok,
+          duration,
+          error: result.error
+        }
+      } catch (err: any) {
+        return {
+          fixture_id: fixture.id,
+          success: false,
+          duration: Date.now() - fixtureStart,
+          error: err.message
+        }
       }
-    } catch (err: any) {
-      results.push({
-        fixture_id: fixture.id,
-        success: false,
-        error: err.message
-      })
+    })
+
+    const batchResults = await Promise.allSettled(batchPromises)
+
+    for (const result of batchResults) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value)
+        console.log(`[Analysis] Fixture ${result.value.fixture_id}: ${result.value.success ? 'SUCCESS' : 'FAILED'} (${result.value.duration}ms)`)
+      } else {
+        results.push({
+          fixture_id: 'unknown',
+          success: false,
+          error: result.reason?.message || 'Promise rejected'
+        })
+      }
+    }
+
+    if (i + BATCH_SIZE < fixtures.length) {
+      await new Promise(resolve => setTimeout(resolve, BATCH_DELAY_MS))
     }
   }
 
   const duration = Date.now() - startTime
   const successCount = results.filter(r => r.success).length
   const hasErrors = successCount < fixtures.length
+
+  console.log(`[Analysis] Completed: ${successCount}/${fixtures.length} succeeded in ${duration}ms`)
 
   await logAutomationEvent({
     cronRunId,
@@ -426,6 +520,8 @@ export async function triggerAnalysis(
       : `Triggered analysis for ${fixtures.length} fixtures`,
     errorMessage: hasErrors ? `${fixtures.length - successCount} analyses failed` : undefined,
     details: {
+      batch_size: BATCH_SIZE,
+      total_batches: Math.ceil(fixtures.length / BATCH_SIZE),
       fixtures: fixtures.map(f => ({
         id: f.id,
         home_team: f.home_team?.name,
@@ -444,7 +540,7 @@ export async function triggerAnalysis(
       success: !hasErrors,
       status: hasErrors ? 500 : 200,
       duration,
-      response: { results }
+      response: { results, successCount, failedCount: fixtures.length - successCount }
     },
     error: hasErrors ? `${fixtures.length - successCount} analyses failed` : undefined
   }
