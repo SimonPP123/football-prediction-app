@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUpdates } from './update-provider'
 import { DataCategory } from '@/types'
 import { cn } from '@/lib/utils'
@@ -124,10 +124,16 @@ export function DataFreshnessBadge({
   size = 'sm',
 }: DataFreshnessBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { lastRefreshTimes, isRefreshing } = useUpdates()
   const lastRefresh = lastRefreshTimes[category]
   const isLoading = isRefreshing[category]
   const info = CATEGORY_INFO[category]
+
+  // Prevent hydration mismatch by only rendering time-based values after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const sizeClasses = {
     sm: 'text-[10px] px-1.5 py-0.5 gap-1',
@@ -139,16 +145,20 @@ export function DataFreshnessBadge({
     md: 'w-3 h-3',
   }
 
+  // Use static values for server render, dynamic values after mount
+  const freshnessColor = mounted ? getFreshnessColor(lastRefresh) : 'text-muted-foreground bg-muted'
+  const relativeTime = mounted ? formatRelativeTime(lastRefresh) : '...'
+
   return (
     <div className="relative inline-flex items-center gap-1">
       <span
         className={cn(
           "inline-flex items-center rounded font-medium",
           sizeClasses[size],
-          getFreshnessColor(lastRefresh),
+          freshnessColor,
           className
         )}
-        title={lastRefresh ? `Last updated: ${new Date(lastRefresh).toLocaleString()}` : 'Never updated'}
+        title={lastRefresh && mounted ? `Last updated: ${new Date(lastRefresh).toLocaleString()}` : 'Loading...'}
       >
         {isLoading ? (
           <Loader2 className={cn(iconSizes[size], "animate-spin")} />
@@ -156,7 +166,7 @@ export function DataFreshnessBadge({
           <Clock className={iconSizes[size]} />
         )}
         {showLabel && (
-          <span>{formatRelativeTime(lastRefresh)}</span>
+          <span>{relativeTime}</span>
         )}
       </span>
 
@@ -172,7 +182,7 @@ export function DataFreshnessBadge({
       )}
 
       {/* Info Tooltip */}
-      {showTooltip && showInfo && (
+      {showTooltip && showInfo && mounted && (
         <div className="absolute top-full left-0 mt-1 z-50 w-64 bg-card border rounded-lg shadow-lg p-3 text-xs">
           <div className="font-medium mb-1">{info.name}</div>
           <p className="text-muted-foreground mb-2">{info.description}</p>
