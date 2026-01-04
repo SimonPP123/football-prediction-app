@@ -214,10 +214,17 @@ export async function getCompletedFixtures(limit = 20, leagueId?: string) {
 }
 
 // Get recently completed fixtures with their predictions (for results comparison), optionally filtered by league
+// Includes time-based fallback: matches that started 2+ hours ago are also included even if status hasn't synced yet
 export async function getRecentCompletedWithPredictions(limitRounds: number | 'all' = 2, leagueId?: string) {
+  // Time-based fallback: include matches that started 2+ hours ago (likely finished)
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  const completedStatuses = ['FT', 'AET', 'PEN']
+  const inPlayStatuses = ['1H', '2H', 'HT', 'ET', 'BT', 'P']
+
   // If 'all' is requested, fetch all completed fixtures
   if (limitRounds === 'all') {
-    let query = supabase
+    // Query 1: All finished matches
+    let finishedQuery = supabase
       .from('fixtures')
       .select(`
         *,
@@ -226,17 +233,44 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
         venue:venues(*),
         prediction:predictions(*)
       `)
-      .in('status', ['FT', 'AET', 'PEN'])
+      .in('status', completedStatuses)
       .order('match_date', { ascending: false })
 
     if (leagueId) {
-      query = query.eq('league_id', leagueId)
+      finishedQuery = finishedQuery.eq('league_id', leagueId)
     }
 
-    const { data, error } = await query
+    // Query 2: Matches that started 2+ hours ago but still show as in-play (fallback)
+    let fallbackQuery = supabase
+      .from('fixtures')
+      .select(`
+        *,
+        home_team:teams!fixtures_home_team_id_fkey(*),
+        away_team:teams!fixtures_away_team_id_fkey(*),
+        venue:venues(*),
+        prediction:predictions(*)
+      `)
+      .in('status', inPlayStatuses)
+      .lt('match_date', twoHoursAgo)
+      .order('match_date', { ascending: false })
 
-    if (error) throw error
-    return data || []
+    if (leagueId) {
+      fallbackQuery = fallbackQuery.eq('league_id', leagueId)
+    }
+
+    const [finishedResult, fallbackResult] = await Promise.all([finishedQuery, fallbackQuery])
+
+    if (finishedResult.error) throw finishedResult.error
+    if (fallbackResult.error) throw fallbackResult.error
+
+    // Merge and dedupe by id
+    const allMatches = [...(finishedResult.data || []), ...(fallbackResult.data || [])]
+    const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values())
+
+    // Sort by match_date descending
+    return uniqueMatches.sort((a, b) =>
+      new Date(b.match_date).getTime() - new Date(a.match_date).getTime()
+    )
   }
 
   // Original logic: get specific number of rounds
@@ -244,7 +278,7 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
   let roundQuery = supabase
     .from('fixtures')
     .select('round')
-    .in('status', ['FT', 'AET', 'PEN'])
+    .in('status', completedStatuses)
     .order('match_date', { ascending: false })
     .limit(50) // Get enough to find recent rounds
 
@@ -260,9 +294,7 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
   const uniqueRounds = Array.from(new Set(recentFixtures?.map(f => f.round).filter(Boolean)))
   const recentRounds = uniqueRounds.slice(0, limitRounds as number)
 
-  if (recentRounds.length === 0) return []
-
-  // Get all fixtures from those rounds with predictions
+  // Get fixtures from those rounds with completed status
   let fixturesQuery = supabase
     .from('fixtures')
     .select(`
@@ -272,18 +304,51 @@ export async function getRecentCompletedWithPredictions(limitRounds: number | 'a
       venue:venues(*),
       prediction:predictions(*)
     `)
-    .in('round', recentRounds)
-    .in('status', ['FT', 'AET', 'PEN'])
+    .in('status', completedStatuses)
     .order('match_date', { ascending: false })
+
+  // Also get fallback matches (started 2+ hours ago, still showing as in-play)
+  let fallbackQuery = supabase
+    .from('fixtures')
+    .select(`
+      *,
+      home_team:teams!fixtures_home_team_id_fkey(*),
+      away_team:teams!fixtures_away_team_id_fkey(*),
+      venue:venues(*),
+      prediction:predictions(*)
+    `)
+    .in('status', inPlayStatuses)
+    .lt('match_date', twoHoursAgo)
+    .order('match_date', { ascending: false })
+    .limit(20) // Limit fallback to avoid fetching too many old matches
+
+  if (recentRounds.length > 0) {
+    fixturesQuery = fixturesQuery.in('round', recentRounds)
+  }
 
   if (leagueId) {
     fixturesQuery = fixturesQuery.eq('league_id', leagueId)
+    fallbackQuery = fallbackQuery.eq('league_id', leagueId)
   }
 
-  const { data, error } = await fixturesQuery
+  const [fixturesResult, fallbackResult] = await Promise.all([fixturesQuery, fallbackQuery])
 
-  if (error) throw error
-  return data || []
+  if (fixturesResult.error) throw fixturesResult.error
+  if (fallbackResult.error) throw fallbackResult.error
+
+  // If no rounds found but we have fallback matches, return those
+  if (recentRounds.length === 0 && (fallbackResult.data?.length || 0) > 0) {
+    return fallbackResult.data || []
+  }
+
+  // Merge and dedupe by id
+  const allMatches = [...(fixturesResult.data || []), ...(fallbackResult.data || [])]
+  const uniqueMatches = Array.from(new Map(allMatches.map(m => [m.id, m])).values())
+
+  // Sort by match_date descending
+  return uniqueMatches.sort((a, b) =>
+    new Date(b.match_date).getTime() - new Date(a.match_date).getTime()
+  )
 }
 
 // Get fixture by ID with full details

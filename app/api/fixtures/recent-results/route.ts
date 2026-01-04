@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getRecentCompletedWithPredictions } from '@/lib/supabase/queries'
+import { syncFinishedMatches } from '@/lib/api/sync-finished-matches'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,6 +9,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const roundsParam = searchParams.get('rounds') || '2'
     const leagueId = searchParams.get('league_id') || undefined
+
+    // Sync finished matches first to ensure database is up-to-date
+    // This catches matches that ended but weren't updated via live polling
+    await syncFinishedMatches(leagueId)
 
     // Support 'all' parameter to fetch all historical results
     // Validate numeric input to prevent NaN issues
