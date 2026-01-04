@@ -34,6 +34,60 @@ export function DashboardUpcomingAndSidebar({
   const [analyzedMatches, setAnalyzedMatches] = useState(initialAnalyzedMatches)
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  // Prediction generation state
+  const [generatingIds, setGeneratingIds] = useState<string[]>([])
+  const [errorIds, setErrorIds] = useState<Record<string, string>>({})
+
+  // Handle prediction generation
+  const handleGeneratePrediction = async (fixtureId: string, regenerate = false) => {
+    setGeneratingIds(prev => [...prev, fixtureId])
+    setErrorIds(prev => {
+      const next = { ...prev }
+      delete next[fixtureId]
+      return next
+    })
+
+    try {
+      const res = await fetch('/api/predictions/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ fixture_id: fixtureId, regenerate }),
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to generate prediction')
+      }
+
+      // Refetch dashboard data to show new prediction
+      if (currentLeague?.id) {
+        const refreshRes = await fetch(`/api/dashboard/stats?league_id=${currentLeague.id}`)
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json()
+          setUpcomingFixtures(refreshData.upcomingFixtures)
+        }
+      }
+      return true
+    } catch (err) {
+      setErrorIds(prev => ({
+        ...prev,
+        [fixtureId]: err instanceof Error ? err.message : 'Failed to generate'
+      }))
+      return false
+    } finally {
+      setGeneratingIds(prev => prev.filter(id => id !== fixtureId))
+    }
+  }
+
+  const clearError = (fixtureId: string) => {
+    setErrorIds(prev => {
+      const next = { ...prev }
+      delete next[fixtureId]
+      return next
+    })
+  }
+
   useEffect(() => {
     // Cancel previous request
     if (abortControllerRef.current) {
@@ -95,6 +149,10 @@ export function DashboardUpcomingAndSidebar({
               <PredictionCard
                 key={fixture.id}
                 fixture={fixture}
+                onGeneratePrediction={handleGeneratePrediction}
+                isGenerating={generatingIds.includes(fixture.id)}
+                error={errorIds[fixture.id]}
+                onClearError={() => clearError(fixture.id)}
               />
             ))}
           </div>
